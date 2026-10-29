@@ -5,9 +5,11 @@
  */
 import { uid, newProject, listProjects, getProject, saveProject, deleteProject, putBlob, blobUrl, compressImage, loadSettings, saveSettings, exportProject, importProject } from './store.js';
 import { icon, esc, h, $, $$, toast, modal, confirmDlg, promptDlg, fmtNum, fmtDate, debounce, downloadBlob } from './ui.js';
-import { PlanEditor, planThumbSvg, planImageUrl, planSheetView } from './plan2d.js';
-import { scaleOf, unitOf } from './units.js';
-import { levelName } from './plan-geom.js';
+import { PlanEditor, planThumbSvg, planImageUrl, planSheetView, TOOLS } from './plan2d.js';
+import { scaleOf, unitOf, kotM, UNITS, SCALES } from './units.js';
+import { levelName, planLevels } from './plan-geom.js';
+import { viewsOf } from './sections.js';
+import { mountMenubar, mountNavigator, mountStatusbar, openPalette, bindPaletteKey, WORKSPACES, getWorkspace, setWorkspaceKey, getTheme, toggleTheme, applyTheme } from './workbench.js';
 import { useName, modelName } from './openings.js';
 import { emptyPlan, planMetrics, roomMetrics } from './plan-geom.js';
 import { samplePlan } from './sample.js';
@@ -18,8 +20,11 @@ window.SAGGCAD = S;   // tarayıcı konsolundan erişim (otomasyon / hata ayıkl
 const view = () => $('#view');
 
 /* ── kayıt ── */
-const persist = debounce(p => saveProject(p).catch(e => toast('Kaydedilemedi: ' + e.message, 'err')), 400);
-const save = () => S.project && persist(S.project);
+let saveUI = null;      // durum çubuğundaki otomatik kayıt göstergesi (çizim ekranında)
+let unbindKeys = null;  // ekrana özel klavye kısayolları
+const hhmm = () => new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+const persist = debounce(p => saveProject(p).then(() => saveUI?.('ok', hhmm())).catch(e => { saveUI?.('err'); toast('Kaydedilemedi: ' + e.message, 'err'); }), 400);
+const save = () => { if (!S.project) return; saveUI?.('busy'); persist(S.project); };
 const saveSet = () => saveSettings(S.settings).catch(() => {});
 
 /* belge / etiket modülleri "iş" nesnesi bekler: projeyi o biçime çevir */
@@ -70,6 +75,7 @@ async function pickPhoto() {
 async function route() {
   if (S.project) await saveProject(S.project).catch(() => {});   // bekleyen kaydı ekran değişmeden yaz
   teardownPlan();
+  saveUI = null; unbindKeys?.(); unbindKeys = null;
   document.body.classList.remove('plan-mode');
   const [path] = location.hash.slice(1).split('?');
   const parts = path.split('/').filter(Boolean);
@@ -89,9 +95,29 @@ async function route() {
 
 const topbar = (crumbs = '') => `<header class="sc-top">
   <a class="sc-brand" href="#/">SAGG<span>CAD</span></a>${crumbs}
-  <div class="sc-top-act"><button class="btn btn-ghost btn-sm" data-settings>${icon('settings')}<span>Ayarlar</span></button></div>
+  <div class="sc-top-act">
+    <button class="wb-search hide-m" data-cmdk title="Komut ara (Ctrl+K)">${icon('search')}<span>Komut ara</span><kbd>Ctrl K</kbd></button>
+    <button class="icon-btn" data-theme-t title="Açık / koyu tema">${icon(getTheme() === 'dark' ? 'sun' : 'eye')}</button>
+    <button class="btn btn-ghost btn-sm" data-settings>${icon('settings')}<span>Ayarlar</span></button></div>
 </header>`;
-function bindTop() { $('[data-settings]')?.addEventListener('click', settingsDialog); }
+/* projeler / proje ekranı: üst çubuk düğmeleri ve komut paleti */
+function bindTop() {
+  $('[data-settings]')?.addEventListener('click', settingsDialog);
+  const cmds = () => [
+    { id: 'home.new', cat: 'file', t: 'Yeni proje…', ic: 'plus', run: newProjectDialog },
+    ...(S.project ? [
+      { id: 'proj.draw', cat: 'file', t: 'Rölöve çizimini aç', ic: 'edit', run: () => { location.hash = planUrl(S.project, mainOf(S.project)); } },
+      { id: 'proj.newdw', cat: 'file', t: 'Yeni çizim…', ic: 'plus', run: () => newDrawingDialog(S.project) },
+      { id: 'proj.exp', cat: 'file', t: 'Proje dosyasını indir', ic: 'download', run: async () => downloadBlob(await exportProject(S.project), `${slug(S.project.name)}.saggcad.json`) },
+    ] : []),
+    { id: 'home.list', cat: 'file', t: 'Tüm projeler', ic: 'home', run: () => { location.hash = '#/'; } },
+    { id: 'home.settings', cat: 'tools', t: 'Ayarlar…', ic: 'settings', run: settingsDialog },
+    { id: 'home.theme', cat: 'view', t: 'Koyu tema', run: () => { toggleTheme(); route(); }, on: () => getTheme() === 'dark' },
+  ];
+  $('[data-cmdk]')?.addEventListener('click', () => openPalette(cmds));
+  $('[data-theme-t]')?.addEventListener('click', () => { toggleTheme(); route(); });
+  unbindKeys?.(); unbindKeys = bindPaletteKey(cmds);
+}
 
 /* ═════════ projeler ═════════ */
 async function homeScreen() {
@@ -268,21 +294,31 @@ function planScreen() {
   dw.plan ??= emptyPlan();
   S.dw = dw;
   const main = mainOf(p);
-  let mode = qs.get('v') === '3d' ? '3d' : '2d';
+  const small = matchMedia('(max-width: 860px)').matches;
+  let ws = getWorkspace();
+  let mode = qs.get('v') === '3d' ? '3d' : (ws && !small ? ws.mode : '2d');
+  if (small && mode === 'split') mode = '2d';
+  let navOn = small ? false : (localStorage.getItem('sg-nav-off') !== '1');
   document.body.classList.add('plan-mode');
   view().innerHTML = `<div class="plan-screen" data-mode="${mode}">
     <header class="ps-head">
       <a href="#/p/${p.id}" class="icon-btn" aria-label="Projeye dön" title="Projeye dön">${icon('back')}</a>
-      <div class="ps-t"><b><span class="sc-mark">SAGG<i>CAD</i></span> ${esc(p.name)}</b>
+      <a class="wb-mark" href="#/" title="Projeler">SAGG<i>CAD</i></a>
+      <button class="icon-btn wb-burger" data-burger aria-label="Menü ve komutlar" title="Menü ve komutlar">${icon('menu')}</button>
+      <nav class="wb-menu" id="wbMenu" aria-label="Ana menü"></nav>
+      <div class="ps-t"><b>${esc(p.name)}</b>
         <select class="ps-dw" id="psDw" aria-label="Çizim">${p.drawings.map(d => `<option value="${d.id}" ${d.id === dw.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}<option value="+">+ Yeni çizim…</option></select></div>
-      <div class="seg big" id="psMode"><button data-m="2d">2D Plan</button><button data-m="3d">${icon('cube')}3D</button><button data-m="split" class="hide-m">Yan yana</button></div>
+      <select class="wb-ws hide-m" id="wbWs" title="Çalışma alanı ön ayarı" aria-label="Çalışma alanı">${['<option value="">Çalışma alanı…</option>', ...WORKSPACES.map(w => `<option value="${w.k}" ${ws?.k === w.k ? 'selected' : ''}>${esc(w.t)}</option>`)].join('')}</select>
+      <div class="seg big" id="psMode"><button data-m="2d">2D</button><button data-m="3d">${icon('cube')}3D</button><button data-m="split" class="hide-m">Yan yana</button></div>
       <div class="ps-act">
-        <button class="btn btn-ghost btn-sm" data-views title="Kesit ve cephe görünüşleri — otomatik ölçülü, ölçekli pafta">${icon('eye')}<span>Kesit / görünüş</span></button>
-        <button class="btn btn-ghost btn-sm" data-exp title="2D çizimi ve 3D modeli dışa aktar (DXF, SketchUp, 3DS, STL…)">${icon('download')}<span>Dışa aktar</span></button>
+        <button class="wb-search hide-m" data-cmdk title="Komut ara (Ctrl+K)">${icon('search')}<span>Komut ara</span><kbd>Ctrl K</kbd></button>
+        <button class="icon-btn" data-views title="Kesit ve görünüşler">${icon('eye')}</button>
+        <button class="icon-btn" data-exp title="Dışa aktar">${icon('download')}</button>
         <button class="btn btn-primary btn-sm" data-render>${icon('sparkle')}<span>Render</span></button>
       </div>
     </header>
     <div class="ps-body">
+      <aside class="ps-nav" id="psNav" aria-label="Proje gezgini"></aside>
       <div class="ps-2d" id="ps2d"></div>
       <div class="ps-3d" id="ps3d">
         <div class="p3-bar">
@@ -298,12 +334,15 @@ function planScreen() {
         <p class="p3-hint" id="p3hint">Sürükle: döndür · iki parmak / sağ tık: kaydır · tekerlek / kıstırma: yakınlaştır</p>
       </div>
     </div>
+    <footer class="ps-status" id="psStatus"></footer>
   </div>`;
   const root = $('.plan-screen');
+  root.classList.toggle('nav-off', !navOn);
   const sync3d = debounce(() => S.p3?.setPlan(S.editor.root), 350);
+  const refresh = debounce(() => { nav?.render(); sb?.render(); }, 120);
   S.editor = new PlanEditor($('#ps2d'), dw.plan, {
-    onChange: pl => { dw.plan = pl; dw.updatedAt = Date.now(); save(); if (mode !== '2d') sync3d(); },
-    onLevel: lv => { if (S.p3) { S.p3.opt.level = lv; S.p3.build(); } },
+    onChange: pl => { dw.plan = pl; dw.updatedAt = Date.now(); save(); if (mode !== '2d') sync3d(); refresh(); },
+    onLevel: lv => { if (S.p3) { S.p3.opt.level = lv; S.p3.build(); } refresh(); },
     views: id => openViews(id),
     // proje çiziminde rölöve (mevcut durum) soluk altlık olarak görünür
     ghost: !dw.main && hasContent(main.plan) ? main.plan : null,
@@ -321,11 +360,20 @@ function planScreen() {
       settings: S.settings, saveSettings: saveSet, job: jobOf(p), montajFor: () => null,
     },
   });
+  const E = S.editor;
   const setMode = async m => {
+    if (small && m === 'split') m = '2d';
     mode = m; root.dataset.mode = m;
     $$('#psMode button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
     if (m !== '2d') await ensure3d();
     setTimeout(() => { S.editor?.render(); S.p3?.resize(); }, 50);
+    nav?.render();
+  };
+  const setNav = on => { navOn = on; root.classList.toggle('nav-off', !on); if (!small) localStorage.setItem('sg-nav-off', on ? '0' : '1'); setTimeout(() => { S.editor?.render(); S.p3?.resize(); }, 30); };
+  const applyWs = w => {
+    ws = w; setWorkspaceKey(w.k); $('#wbWs').value = w.k;
+    E.setToolGroups(w.groups); E.toggleInsp(w.insp); if (!small) setNav(w.nav);
+    setMode(w.mode); toast(`Çalışma alanı: ${w.t}`);
   };
   $('#psMode').onclick = e => { const b = e.target.closest('[data-m]'); if (b) setMode(b.dataset.m); };
   $('#psDw').onchange = e => {
@@ -333,13 +381,14 @@ function planScreen() {
     if (v === '+') { e.target.value = dw.id; return newDrawingDialog(p); }
     location.hash = planUrl(p, drawingOf(p, v), mode !== '2d' ? '&v=3d' : '');
   };
+  $('#wbWs').onchange = e => { const w = WORKSPACES.find(x => x.k === e.target.value); if (w) applyWs(w); };
+  if (ws) E.setToolGroups(ws.groups);
   const fname = ext => `${slug(p.name)}-${slug(dw.main ? 'rolove' : dw.name)}.${ext}`;
   const sheetMeta = () => ({ project: p.name, client: p.client, company: S.settings.company?.name || '', unit: unitOf(S.editor.root).k });
   const openViews = async id => {
     const { openViews: ov } = await import('./sections.js');
     ov(S.editor.root, { focus: id, ...sheetMeta(), fname: fname('x').replace(/\.x$/, '') });
   };
-  $('[data-views]').onclick = () => openViews(null);
   // 3D model: görünür 3D yoksa geçici, ekran dışı bir görüntüleyici kurulur
   const with3d = async fn => {
     if (S.p3) { S.p3.setPlan(S.editor.root); return fn(S.p3); }
@@ -348,27 +397,30 @@ function planScreen() {
     const p3 = new Plan3D(host);
     try { await p3.init(); p3.opt.level = S.editor.lv; p3.setPlan(S.editor.root); return await fn(p3); } finally { p3.dispose(); host.remove(); }
   };
-  $('[data-exp]').onclick = async () => {
+  const EXPORTS = [
+    ['dxf2', '2D çizim', 'DXF', 'AutoCAD / ArchiCAD / NanoCAD — duvar, kapı, pencere, oda, mobilya, ölçü katmanlarıyla (mm)'],
+    ['png', '2D çizim', 'PNG', 'Plan görseli — proje görsellerine de kaydedilir'],
+    ['pafta', '2D çizim', 'Ölçekli pafta (PDF)', 'Etkin kat planı gerçek ölçekte, antetli; ölçek ve birim Çizim ayarlarından'],
+    ['views', 'Kesit / görünüş', 'Kesit ve cepheler', 'Dört cephe ve kesit hatları — otomatik ölçü ve kotlarla PDF, SVG, DXF'],
+    ['etiket', 'Etiket', 'Parça etiketleri (10 × 6 cm PDF)', 'Dolap parçaları ve kapı / pencereler için QR kodlu, barkodlu etiketler — her sayfa bir etiket'],
+    ['cnc', 'Mutfak / dolap', 'CNC kesim şablonu (DXF)', 'Çizimdeki tüm mutfak ve dolapların parçaları levhalara yerleşik; menteşe ve raf pimi delikleri, kenar bandı işaretli'],
+    ['dograma', 'Liste', 'Doğrama listesi (PDF)', 'Kapı ve pencereler: poz numaraları, ölçülü görünüşler, imalat ölçüleri, adet ve m²'],
+    ['zemin', 'Liste', 'Zemin sipariş listesi (PDF)', 'Zemin kaplamaları malzemeye göre: karo adedi ve kutu, parke / laminat paketi, yapıştırıcı, derz dolgu, şilte, süpürgelik'],
+    ['dae', '3D model', 'SketchUp (.dae)', 'SketchUp: Dosya → İçe aktar → Collada; malzeme renkleriyle'],
+    ['3ds', '3D model', '3DS', '3ds Max, SketchUp Pro, Rhino, Blender (cm)'],
+    ['stl', '3D model', 'STL', '3D yazıcı / CAD (mm)'],
+    ['dxf3', '3D model', 'DXF 3D', 'AutoCAD 3D — 3DFACE yüzeyler, katman = nesne (mm)'],
+    ['glb', '3D model', 'GLB', 'Web, AR, Blender — dokularıyla'],
+  ];
+  const exportDialog = async () => {
     if (!hasContent(S.editor.root)) return toast('Çizim boş', 'err');
-    const opts = [
-      ['dxf2', '2D çizim', 'DXF', 'AutoCAD / ArchiCAD / NanoCAD — duvar, kapı, pencere, oda, mobilya, ölçü katmanlarıyla (mm)'],
-      ['png', '2D çizim', 'PNG', 'Plan görseli — proje görsellerine de kaydedilir'],
-      ['pafta', '2D çizim', `Ölçekli pafta 1:${scaleOf(S.editor.root)} (PDF)`, 'Etkin kat planı gerçek ölçekte, antetli; ölçek ve birim Çizim ayarlarından'],
-      ['views', 'Kesit / görünüş', 'Kesit ve cepheler', 'Dört cephe ve kesit hatları — otomatik ölçü ve kotlarla PDF, SVG, DXF'],
-      ['etiket', 'Etiket', 'Parça etiketleri (10 × 6 cm PDF)', 'Dolap parçaları ve kapı / pencereler için QR kodlu, barkodlu etiketler — her sayfa bir etiket'],
-      ['cnc', 'Mutfak / dolap', 'CNC kesim şablonu (DXF)', 'Çizimdeki tüm mutfak ve dolapların parçaları levhalara yerleşik; menteşe ve raf pimi delikleri, kenar bandı işaretli'],
-      ['dograma', 'Liste', 'Doğrama listesi (PDF)', 'Kapı ve pencereler: poz numaraları, ölçülü görünüşler, imalat ölçüleri, adet ve m²'],
-      ['zemin', 'Liste', 'Zemin sipariş listesi (PDF)', 'Zemin kaplamaları malzemeye göre: karo adedi ve kutu, parke / laminat paketi, yapıştırıcı, derz dolgu, şilte, süpürgelik'],
-      ['dae', '3D model', 'SketchUp (.dae)', 'SketchUp: Dosya → İçe aktar → Collada; malzeme renkleriyle'],
-      ['3ds', '3D model', '3DS', '3ds Max, SketchUp Pro, Rhino, Blender (cm)'],
-      ['stl', '3D model', 'STL', '3D yazıcı / CAD (mm)'],
-      ['dxf3', '3D model', 'DXF 3D', 'AutoCAD 3D — 3DFACE yüzeyler, katman = nesne (mm)'],
-      ['glb', '3D model', 'GLB', 'Web, AR, Blender — dokularıyla'],
-    ];
-    const r = await modal({ title: `Dışa aktar — ${dw.name}`, body: `<div class="exp-list">${opts.map(([k, g, t, d]) => `<button class="exp-opt" data-x="${k}"><small>${g}</small><b>${t}</b><span>${d}</span></button>`).join('')}</div>
+    const r = await modal({ title: `Dışa aktar — ${dw.name}`, body: `<div class="exp-list">${EXPORTS.map(([k, g, t, d]) => `<button class="exp-opt" data-x="${k}"><small>${g}</small><b>${k === 'pafta' ? `Ölçekli pafta 1:${scaleOf(S.editor.root)} (PDF)` : t}</b><span>${d}</span></button>`).join('')}</div>
       <p class="muted small">SketchUp'ın kendi .skp biçimi kapalı bir formattır ve tarayıcıda yazılamaz; SketchUp, .dae (Collada) dosyasını doğrudan içe aktarır ve kaydettiğinizde .skp olur.</p>`,
       actions: [{ k: 'no', t: 'Kapat' }], onOpen: (el, close) => el.onclick = e => { const b = e.target.closest('[data-x]'); if (b) close({ k: b.dataset.x }); } });
-    const k = r?.k; if (!k || k === 'no') return;
+    const k = r?.k; if (k && k !== 'no') doExport(k);
+  };
+  const doExport = async k => {
+    if (!hasContent(S.editor.root)) return toast('Çizim boş', 'err');
     try {
       if (k === 'png') return savePng();
       if (k === 'views') return openViews(null);
@@ -414,8 +466,131 @@ function planScreen() {
     downloadBlob(blob, fname('png'));
     toast('Plan görseli proje görsellerine kaydedildi');
   };
-  $('[data-render]').onclick = async () => { if (mode === '2d') await setMode('3d'); renderDialog(); };
+  const render = async () => { if (mode === '2d') await setMode('3d'); renderDialog(); };
+
+  /* ── komutlar: menü çubuğu, komut paleti ve mobil menü ortak ── */
+  const tool = t => () => { if (mode === '3d') setMode('2d'); E.setTool(t); };
+  const toolCmds = (cat, groups) => TOOLS.filter(t => groups.includes(t.g)).map((t, i) => ({ id: 'tool.' + t.k, cat, t: t.t, k: t.key.toUpperCase(), ic: t.ic, kw: t.d, run: tool(t.k), on: () => E.tool === t.k, sep: i > 0 && TOOLS.filter(x => groups.includes(x.g))[i - 1].g !== t.g }));
+  const opt = (k, t, key) => ({ id: 'opt.' + k, cat: 'view', t, k: key, run: () => E.setOpt(k, !E.opt[k]), on: () => !!E.opt[k] });
+  const commands = () => [
+    { id: 'file.new', cat: 'file', t: 'Yeni çizim…', ic: 'plus', run: () => newDrawingDialog(p) },
+    { id: 'file.project', cat: 'file', t: 'Proje sayfasına dön', ic: 'back', run: () => { location.hash = `#/p/${p.id}`; } },
+    { id: 'file.projects', cat: 'file', t: 'Tüm projeler', ic: 'home', run: () => { location.hash = '#/'; } },
+    { id: 'file.import', cat: 'file', t: 'DXF / PDF içe aktar…', ic: 'upload', sep: true, run: () => { setMode(mode === '3d' ? '2d' : mode); E.importDialog(); } },
+    { id: 'file.bg', cat: 'file', t: 'Altlık görseli…', ic: 'image', run: () => E.bgDialog() },
+    { id: 'file.export', cat: 'file', t: 'Dışa aktar…', ic: 'download', k: 'Ctrl Shift E', sep: true, run: exportDialog },
+    { id: 'file.dxf', cat: 'file', t: '2D DXF olarak dışa aktar', run: () => doExport('dxf2') },
+    { id: 'file.png', cat: 'file', t: 'Plan görseli (PNG)', run: () => doExport('png') },
+    { id: 'file.save', cat: 'file', t: 'Proje dosyasını indir (.saggcad.json)', ic: 'file', sep: true, run: async () => downloadBlob(await exportProject(p), `${slug(p.name)}.saggcad.json`) },
+    { id: 'file.settings', cat: 'file', t: 'Ayarlar…', ic: 'settings', sep: true, run: settingsDialog },
+    ...toolCmds('draw', ['sel', 'wall', 'open', 'furn']),
+    { id: 'draw.room', cat: 'draw', t: 'Ölçüyle oda…', ic: 'plus', sep: true, run: () => E.addRoomDialog() },
+    { id: 'edit.undo', cat: 'draw', t: 'Geri al', k: 'Ctrl Z', ic: 'undo', sep: true, run: () => E.undo() },
+    { id: 'edit.redo', cat: 'draw', t: 'Yinele', k: 'Ctrl Y', ic: 'redo', run: () => E.redo() },
+    { id: 'edit.copy', cat: 'draw', t: 'Kopyala', k: 'Ctrl C', ic: 'copy', run: () => E.copySel() },
+    { id: 'edit.cut', cat: 'draw', t: 'Kes', k: 'Ctrl X', ic: 'cut', run: () => E.cutSel() },
+    { id: 'edit.paste', cat: 'draw', t: 'Yapıştır', k: 'Ctrl V', ic: 'paste', run: () => E.paste() },
+    { id: 'edit.all', cat: 'draw', t: 'Tümünü seç', k: 'Ctrl A', run: () => E.selectAll() },
+    { id: 'edit.del', cat: 'draw', t: 'Seçileni sil', k: 'Del', ic: 'trash', run: () => E.del(), when: () => !!(E.sel || E.msel.length) },
+    { id: 'edit.clear', cat: 'draw', t: 'Tüm çizimi temizle…', run: () => E.clearAll() },
+    ...toolCmds('model', ['model']),
+    { id: 'model.slab', cat: 'model', t: 'Dış hattan otomatik döşeme', ic: 'floor', sep: true, run: () => E.autoSlab() },
+    { id: 'model.roof', cat: 'model', t: 'Dış hattan otomatik çatı', ic: 'roof', run: () => E.autoRoof() },
+    { id: 'model.level', cat: 'model', t: 'Kat ekle…', ic: 'layers', sep: true, run: () => E.addLevelDialog() },
+    { id: 'model.rooflv', cat: 'model', t: 'Çatı planı ekle', ic: 'roof', run: () => E.addRoofLevel() },
+    ...planLevels(E.root).map((l, i) => ({ id: 'lv.' + l.idx, cat: 'model', t: `Kata geç: ${l.name}`, sep: i === 0, run: () => E.setLevel(l.idx), on: () => E.lv === l.idx })),
+    { id: 'model.cab', cat: 'model', t: 'Mutfak / dolap tasarla (seçili duvar)', ic: 'kitchen', sep: true, run: () => E.cabFromSelection() },
+    { id: 'model.lib', cat: 'model', t: 'Malzemeler ve yapılar…', ic: 'layers', run: () => E.openLibrary() },
+    { id: 'view.2d', cat: 'view', t: '2D plan', k: '', ic: 'grid', run: () => setMode('2d'), on: () => mode === '2d' },
+    { id: 'view.3d', cat: 'view', t: '3D model', ic: 'cube', run: () => setMode('3d'), on: () => mode === '3d' },
+    { id: 'view.split', cat: 'view', t: 'Yan yana (2D + 3D)', run: () => setMode('split'), on: () => mode === 'split', when: () => !small },
+    { id: 'view.fit', cat: 'view', t: 'Sığdır', ic: 'fit', sep: true, run: () => E.fit() },
+    { id: 'view.nav', cat: 'view', t: 'Proje gezgini', k: 'Ctrl B', sep: true, run: () => setNav(!navOn), on: () => navOn },
+    { id: 'view.insp', cat: 'view', t: 'Özellik paneli', k: 'Ctrl I', run: () => E.toggleInsp(), on: () => E.inspVisible() },
+    opt('dims', 'Ölçüleri göster'), opt('snap', 'Izgaraya yasla'), opt('ortho', 'Açı yakalama (orto)'),
+    ...WORKSPACES.map((w, i) => ({ id: 'ws.' + w.k, cat: 'view', t: `Çalışma alanı: ${w.t}`, kw: w.d, sep: i === 0, run: () => applyWs(w), on: () => ws?.k === w.k })),
+    { id: 'view.theme', cat: 'view', t: 'Koyu tema', sep: true, run: () => { toggleTheme(); }, on: () => getTheme() === 'dark' },
+    ...toolCmds('doc', ['doc']),
+    { id: 'doc.views', cat: 'doc', t: 'Kesit ve görünüşler…', ic: 'eye', sep: true, run: () => openViews(null) },
+    { id: 'doc.pafta', cat: 'doc', t: 'Ölçekli plan paftası (PDF)', ic: 'print', run: () => doExport('pafta') },
+    { id: 'doc.jn', cat: 'doc', t: 'Doğrama listesi (PDF)…', ic: 'print', sep: true, run: () => doExport('dograma') },
+    { id: 'doc.fl', cat: 'doc', t: 'Zemin sipariş listesi…', run: () => doExport('zemin') },
+    { id: 'doc.lbl', cat: 'doc', t: 'Parça etiketleri…', run: () => doExport('etiket') },
+    { id: 'doc.cnc', cat: 'doc', t: 'CNC kesim şablonu…', run: () => doExport('cnc') },
+    { id: 'tools.cmdk', cat: 'tools', t: 'Komut paleti', k: 'Ctrl K', ic: 'search', run: () => openPalette(commands) },
+    { id: 'tools.draw', cat: 'tools', t: 'Çizim ayarları (birim, ölçek)', ic: 'settings', run: () => { setMode(mode === '3d' ? '2d' : mode); E.setSel([]); E.toggleInsp(true); } },
+    { id: 'tools.scale', cat: 'tools', t: 'Planı ölçekle (bilinen ölçüden)', ic: 'ruler', run: tool('scale') },
+    { id: 'tools.render', cat: 'tools', t: 'Gerçekçi render…', ic: 'sparkle', sep: true, run: render },
+    { id: 'tools.keys', cat: 'tools', t: 'Klavye kısayolları', ic: 'list', sep: true, run: () => keysDialog() },
+  ];
+  S.cmds = commands;
+
+  /* ── menü, gezgin, durum çubuğu ── */
+  mountMenubar($('#wbMenu'), commands);
+  const nav = mountNavigator($('#psNav'), {
+    data: () => {
+      const R = E.root;
+      return {
+        levels: planLevels(R).map(l => ({ idx: l.idx, name: l.name, kind: l.kind, sub: l.kind === 'roof' ? 'çatı' : kotM(l.z), active: l.idx === E.lv })),
+        drawings: p.drawings.map(d => ({ id: d.id, name: d.name, main: d.main, sub: d.main ? 'Rölöve' : kindOf(d.kind).t, active: d.id === dw.id })),
+        views: [{ id: '2d', name: '2D plan', ic: 'grid', active: mode !== '3d' }, { id: '3d', name: '3D model', ic: 'cube', active: mode !== '2d' },
+          ...viewsOf(R).map(v => ({ id: v.id, name: v.name, sub: v.type === 'sec' ? 'kesit' : 'cephe' }))],
+        sheets: [{ id: 'pafta', name: `Plan paftası 1:${scaleOf(R)}`, sub: levelName(R, E.lv) }, { id: 'views', name: 'Kesit / görünüş paftaları', sub: 'PDF' }],
+      };
+    },
+    act: (k, id) => {
+      if (small) setNav(false);
+      if (k === 'level') return E.setLevel(+id);
+      if (k === 'drawing') { if (id !== dw.id) location.hash = planUrl(p, drawingOf(p, id), mode !== '2d' ? '&v=3d' : ''); return; }
+      if (k === 'view') return id === '2d' ? setMode(mode === '3d' ? '2d' : mode) : id === '3d' ? setMode(mode === '2d' ? '3d' : mode) : openViews(id);
+      if (k === 'sheet') return id === 'pafta' ? doExport('pafta') : openViews(null);
+      if (k === 'add-level') return E.addLevelDialog();
+      if (k === 'add-roof') return E.addRoofLevel();
+      if (k === 'add-drawing') return newDrawingDialog(p);
+    },
+  });
+  const sb = mountStatusbar($('#psStatus'), {
+    state: () => ({ unit: unitOf(E.root).k, units: UNITS, scale: scaleOf(E.root), scales: SCALES, opts: E.opt, steps: [1, 5, 10, 25, 50], level: levelName(E.root, E.lv) }),
+    on: {
+      unit: k => { E.root.meta.unit = k; E.changed(); E.renderHud(); },
+      scale: n => { E.root.meta.scale = n; E.changed(); },
+      opt: (k, v) => E.setOpt(k, v),
+    },
+  });
+  saveUI = (st, at) => sb.save(st, at);
+  const host2d = $('#ps2d');
+  host2d.addEventListener('pe:cursor', e => sb.cursor(e.detail, v => fmtNum(v * unitOf(E.root).f, unitOf(E.root).d)));
+  host2d.addEventListener('pe:opt', () => sb.render());
+  host2d.addEventListener('pe:level', () => refresh());
+  host2d.addEventListener('pe:layout', () => S.p3?.resize());
+  unbindKeys = bindPaletteKey(commands);
+  const onKeys = e => {
+    const ctrl = e.ctrlKey || e.metaKey, k = e.key.toLowerCase(), typing = /INPUT|TEXTAREA|SELECT/.test(e.target.tagName);
+    if (ctrl && k === 'b') { e.preventDefault(); setNav(!navOn); }
+    else if (ctrl && k === 'i') { e.preventDefault(); E.toggleInsp(); }
+    else if (ctrl && e.shiftKey && k === 'e') { e.preventDefault(); exportDialog(); }
+    else if (!typing && !ctrl && e.key === 'F1') { e.preventDefault(); keysDialog(); }
+  };
+  document.addEventListener('keydown', onKeys);
+  // küçük ekranda gezgin çekmecesi: dışına dokununca kapanır
+  const onTapOut = e => { if (small && navOn && !e.target.closest('.ps-nav, [data-burger], .cmdk-back, .modal-back')) setNav(false); };
+  document.addEventListener('pointerdown', onTapOut, true);
+  const prevUnbind = unbindKeys; unbindKeys = () => { prevUnbind(); document.removeEventListener('keydown', onKeys); document.removeEventListener('pointerdown', onTapOut, true); };
+
+  $('[data-cmdk]').onclick = () => openPalette(commands);
+  $('[data-burger]').onclick = () => openPalette(commands, { placeholder: 'Menü — komut ya da araç arayın…' });
+  $('[data-views]').onclick = () => openViews(null);
+  $('[data-exp]').onclick = exportDialog;
+  $('[data-render]').onclick = render;
   setMode(mode).then(() => { if (qs.get('r')) renderDialog(); if (qs.get('import')) S.editor.importDialog(); });
+}
+
+/* klavye kısayolları penceresi */
+function keysDialog() {
+  const rows = [...TOOLS.map(t => [t.key.toUpperCase(), t.t]), ['Ctrl K', 'Komut paleti'], ['Ctrl Z / Ctrl Y', 'Geri al / yinele'], ['Ctrl C / X / V', 'Kopyala / kes / yapıştır'], ['Ctrl A', 'Tümünü seç'],
+    ['Del', 'Seçileni sil'], ['Esc', 'Çizimi bitir / seçimi kaldır'], ['Enter', 'Zinciri bitir'], ['← ↑ → ↓', 'Uzunluk yazıp yönle ilerle'], ['Boşluk + sürükle', 'Kaydır'],
+    ['Ctrl B', 'Proje gezgini'], ['Ctrl I', 'Özellik paneli'], ['Ctrl Shift E', 'Dışa aktar'], ['F1', 'Bu pencere']];
+  modal({ title: 'Klavye kısayolları', wide: true, body: `<div class="keys-grid">${rows.map(([k, t]) => `<div><kbd>${esc(k)}</kbd><span>${esc(t)}</span></div>`).join('')}</div>`, actions: [{ k: 'ok', t: 'Kapat', cls: 'btn-primary' }] });
 }
 
 const metaLine = (p, extra = '') => `<div class="p-meta"><span>Proje <b>${esc(p.name)}</b></span>${p.client ? `<span>Müşteri <b>${esc(p.client)}</b></span>` : ''}${extra}<span>Tarih <b>${fmtDate(Date.now())}</b></span></div>`;
@@ -641,6 +816,7 @@ async function printFloorOrder(p, dw, plan) {
 
 /* ═════════ başlat ═════════ */
 (async () => {
+  applyTheme();
   try {
     S.settings = await loadSettings();
   } catch (e) {
