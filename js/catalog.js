@@ -165,6 +165,7 @@ export const FURNITURE = [
   { g: 'tesisat', k: 'kasetklima', t: 'Kaset tipi klima (çift yönlü)', w: 100, d: 60, h: 30, c: '#FFFFFF', ceil: true },
   { g: 'tesisat', k: 'termosifon', t: 'Termosifon', w: 50,  d: 50,  h: 90,  c: '#FFFFFF', z: 120 },
   { g: 'yapi',   k: 'kolon',    t: 'Kolon',         w: 30,  d: 30,  h: 280, c: '#D7D3CC' },
+  { g: 'yapi',   k: 'kiris',    t: 'Kiriş',         w: 300, d: 25,  h: 50, z: 230, c: '#B9B6AF' },
   { g: 'yapi',   k: 'merdiven', t: 'Merdiven (düz)', w: 100, d: 300, h: 280, c: '#D7D3CC' },
   { g: 'yapi',   k: 'basamak',  t: 'Basamak / platform', w: 100, d: 30, h: 17, c: '#D7D3CC' },
   { g: 'yapi',   k: 'nis',      t: 'Niş / şaft',    w: 60,  d: 40,  h: 280, c: '#C9CDD2' },

@@ -5,13 +5,16 @@
  */
 import { uid, newProject, listProjects, getProject, saveProject, deleteProject, putBlob, blobUrl, compressImage, loadSettings, saveSettings, exportProject, importProject } from './store.js';
 import { icon, esc, h, $, $$, toast, modal, confirmDlg, promptDlg, fmtNum, fmtDate, debounce, downloadBlob } from './ui.js';
-import { PlanEditor, planThumbSvg, planImageUrl } from './plan2d.js';
+import { PlanEditor, planThumbSvg, planImageUrl, planSheetView } from './plan2d.js';
+import { scaleOf, unitOf } from './units.js';
+import { levelName } from './plan-geom.js';
 import { useName, modelName } from './openings.js';
 import { emptyPlan, planMetrics, roomMetrics } from './plan-geom.js';
 import { samplePlan } from './sample.js';
 import { printDoc, docHeader, docFooter } from './print.js';
 
 const S = { settings: null, project: null, editor: null, p3: null, dw: null };
+window.SAGGCAD = S;   // tarayıcı konsolundan erişim (otomasyon / hata ayıklama)
 const view = () => $('#view');
 
 /* ── kayıt ── */
@@ -274,6 +277,7 @@ function planScreen() {
         <select class="ps-dw" id="psDw" aria-label="Çizim">${p.drawings.map(d => `<option value="${d.id}" ${d.id === dw.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}<option value="+">+ Yeni çizim…</option></select></div>
       <div class="seg big" id="psMode"><button data-m="2d">2D Plan</button><button data-m="3d">${icon('cube')}3D</button><button data-m="split" class="hide-m">Yan yana</button></div>
       <div class="ps-act">
+        <button class="btn btn-ghost btn-sm" data-views title="Kesit ve cephe görünüşleri — otomatik ölçülü, ölçekli pafta">${icon('eye')}<span>Kesit / görünüş</span></button>
         <button class="btn btn-ghost btn-sm" data-exp title="2D çizimi ve 3D modeli dışa aktar (DXF, SketchUp, 3DS, STL…)">${icon('download')}<span>Dışa aktar</span></button>
         <button class="btn btn-primary btn-sm" data-render>${icon('sparkle')}<span>Render</span></button>
       </div>
@@ -300,6 +304,7 @@ function planScreen() {
   S.editor = new PlanEditor($('#ps2d'), dw.plan, {
     onChange: pl => { dw.plan = pl; dw.updatedAt = Date.now(); save(); if (mode !== '2d') sync3d(); },
     onLevel: lv => { if (S.p3) { S.p3.opt.level = lv; S.p3.build(); } },
+    views: id => openViews(id),
     // proje çiziminde rölöve (mevcut durum) soluk altlık olarak görünür
     ghost: !dw.main && hasContent(main.plan) ? main.plan : null,
     resolvePhoto: id => blobUrl(id),
@@ -329,6 +334,12 @@ function planScreen() {
     location.hash = planUrl(p, drawingOf(p, v), mode !== '2d' ? '&v=3d' : '');
   };
   const fname = ext => `${slug(p.name)}-${slug(dw.main ? 'rolove' : dw.name)}.${ext}`;
+  const sheetMeta = () => ({ project: p.name, client: p.client, company: S.settings.company?.name || '', unit: unitOf(S.editor.root).k });
+  const openViews = async id => {
+    const { openViews: ov } = await import('./sections.js');
+    ov(S.editor.root, { focus: id, ...sheetMeta(), fname: fname('x').replace(/\.x$/, '') });
+  };
+  $('[data-views]').onclick = () => openViews(null);
   // 3D model: görünür 3D yoksa geçici, ekran dışı bir görüntüleyici kurulur
   const with3d = async fn => {
     if (S.p3) { S.p3.setPlan(S.editor.root); return fn(S.p3); }
@@ -342,6 +353,8 @@ function planScreen() {
     const opts = [
       ['dxf2', '2D çizim', 'DXF', 'AutoCAD / ArchiCAD / NanoCAD — duvar, kapı, pencere, oda, mobilya, ölçü katmanlarıyla (mm)'],
       ['png', '2D çizim', 'PNG', 'Plan görseli — proje görsellerine de kaydedilir'],
+      ['pafta', '2D çizim', `Ölçekli pafta 1:${scaleOf(S.editor.root)} (PDF)`, 'Etkin kat planı gerçek ölçekte, antetli; ölçek ve birim Çizim ayarlarından'],
+      ['views', 'Kesit / görünüş', 'Kesit ve cepheler', 'Dört cephe ve kesit hatları — otomatik ölçü ve kotlarla PDF, SVG, DXF'],
       ['etiket', 'Etiket', 'Parça etiketleri (10 × 6 cm PDF)', 'Dolap parçaları ve kapı / pencereler için QR kodlu, barkodlu etiketler — her sayfa bir etiket'],
       ['cnc', 'Mutfak / dolap', 'CNC kesim şablonu (DXF)', 'Çizimdeki tüm mutfak ve dolapların parçaları levhalara yerleşik; menteşe ve raf pimi delikleri, kenar bandı işaretli'],
       ['dograma', 'Liste', 'Doğrama listesi (PDF)', 'Kapı ve pencereler: poz numaraları, ölçülü görünüşler, imalat ölçüleri, adet ve m²'],
@@ -358,6 +371,15 @@ function planScreen() {
     const k = r?.k; if (!k || k === 'no') return;
     try {
       if (k === 'png') return savePng();
+      if (k === 'views') return openViews(null);
+      if (k === 'pafta') {
+        const R = S.editor.root, N = scaleOf(R), V0 = planSheetView(R, S.editor.plan, N, `${dw.name} — ${levelName(R, S.editor.lv)}`);
+        if (!V0) return toast('Plan boş', 'err');
+        const { sheetSvg, sheetPdf } = await import('./sections.js');
+        const sh = sheetSvg(V0, sheetMeta());
+        downloadBlob(await sheetPdf([sh]), fname(`1-${N}.pdf`));
+        return toast(`Pafta indirildi (${sh.paper.k}) — %100 / "gerçek boyut" ile yazdırın`);
+      }
       if (k === 'dograma') return printJoinery(p, dw, S.editor.root);
       if (k === 'zemin') return printFloorOrder(p, dw, S.editor.root);
       if (k === 'etiket') {
