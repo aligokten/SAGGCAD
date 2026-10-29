@@ -11,6 +11,19 @@ burada müşteri / teklif / keşif akışından bağımsız, kendi proje yöneti
 
 ## Özellikler
 
+### Arayüz (v0.3)
+- **Menü çubuğu:** Dosya, Çizim, Model, Görünüm, Belgele, Araçlar — tüm komutlar ve kısayolları.
+- **Komut paleti (Ctrl+K):** her komut ve araç aranabilir; son kullanılanlar üstte. Mobilde ☰ düğmesi aynı listeyi açar.
+- **Araç çubuğu:** Seçim, Duvar ve mahal, Kapı ve pencere, Yapı elemanları, Donatı, Belgeleme grupları;
+  üzerine gelince açıklama ve kısayol.
+- **Proje gezgini (Ctrl+B):** katlar, çizimler (rölöve / proje alternatifleri), görünümler (2D, 3D, cepheler, kesitler), paftalar.
+- **Özellik paneli (Ctrl+I):** gizlenebilir, kenarından sürüklenerek genişletilebilir.
+- **Durum çubuğu:** imleç koordinatı, ölçek, birim, yaslama / orto / ölçü, adım, etkin kat, otomatik kayıt durumu.
+- **Çalışma alanları:** Rölöve (2D, sade araçlar), Mimari model (2D + 3D yan yana, tüm araçlar), 3D görselleştirme.
+- **Açık / koyu tema** (Görünüm menüsü ya da üst çubuk); çizim alanı ve model renkleri temadan etkilenmez.
+- Küçük ekranda araçlar altta yatay, 52 px dokunma hedefli; özellikler alt sayfada, gezgin çekmecede.
+- Klavye kısayolları: F1 ya da Araçlar → Klavye kısayolları.
+
 ### Projeler ve çizimler
 - Her projede birden fazla çizim: **Rölöve (mevcut durum)** ve **Proje / tasarım** seçenekleri (Proje 1, Proje 2…).
   Proje çizimi genellikle rölövenin kopyasından başlar; rölöve projede **soluk kesik çizgili altlık** olarak görünür.
@@ -102,6 +115,8 @@ js/store.js       yerel depo (IndexedDB): projeler, görseller, ayarlar, proje d
 js/plan2d.js      2D rölöve editörü          js/plan3d.js      3D görünüm ve render
 js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı elemanları (çizim, panel, kütüphane)
 js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek
+js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
+css/ui.css        arayüz tasarım sistemi ve temalar
 js/plan-geom.js   plan geometrisi ve metraj   js/importer.js, importui.js   DXF / PDF içe aktarma
 js/exporters.js   DXF, DAE, 3DS, STL, DXF 3D  js/cabinet.js, cabdesign.js   mutfak / dolap tasarlayıcı
 js/roof.js, stairs.js, tiles.js, openings.js, fixtures.js, joinery.js, floororder.js, labels.js, cnc.js, forms.js …

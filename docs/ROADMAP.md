@@ -18,6 +18,21 @@ Referans: Archicad 30 (duvar / kolon / kiriş / döşeme araçları, kompozit ya
 Bilinen sınırlar / sonraki adaylar: kompozit duvar köşelerinde katman önceliği (temizleme) yok; kesitte merdiven ve mobilya
 çizilmez; yay duvarlarda katman gösterimi yok; PDF paftası raster (≈200 dpi); TS 825 bölgesel U sınır değeri denetimi yok.
 
+## v0.3 UI — Arayüz revizyonu (tamamlandı)
+Swiss Minimalism + Professional CAD: #1786FF vurgu, #0F1B2D üst çubuk, #1D2631 koyu panel, #F6F8FB çizim zemini, Inter.
+- [x] 2D / 3D / yan yana modları korundu
+- [x] Menü çubuğu (Dosya, Çizim, Model, Görünüm, Belgele, Araçlar)
+- [x] Kategorili, açıklamalı, kısayollu araç çubuğu
+- [x] Gizlenebilir / genişliği ayarlanabilir özellik paneli
+- [x] Proje gezgini (katlar, çizimler, görünümler, paftalar)
+- [x] Durum çubuğu (koordinat, ölçek, birim, yakalama, otomatik kayıt)
+- [x] Komut paleti (Ctrl+K)
+- [x] Çalışma alanı ön ayarları (Rölöve, Mimari model, 3D görselleştirme)
+- [x] Açık / koyu tema; çizim ve model renkleri sabit
+- [x] Mobil dokunmatik araç düzeni
+
+Sonraki aşama: [parametrik BIM çekirdeği](BIM-CEKIRDEK.md).
+
 ## Kaynakla eşitleme
 Saha uygulamasında rölöve modülüne yapılan geliştirmeler buraya elle taşınır. Taşınan dosyalar `js/` altında aynı adla
 durur; SAGGCAD'e özgü dosyalar `main.js`, `store.js`, `print.js`, `sample.js`, `materials.js`, `structure.js`,

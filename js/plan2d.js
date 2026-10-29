@@ -25,7 +25,7 @@ const PLAN_CSS = `.wall{stroke:#24272B;stroke-linecap:butt}.room{stroke:none}.wi
   .item{stroke:#555}.itemback{stroke:#555}.itemtxt,.rname,.rarea,.wlen,.lbl{font-family:Inter,Arial,sans-serif;text-anchor:middle;fill:#24272B}
   .rname{font-weight:700}.rkot{font-family:Inter,Arial,sans-serif;text-anchor:middle;fill:#B5480F;font-weight:700}.rarea{fill:#00989A}.wlen{fill:#EB591F;font-weight:600}.dimg path{fill:none;stroke:#00989A}.dimg text{fill:#00989A;text-anchor:middle;font-family:Inter,Arial}`;
 
-const TOOLS = [
+export const TOOLS = [
   { k: 'select', t: 'Seç / Taşı', ic: 'pointer', key: 'v' },
   { k: 'pan', t: 'Kaydır', ic: 'hand', key: 'h' },
   { k: 'wall', t: 'Duvar', ic: 'wallT', key: 'w' },
@@ -90,6 +90,10 @@ const HINTS = {
   calib: 'Altlık görselde bilinen bir mesafenin iki ucunu işaretleyin.',
   scale: 'Ölçüsünü bildiğiniz bir mesafenin (ör. bir duvar) iki ucunu işaretleyin; tüm plan gerçek ölçüye göre ölçeklenir.',
 };
+/* araç grupları (sol araç çubuğu, menüler ve komut paleti): açıklama = ipucu metni */
+export const TOOL_GROUPS = [['sel', 'Seçim'], ['wall', 'Duvar ve mahal'], ['open', 'Kapı ve pencere'], ['model', 'Yapı elemanları'], ['furn', 'Donatı'], ['doc', 'Belgeleme']];
+const TOOL_G = { select: 'sel', pan: 'sel', wall: 'wall', arc: 'wall', rect: 'wall', poly: 'wall', door: 'open', window: 'open', column: 'model', beam: 'model', slab: 'model', stair: 'model', roof: 'model', rail: 'furn', item: 'furn', dim: 'doc', section: 'doc', text: 'doc' };
+TOOLS.forEach(t => { t.g = TOOL_G[t.k] || 'sel'; t.d = HINTS[t.k] || ''; });
 const OPEN_DEF = { door: { w: 90, h: 210, sill: 0 }, window: { w: 120, h: 140, sill: 90 }, gap: { w: 90, h: 220, sill: 0 } };
 
 export class PlanEditor {
@@ -149,7 +153,8 @@ export class PlanEditor {
   build() {
     this.host.innerHTML = '';
     this.el = h(`<div class="pe">
-      <div class="pe-tools">${TOOLS.map(t => `<button class="tool ${t.k === this.tool ? 'on' : ''}" data-tool="${t.k}" title="${t.t} (${t.key.toUpperCase()})">${icon(t.ic)}<span>${t.t}</span></button>`).join('')}</div>
+      <div class="pe-tools">${TOOL_GROUPS.map(([g, gt]) => `<div class="tg" data-g="${g}"><div class="tg-h">${gt}</div>${TOOLS.filter(t => t.g === g).map(t => `<button class="tool ${t.k === this.tool ? 'on' : ''}" data-tool="${t.k}" aria-label="${t.t} (${t.key.toUpperCase()})">${icon(t.ic)}<span>${t.t}</span><kbd>${t.key.toUpperCase()}</kbd></button>`).join('')}</div>`).join('')}</div>
+      <div class="pe-tip" hidden></div>
       <div class="pe-stage">
         <div class="pe-bar">
           <select class="mini pe-lv" title="Kat / çatı planı"></select>
@@ -183,6 +188,7 @@ export class PlanEditor {
           <div class="pe-zoom"></div>
         </div>
       </div>
+      <div class="pe-split" title="Sürükleyin: panel genişliği · çift tıklayın: gizle / göster"></div>
       <aside class="pe-insp"></aside>
     </div>`);
     this.host.append(this.el);
@@ -199,15 +205,16 @@ export class PlanEditor {
       this.setLevel(+v);
     };
     $('.pe-tools', this.el).onclick = e => { const b = e.target.closest('[data-tool]'); if (b) this.setTool(b.dataset.tool); };
+    this.bindChrome();
     $('.pe-bar', this.el).onclick = e => {
       const a = e.target.closest('[data-a]')?.dataset.a, o = e.target.closest('button[data-o]')?.dataset.o;
       if (a === 'undo') this.undo(); else if (a === 'redo') this.redo(); else if (a === 'fit') this.fit();
       else if (a === 'cab') this.cabFromSelection();
       else if (a === 'copy') this.copySel(); else if (a === 'cut') this.cutSel(); else if (a === 'paste') this.paste(); else if (a === 'clear') this.clearAll();
       else if (a === 'addRoom') this.addRoomDialog(); else if (a === 'import') this.importDialog(); else if (a === 'scale') this.setTool('scale'); else if (a === 'info') this.el.classList.toggle('show-insp'); else if (a === 'bg') this.bgDialog();
-      if (o) { this.opt[o] = o === 'ghost' ? this.opt.ghost === false : !this.opt[o]; e.target.closest('button').classList.toggle('on', this.opt[o]); this.saveOpt(); this.render(); }
+      if (o) this.setOpt(o, o === 'ghost' ? this.opt.ghost === false : !this.opt[o]);
     };
-    $('select[data-o="step"]', this.el).onchange = e => { this.opt.step = +e.target.value; this.saveOpt(); };
+    $('select[data-o="step"]', this.el).onchange = e => this.setOpt('step', +e.target.value);
 
     const sv = this.svg;
     sv.addEventListener('pointerdown', e => this.pDown(e));
@@ -238,6 +245,53 @@ export class PlanEditor {
     this.ro.disconnect();
   }
   saveOpt() { localStorage.setItem('tb-plan-opt', JSON.stringify(this.opt)); }
+  /* arayüz olayları (çalışma tezgâhı: durum çubuğu, gezgin): host üzerinde CustomEvent */
+  emit(type, detail) { this.host.dispatchEvent(new CustomEvent('pe:' + type, { detail })); }
+  /* çizim seçenekleri (yasla, orto, ölçüler, adım…): araç çubuğu ve durum çubuğu ortak */
+  setOpt(k, v) {
+    this.opt[k] = v; this.saveOpt();
+    $$(`.pe-bar button[data-o="${k}"]`, this.el).forEach(b => b.classList.toggle('on', !!v));
+    const st = $('select[data-o="step"]', this.el); if (st && k === 'step') st.value = v;
+    this.render(); this.emit('opt', { ...this.opt });
+  }
+  /* araç ipuçları, özellik paneli genişliği / gizleme, görünür araç grupları */
+  bindChrome() {
+    const tip = $('.pe-tip', this.el), tools = $('.pe-tools', this.el);
+    const fine = matchMedia('(hover: hover) and (pointer: fine)');
+    tools.addEventListener('pointerover', e => {
+      const b = e.target.closest('[data-tool]'); if (!b || !fine.matches) return;
+      const t = TOOLS.find(x => x.k === b.dataset.tool), r = b.getBoundingClientRect(), R0 = this.el.getBoundingClientRect();
+      tip.innerHTML = `<b>${esc(t.t)}</b><kbd>${t.key.toUpperCase()}</kbd><p>${esc(t.d)}</p>`;
+      tip.style.top = `${Math.max(4, r.top - R0.top)}px`; tip.style.left = `${r.right - R0.left + 8}px`; tip.hidden = false;
+    });
+    tools.addEventListener('pointerout', e => { if (!e.relatedTarget?.closest?.('[data-tool]')) tip.hidden = true; });
+    tools.addEventListener('pointerdown', () => { tip.hidden = true; });
+    let w = +localStorage.getItem('sg-insp-w') || 280;
+    const setW = v => { w = Math.max(220, Math.min(560, v)); this.el.style.setProperty('--insp-w', w + 'px'); };
+    setW(w);
+    if (localStorage.getItem('sg-insp-off') === '1') this.el.classList.add('insp-off');
+    const sp = $('.pe-split', this.el);
+    sp.addEventListener('pointerdown', e => {
+      e.preventDefault(); sp.setPointerCapture(e.pointerId);
+      const x0 = e.clientX, w0 = this.el.classList.contains('insp-off') ? 0 : w;
+      if (w0 === 0) { this.toggleInsp(true); }
+      const mv = ev => { setW((w0 || w) + (x0 - ev.clientX)); this.render(); };
+      const up = () => { sp.removeEventListener('pointermove', mv); sp.removeEventListener('pointerup', up); localStorage.setItem('sg-insp-w', w); this.emit('layout'); };
+      sp.addEventListener('pointermove', mv); sp.addEventListener('pointerup', up);
+    });
+    sp.addEventListener('dblclick', () => this.toggleInsp());
+  }
+  inspVisible() { return !this.el.classList.contains('insp-off'); }
+  toggleInsp(on = !this.inspVisible()) {
+    this.el.classList.toggle('insp-off', !on);
+    try { localStorage.setItem('sg-insp-off', on ? '0' : '1'); } catch { /* yok say */ }
+    setTimeout(() => this.render(), 0); this.emit('layout');
+  }
+  /* çalışma alanı ön ayarı: yalnız seçili araç grupları görünür (null: hepsi) */
+  setToolGroups(groups) {
+    $$('.pe-tools .tg', this.el).forEach(g => { g.hidden = !!groups && !groups.includes(g.dataset.g); });
+    if (groups && !groups.includes(TOOLS.find(t => t.k === this.tool)?.g)) this.setTool('select');
+  }
 
   setTool(t) {
     if (this.chain && this.tool !== t) this.finishChain();
@@ -245,6 +299,7 @@ export class PlanEditor {
     if (t !== 'select') { this.sel = null; this.msel = []; }
     $$('.pe-tools .tool', this.el).forEach(b => b.classList.toggle('on', b.dataset.tool === t));
     this.svg.dataset.tool = t;
+    this.emit('tool', t);
     this.renderHud(); this.renderInsp(); this.render();
   }
 
@@ -265,6 +320,7 @@ export class PlanEditor {
     this.arc = null; this.sel = null; this.msel = []; this.preview = null;
     this.updateLvSel(); this.loadBg(); this.renderHud(); this.renderInsp(); this.render();
     this.onLevel?.(this.lv);
+    this.emit('level', this.lv);
   }
   async addLevelDialog() {
     this.updateLvSel();
@@ -337,7 +393,7 @@ export class PlanEditor {
   }
 
   snap() { this.undoS.push(JSON.stringify(this.plan)); if (this.undoS.length > 120) this.undoS.shift(); this.redoS = []; }
-  changed() { this.onChange(this._root); this.render(); this.renderInsp(); }
+  changed() { this.onChange(this._root); this.render(); this.renderInsp(); this.emit('change'); }
   undo() {
     if (!this.undoS.length) return;
     this.redoS.push(JSON.stringify(this.plan));
@@ -611,6 +667,7 @@ export class PlanEditor {
 
   pMove(e) {
     const sp = this.evPt(e);
+    this.emit('cursor', this.toW(sp.x, sp.y));
     if (this.ptrs.has(e.pointerId)) this.ptrs.set(e.pointerId, sp);
     const g = this.g;
     if (g?.type === 'pinch' && this.ptrs.size >= 2) {

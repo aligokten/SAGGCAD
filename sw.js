@@ -1,11 +1,12 @@
 /* SAGGCAD — çevrimdışı kabuk önbelleği. Kendi dosyalarımız önce ağdan (yeni sürüm hemen gelsin),
  * çevrimdışıysa önbellekten; yazı tipleri önce önbellekten. Sürüm değişince CACHE adını artırın. */
-const CACHE = 'saggcad-v2';
+const CACHE = 'saggcad-v3';
 const CORE = [
   './',
   'index.html',
   'css/app.css',
   'css/saggcad.css',
+  'css/ui.css',
   'manifest.webmanifest',
   'assets/logo.png',
   'assets/icon.svg',
@@ -41,6 +42,7 @@ const CORE = [
   'js/tiles.js',
   'js/ui.js',
   'js/units.js',
+  'js/workbench.js',
   'vendor/three/three.module.js',
   'vendor/three/three.core.js',
   'vendor/three/addons/controls/OrbitControls.js',
