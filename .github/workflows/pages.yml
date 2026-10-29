@@ -19,18 +19,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
+      # derleme adımı yok: uygulama saf ES modülleridir; yalnızca yayınlanacak dosyalar kopyalanır
+      - name: Yayın klasörünü hazırla
+        run: |
+          mkdir _site
+          cp -r index.html manifest.webmanifest sw.js css js vendor assets _site/
+          touch _site/.nojekyll
       - uses: actions/configure-pages@v5
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: _site
 
   deploy:
     needs: build

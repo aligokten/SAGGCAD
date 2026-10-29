@@ -1,66 +1,88 @@
 # SAGGCAD
 
-**SAGGCAD**, mimari rölöve ve 2B teknik çizim için geliştirilen bağımsız bir CAD programıdır.
-Daha önce başka bir uygulamanın içinde eklenti olarak yer alan rölöve/çizim aracı, burada
-kendi başına çalışan bir program olarak ele alınmıştır. Tarayıcıda çalışır, kurulum gerektirmez.
+**SAGGCAD**, rölöve ve mimari çizim için bağımsız bir programdır. Tarayıcıda çalışır, kurulum ve hesap gerektirmez,
+internet olmadan da açılır (telefon / tablette *Ana ekrana ekle* ile uygulama gibi kurulur).
+
+Çizim motoru, [TadilatBodrum Saha](https://kesif.tadilatbodrum.com) uygulamasının **Rölöve & 3D** modülünden
+(`aligokten/tadilatbodrum.com` → `public/saha`, commit `f8d5070`) alınmıştır. Orada iş takibinin bir sekmesi olan araç,
+burada müşteri / teklif / keşif akışından bağımsız, kendi proje yönetimiyle çalışır.
 
 🌐 Canlı sürüm: <https://aligokten.github.io/SAGGCAD/> (`main` dalına her gönderimde otomatik yayınlanır)
 
-## Mevcut özellikler (v0.1 şablon)
+## Özellikler
 
-| Alan | Özellik |
+### Projeler ve çizimler
+- Her projede birden fazla çizim: **Rölöve (mevcut durum)** ve **Proje / tasarım** seçenekleri (Proje 1, Proje 2…).
+  Proje çizimi genellikle rölövenin kopyasından başlar; rölöve projede **soluk kesik çizgili altlık** olarak görünür.
+- Kroki / fotoğraf / render görselleri projeyle birlikte saklanır.
+- Veriler tarayıcıda (IndexedDB) tutulur. **Proje dosyasını indir** ile çizimler ve görseller tek `.saggcad.json`
+  dosyasına alınır; başka cihazda **Proje dosyası aç** ile açılır.
+
+### 2D rölöve editörü
+- **Duvar:** noktaları işaretleyin ya da uzunluğu yazıp yön okuna basın (→ ↓ ← ↑) — sahada ölçülen değerleri birebir
+  girmek için. Başlangıç noktasına dönünce oda otomatik oluşur. Yay duvar.
+- **Ölçüyle oda:** en × boy girerek bitişik oda ekleme; dikdörtgen ve çokgen oda.
+- Kapı / pencere / boşluk (model, kullanım, kasa ve kanat renkleri), korkuluk, mobilya ve donatı kütüphanesi, merdiven, çatı,
+  ölçü çizgisi, yazı; çok katlı yapı (kat ekle, çatı planı).
+- **Altlık:** elle çizilmiş krokinin fotoğrafını arkaya koyup iki nokta ile ölçekleyerek üzerinden çizme.
+- Izgaraya / uçlara yaslama, 0-45-90° yakalama, geri al / yinele, oda bazlı metraj (zemin, net duvar).
+- Kısayollar: V seç, W duvar, R oda, D kapı, P pencere, M mobilya, O ölçü, T yazı, Ctrl+Z / Ctrl+Y, Del, Esc.
+
+### İçe aktarma (DXF / PDF)
+- AutoCAD **DXF** veya vektör **PDF** plan otomatik olarak çizime dönüşür: duvarlar paralel çift çizgilerden, kapılar
+  açılım yayından, pencereler cam çizgilerinden, odalar kapalı alanlardan; oda adları çizimdeki yazılardan.
+- DXF birimi dosyadan okunur; **Ölçekle** aracıyla bilinen bir ölçüden düzeltme. Taranmış PDF altlık olarak eklenir.
+- DWG için AutoCAD'de *Farklı Kaydet → DXF* (veya ücretsiz ODA File Converter).
+
+### 3D ve render
+- Plan otomatik olarak 3D'ye çevrilir: kuşbakışı / üstten / **iç mekan** (yürüme), kesit, tavan, güneş yönü ve yüksekliği.
+- **Render:** *Hızlı* (gölge + ortam kapatma) veya *Fotogerçekçi* (GPU path tracing).
+
+### Mutfak ve giysi dolabı tasarlayıcı
+- Seçili duvara otomatik mutfak / dolap dizimi, modül türleri, malzeme, kulp, menteşe markası, ankastre cihazlar, davlumbaz, LED.
+- Ön görünüş, iç düzen, 3D önizleme, **kesim listesi** ve donanım listesi; PDF, ön görünüş DXF, kesim listesi CSV.
+
+### Dışa aktarma
+| Tür | Biçim |
 |---|---|
-| Çizim | Çizgi, çoklu çizgi (açık/kapalı), dikdörtgen, daire, yazı |
-| Rölöve | Hizalı ölçü (otomatik değer), mesafe/açı ölçme, kapalı alan ve çevre hesabı |
-| Düzenleme | Tıklayarak / pencere / kesişen seçim, taşıma, silme, geri al–yinele |
-| Hassasiyet | Nesne kenetleme (uç, orta, merkez), grid kenetleme, ORTO |
-| Giriş | AutoCAD tarzı komut satırı: `x,y`, `@dx,dy`, `@uzunluk<açı`, yalnız uzunluk |
-| Katmanlar | Hazır rölöve katmanları (DUVAR, KAPI, PENCERE, OLCU, YAZI, ROLOVE-NOKTA), renk, gizle, kilitle |
-| Dosya | `.saggcad` (JSON) kaydet/aç, tarayıcıda otomatik kayıt, **DXF (R12)** ve **SVG** dışa aktarma |
+| 2D çizim | **DXF** (katmanlı, mm), **PNG** |
+| 3D model | SketchUp **.dae**, **3DS**, **STL**, **DXF 3D**, **GLB** |
+| Listeler | **Doğrama listesi** (PDF), **zemin sipariş listesi** (PDF / metin), parça **etiketleri** (QR kodlu PDF) |
+| İmalat | **CNC kesim şablonu** (DXF, levhalara yerleşik) |
+| Kağıt | Izgaralı **A4 rölöve çizim altlığı** |
 
-## Kısayollar
+Belge başlıklarındaki firma bilgisi **Ayarlar**'dan girilir.
 
-| Komut / Tuş | İşlev |
-|---|---|
-| `L` `PL` `REC` `C` | Çizgi, çoklu çizgi, dikdörtgen, daire |
-| `DIM` `T` `M` `DI` | Ölçü, yazı, taşı, mesafe ölç |
-| `U` / `Ctrl+Z`, `Ctrl+Y` | Geri al / yinele |
-| `E` / `Delete` | Seçileni sil |
-| `Z` / çift tık | Tümünü göster |
-| `K` | Çoklu çizgiyi kapat |
-| `Enter` / sağ tık | Komutu bitir |
-| `Esc` | İptal |
-| `F3` `F7` `F8` `F9` | OSNAP, GRID, ORTO, SNAP |
-| Orta tuş / `Alt`+sürükle, tekerlek | Kaydır, yakınlaştır |
-| `?` | Komut listesi |
+## Çalıştırma
 
-Birim metredir. Ondalık ayırıcı nokta (`2.75`), koordinat ayırıcı virgüldür (`3,4`).
-
-## Geliştirme
+Derleme adımı yoktur — saf ES modülleri. three.js, three-gpu-pathtracer, pdf.js, dxf-parser, jsPDF, html2canvas ve
+qrcode `vendor/` altında gömülüdür (çevrimdışı çalışır).
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173
-npm test         # birim testleri (Vitest)
-npm run build    # dist/ klasörüne üretim derlemesi
+npm start        # http://localhost:8080  (python3 -m http.server)
+npm test         # sözdizimi denetimi + çizim motoru duman testleri (node --test)
 ```
 
-## Proje yapısı
+Herhangi bir statik sunucu da olur; dosyayı doğrudan `file://` ile açmak ES modülleri nedeniyle çalışmaz.
+
+## Yapı
 
 ```
-src/
-  core/      geometri, nesne modeli, belge + geri alma, kenetleme, koordinat girişi
-  view/      görünüm dönüşümü (pan/zoom) ve canvas çizici
-  tools/     çizim araçları (her araç Tool arayüzünü uygular)
-  io/        .saggcad, DXF ve SVG
-  ui/        katman ve özellik panelleri
-  app.ts     uygulama: fare, klavye, komut satırı
-tests/       Vitest testleri
+index.html, manifest.webmanifest, sw.js   giriş sayfası, PWA bildirimi, çevrimdışı önbellek
+js/main.js        SAGGCAD kabuğu: projeler, proje ekranı, çizim ekranı (2D / 3D / yan yana), dışa aktarma, listeler
+js/store.js       yerel depo (IndexedDB): projeler, görseller, ayarlar, proje dosyası içe / dışa aktarma
+js/plan2d.js      2D rölöve editörü          js/plan3d.js      3D görünüm ve render
+js/plan-geom.js   plan geometrisi ve metraj   js/importer.js, importui.js   DXF / PDF içe aktarma
+js/exporters.js   DXF, DAE, 3DS, STL, DXF 3D  js/cabinet.js, cabdesign.js   mutfak / dolap tasarlayıcı
+js/roof.js, stairs.js, tiles.js, openings.js, fixtures.js, joinery.js, floororder.js, labels.js, cnc.js, forms.js …
+tests/            node --test duman testleri
 ```
 
-Yeni bir araç eklemek için `src/tools/tool.ts` içindeki `Tool` arayüzünü uygulayıp
-`src/app.ts` içindeki `TOOLS` listesine eklemek yeterlidir.
+## Lisanslar
+
+Gömülü kütüphanelerin lisansları `vendor/` altındadır: three.js, three-gpu-pathtracer, three-mesh-bvh, dxf-parser,
+html2canvas, jsPDF, qrcode (MIT), pdf.js (Apache-2.0).
 
 ## Yol haritası
 
-Eklenecek özellikler ve referans alınacak programlar ayrıca belirlenecektir; bkz. [docs/ROADMAP.md](docs/ROADMAP.md).
+Eklenecek özellikler ve referans alınacak programlar: [docs/ROADMAP.md](docs/ROADMAP.md).
