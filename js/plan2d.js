@@ -10,7 +10,7 @@ import { STAIR_TYPES, STAIR_BUILD, newStair, isU, winders, stairParams, stairLoc
 import { TILE_SIZES, TILE_PATTERNS, TILE_JOINTS, tileable, tileOf, tileDefaults, applySize, tileLayout, tilePreviewSvg, tilePlanPath } from './tiles.js';
 import { DOOR_MODELS, DOOR_USES, WIN_MODELS, WIN_USES, FRAME_COLORS, LEAF_COLORS, RAIL_KINDS, doorModel, doorUse, winModel, winUse, winRail, railKind, frameColor, leafColor, applyUse, sashes, leaves, winTilt, winHingeAtStart } from './openings.js';
 import { WALL_KINDS, SLAB_KINDS, compOf, compThickness, matOf, slabKind } from './materials.js';
-import { structDefs, wallLayersSvg, slabSvg, columnSvg, beamSvg, sectionMarkSvg, wallStructInsp, columnInsp, beamInsp, slabInsp, sectionInsp, drawingSettingsInsp, libraryDialog } from './structure.js';
+import { structDefs, wallLayersSvg, wallGeomSvg, slabSvg, columnSvg, beamSvg, sectionMarkSvg, wallStructInsp, columnInsp, beamInsp, slabInsp, sectionInsp, drawingSettingsInsp, libraryDialog } from './structure.js';
 import { unitOf, toU, fromU, fmtL, fmtLU } from './units.js';
 import { bimInspHtml, bindBimInsp } from './bim/ui.js';
 import { runCommand, applyPatch, noteLegacyEdit } from './bim/commands.js';
@@ -1738,10 +1738,9 @@ export class PlanEditor {
         o += `<polyline class="wall" fill="none" stroke-linejoin="round" points="${pts.map(q => `${q.x},${q.y}`).join(' ')}" stroke-width="${f.t || meta.wallT}"/>`;
         continue;
       }
-      const e = wallExt(P, w), u = wallDir(w), A = V.sub(w.a, V.mul(u, e.a)), B = V.add(w.b, V.mul(u, e.b));
-      o += `<line class="wall" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke-width="${w.t || meta.wallT}"/>`;
-      o += wallLayersSvg(R, P, w, pre, px);   // kompozit / malzemeli duvar: katman şeritleri
     }
+    // düz duvarlar (B2B): birleşim grafiğinden temizlenmiş ortak geometri — L / T / X köşelerinde tek kontur, katman önceliği
+    o += wallGeomSvg(R, P, pre, px);
     // açıklıklar
     for (const op of P.openings) {
       const w = P.walls.find(x => x.id === op.wallId); if (!w) continue;
