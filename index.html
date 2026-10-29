@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>SAGGCAD</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">SAGG<span>CAD</span></div>
+        <nav class="actions">
+          <button data-action="new" title="Yeni (Ctrl+N)">Yeni</button>
+          <button data-action="open" title="Aç (Ctrl+O)">Aç</button>
+          <button data-action="save" title="Kaydet (Ctrl+S)">Kaydet</button>
+          <span class="sep"></span>
+          <button data-action="export-dxf" title="DXF olarak dışa aktar">DXF</button>
+          <button data-action="export-svg" title="SVG olarak dışa aktar">SVG</button>
+          <span class="sep"></span>
+          <button data-action="undo" title="Geri al (Ctrl+Z)">↶</button>
+          <button data-action="redo" title="Yinele (Ctrl+Y)">↷</button>
+          <button data-action="zoom-extents" title="Tümünü göster (Z)">⤢</button>
+        </nav>
+        <div class="filename" id="filename">adsız.saggcad</div>
+      </header>
+
+      <aside class="toolbox" id="toolbox"></aside>
+
+      <main class="stage">
+        <canvas id="canvas"></canvas>
+      </main>
+
+      <aside class="panels">
+        <section>
+          <h3>Katmanlar <button id="add-layer" title="Yeni katman">＋</button></h3>
+          <ul id="layers"></ul>
+        </section>
+        <section>
+          <h3>Özellikler</h3>
+          <div id="props" class="props"></div>
+        </section>
+      </aside>
+
+      <footer class="bottom">
+        <div class="cmdlog" id="cmdlog"></div>
+        <div class="cmdline">
+          <label id="prompt" for="cmd">Komut:</label>
+          <input id="cmd" autocomplete="off" spellcheck="false" placeholder="L, PL, REC, C, DIM, T, M, DI… veya koordinat (x,y  @dx,dy  @L<A)" />
+        </div>
+        <div class="status">
+          <span id="coords">0.00, 0.00</span>
+          <button class="toggle" data-toggle="grid" title="F7">GRID</button>
+          <button class="toggle" data-toggle="snapGrid" title="F9">SNAP</button>
+          <button class="toggle" data-toggle="ortho" title="F8">ORTO</button>
+          <button class="toggle" data-toggle="osnap" title="F3">OSNAP</button>
+          <span class="grow"></span>
+          <span id="units">Birim: m</span>
+        </div>
+      </footer>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

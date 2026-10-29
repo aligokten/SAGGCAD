@@ -1,0 +1,20 @@
+{
+  "name": "saggcad",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SAGGCAD — bağımsız rölöve ve mimari çizim programı",
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
+  }
+}
