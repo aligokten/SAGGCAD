@@ -12,7 +12,7 @@ import { DOOR_MODELS, DOOR_USES, WIN_MODELS, WIN_USES, FRAME_COLORS, LEAF_COLORS
 import { WALL_KINDS, SLAB_KINDS, compOf, compThickness, matOf, slabKind } from './materials.js';
 import { structDefs, wallLayersSvg, wallGeomSvg, slabSvg, columnSvg, beamSvg, sectionMarkSvg, wallStructInsp, columnInsp, beamInsp, slabInsp, sectionInsp, drawingSettingsInsp, libraryDialog } from './structure.js';
 import { unitOf, toU, fromU, fmtL, fmtLU } from './units.js';
-import { bimInspHtml, bindBimInsp } from './bim/ui.js';
+import { bimInspHtml, bindBimInsp, reportCmd } from './bim/ui.js';
 import { runCommand, applyPatch, noteLegacyEdit } from './bim/commands.js';
 import { openTypeManager } from './bim/manager.js';
 import { clsOfLegacy } from './bim/fields.js';
@@ -2389,8 +2389,16 @@ export class PlanEditor {
           else x[k] = Math.max(k === 'rot' ? -360 : 0, v);
         } else if (k === 'len' && this.sel.kind === 'rail') {
           const np = V.add(x.a, V.mul(V.norm(V.sub(x.b, x.a)), Math.max(1, v))); x.b = { x: +np.x.toFixed(2), y: +np.y.toFixed(2) };
-        } else if (k === 'len') {
+        } else if (k === 'len' && this.sel.kind === 'wall' && !x.arc) {
+          // B2B: uzunluk komutla (başlangıç ucu sabit; birleşen uçlar, açıklıklar ve mahaller birlikte; sığmayan açıklık reddedilir)
           const r = x.face ? wallRef(x, P.meta.wallT, P) : null;   // yüz uzunluğu girildiyse eksen aynı farkla uzar
+          const L = Math.max(1, r ? wallLen(x) + v - V.dist(r.a, r.b) : v);
+          this.undoS.pop();   // bimCommand kendi geri al kaydını ekler
+          const res = this.bimCommand({ op: 'setWallLength', id: x.id, length: +L.toFixed(2), anchor: 'a' });
+          reportCmd(res); if (!res.applied) this.renderInsp();
+          return;
+        } else if (k === 'len') {
+          const r = x.face ? wallRef(x, P.meta.wallT, P) : null;
           const L = Math.max(1, r ? wallLen(x) + v - V.dist(r.a, r.b) : v), np = V.add(x.a, V.mul(wallDir(x), L));
           this.endsAt(x.b).forEach(([w, kk]) => { w[kk] = { x: +np.x.toFixed(2), y: +np.y.toFixed(2) }; });
         } else if (k === 'left') x.pos = Math.max(x.w / 2, Math.min(wallLen(this.wall(x.wallId)) - x.w / 2, v + x.w / 2));

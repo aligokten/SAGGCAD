@@ -209,8 +209,33 @@ function compute(R, P, wallT) {
       delete l.add; delete l.cut;
     }
   }
-  return { joins: Gj, walls: W, issues };
+  const raw = overlapReport({ walls: W });   // birleşim kurallarından sonra kalan çakışma (temiz birleşimlerde 0 olmalı)
+  const resolved = resolveOverlaps(W);
+  if (resolved.length) issues.push({ severity: 'warning', code: 'GEOM_OVERLAP_RESOLVED', ids: [...new Set(resolved.flatMap(r => [r.keep, r.lose]))].sort(), id: resolved[0].lose,
+    msg: `Üst üste binen duvar katmanları ayrıştırıldı (${[...new Set(resolved.map(r => `${r.keep}↔${r.lose}`))].join(', ')}); çift hacim metraja girmez — çizimde tekrar eden duvarları kontrol edin` });
+  return { joins: Gj, walls: W, issues, diag: { rawOverlaps: raw, resolved } };
 }
+
+/* son güvence: hâlâ çakışan katman parçaları (ör. aynı doğruda tekrar çizilmiş duvarlar) önceliğe göre ayrıştırılır —
+ * yüksek öncelikli katman kalır, eşitse kimliği önce gelen duvar; diğerinden çakışan bölge çıkarılır */
+function resolveOverlaps(W) {
+  const all = [];
+  for (const S of W.values()) for (const l of S.layers) for (const p of l.pieces) all.push({ S, l, p, bb: bbox(p) });
+  const out = [];
+  for (let i = 0; i < all.length; i++) for (let k = i + 1; k < all.length; k++) {
+    const A = all[i], B = all[k];
+    if (A.S === B.S || !A.p || !B.p || !bbHit(A.bb, B.bb) || interArea(A.p, B.p) <= 0.01) continue;
+    const keepA = A.l.prio > B.l.prio || (A.l.prio === B.l.prio && A.S.id < B.S.id), [K, L] = keepA ? [A, B] : [B, A];
+    const rest = diffAll([L.p], K.p);
+    L.l.pieces = L.l.pieces.filter(q => q !== L.p).concat(rest);
+    out.push({ keep: K.S.id, lose: L.S.id, area: absArea(L.p) - rest.reduce((s, q) => s + absArea(q), 0) });
+    // kaybedenin yeni parçaları listede yerini alır (sonraki çiftler için)
+    L.p = null; for (const q of rest) all.push({ S: L.S, l: L.l, p: q, bb: bbox(q) });
+  }
+  return out;
+}
+const bbox = p => ({ x0: Math.min(...p.map(q => q.x)), y0: Math.min(...p.map(q => q.y)), x1: Math.max(...p.map(q => q.x)), y1: Math.max(...p.map(q => q.y)) });
+const bbHit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 
 /* ── açıklık bölgeleri: duvar boyunca (s) ve düşey (z) aralıklar; dış bölgeler sonsuz (birleşim uzantıları dahil) ── */
 export function wallZones(P, w, meta) {

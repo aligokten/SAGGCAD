@@ -18,8 +18,10 @@ import { getType, typeParameters, validateType, deriveType } from './types.js';
 import { FIELDS, TYPE_KEYS, fieldOf, clsOfLegacy, readField, checkValue, ovOf, sameVal } from './fields.js';
 import { compOf, compThickness, matOf } from '../materials.js';
 import { V, wallLen, wallNormal } from '../plan-geom.js';
+import { wallCommands } from './wallcmds.js';
 
-export const COMMANDS = ['createType', 'duplicateType', 'updateType', 'deleteType', 'assignType', 'setInstanceParam', 'resetInstanceParam', 'setElementLevelBinding'];
+export const COMMANDS = ['createType', 'duplicateType', 'updateType', 'deleteType', 'assignType', 'setInstanceParam', 'resetInstanceParam', 'setElementLevelBinding',
+  'moveWallEnd', 'offsetWall', 'setWallLength', 'setWallReference', 'setJoinEnabled'];   // B2B: duvar geometrisi (wallcmds.js)
 
 class CmdError extends Error {}
 const fail = m => { throw new CmdError(m); };
@@ -97,7 +99,8 @@ function session(root) {
   };
   const types = () => (Array.isArray(W.meta.bimTypes) ? W.meta.bimTypes : []);
   const setTypes = list => set(META, W.meta, 'bimTypes', list.length ? list : undefined);
-  return { W, patch, set, find, records, types, setTypes, touched, warnings };
+  const orig = lv => levelPlans(root)[lv];   // değişiklik öncesi kat planı (salt okunur)
+  return { W, patch, set, find, records, types, setTypes, touched, warnings, orig };
 }
 
 /* ───────────── alan yazıcıları ───────────── */
@@ -321,6 +324,7 @@ const C = {
     if (rec.o.bimType) writeOv(S, rec, ov);
     return { label: `${CLASSES[rec.cls].t} ${id}: yükseklik ${bound ? 'kata bağlandı' : 'kattan ayrıldı'}`, summary: { op: 'level', id, key, bound } };
   },
+  ...wallCommands(fail),
 };
 
 /* etkilenen elemanlarda yeni doğrulama hatası var mı */
