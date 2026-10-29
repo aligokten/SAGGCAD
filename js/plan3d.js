@@ -9,6 +9,7 @@ import { roofFaces, coverOf, outlineOf } from './roof.js';
 import { floorTexture } from './textures.js';
 import { stairWorld, stairBuild, stairXf, stairSolid, stairOutline } from './stairs.js';
 import { build3D } from './cabinet.js';
+import { compOf, compThickness } from './materials.js';
 import { fixtureOf, fixture3D } from './fixtures.js';
 import { frameColor, leafColor, doorUse, doorModel, winUse, winModel, winRail, railKind, sashes, leaves, winHingeAtStart } from './openings.js';
 
@@ -366,6 +367,15 @@ export class Plan3D {
     const fzAt = p => +(P.rooms.find(r => r.fz && pointInPoly(p, r.pts))?.fz) || 0;
     for (const it of P.items) { const f = this.furniture(it), dz = fzAt(it); if (dz) f.position.y += M(dz); g.add(f); }
     for (const st of P.stairs || []) this.stair(st, g);
+    // döşeme elemanları: üst yüz kotundan kalınlık kadar aşağı (çıkma, balkon, teras…)
+    for (const sl of P.slabs || []) {
+      if (!sl.pts || sl.pts.length < 3) continue;
+      const c = compOf(this.plan, sl.comp), t = c ? compThickness(c) : (+sl.t || 15), top = +sl.top || 0;
+      const geo = new THREE.ExtrudeGeometry(this.shapeWithHoles(sl.pts, voids), { depth: M(t), bevelEnabled: false });
+      geo.rotateX(-Math.PI / 2);
+      const m = new THREE.Mesh(geo, this.std('#C9C6C0', 0.95)); m.position.y = M(top - t) - 0.001; m.castShadow = m.receiveShadow = true; m.name = 'Döşeme';
+      g.add(m);
+    }
   }
 
   opening(o, w, u, ang, t, topClip, parent = this.root, base = 0) {
@@ -629,7 +639,9 @@ export class Plan3D {
         if (it.type === 'termosifon') { const c = cyl(Math.min(W, D) / 2, Math.min(W, D) / 2, H, 0, H / 2, 0, white, 28); }
         else { box(W, H, D, 0, H / 2, 0, white); box(W * 0.8, 0.01, 0.005, 0, H * (it.type === 'klima' ? 0.2 : 0.15), D / 2, dark); }
         break;
-      case 'kolon': case 'nis': box(W, H, D, 0, H / 2, 0, this.std(col, 0.95)); break;
+      case 'kolon': if (it.shape === 'round') cyl(W / 2, W / 2, H, 0, H / 2, 0, this.std(col, 0.95), 32); else box(W, H, D, 0, H / 2, 0, this.std(col, 0.95)); break;
+      case 'kiris': box(W, H, D, 0, H / 2, 0, this.std(col, 0.95)); break;
+      case 'nis': box(W, H, D, 0, H / 2, 0, this.std(col, 0.95)); break;
       case 'merdiven': {
         const n = Math.max(2, Math.round(H / 0.175)), rh = H / n, td = D / n;
         for (let i = 0; i < n; i++) box(W, rh * (i + 1), td, 0, rh * (i + 1) / 2, D / 2 - td * (i + 0.5), this.std(col, 0.9));

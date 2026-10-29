@@ -28,6 +28,34 @@ burada müşteri / teklif / keşif akışından bağımsız, kendi proje yöneti
 - Izgaraya / uçlara yaslama, 0-45-90° yakalama, geri al / yinele, oda bazlı metraj (zemin, net duvar).
 - Kısayollar: V seç, W duvar, R oda, D kapı, P pencere, M mobilya, O ölçü, T yazı, Ctrl+Z / Ctrl+Y, Del, Esc.
 
+### Yapı elemanları (Archicad'deki yapı araçlarına karşılık)
+- **Duvar türü / işlevi:** dış duvar, iç bölme, betonarme perde, yığma taşıyıcı, hafif bölme (alçı levha), bodrum / istinat, parapet;
+  taşıyıcı / taşıyıcı değil işareti. Tür seçilince kompozit yapı ve kalınlık gelir; dış duvarda dış yüz otomatik binanın dışına alınır.
+- **Kolon** (L): dikdörtgen ya da dairesel; betonarme, çelik, ahşap, yığma; planda malzeme taramasıyla dolu kesit.
+- **Kiriş** (B): iki nokta; genişlik / yükseklik, üst kotu döşeme altına hizalı; planda kesik çizgi.
+- **Döşeme** (F): köşelerle ya da dış hattan otomatik; ara kat, zemine oturan, balkon / çıkma, teras; üst yüz kotu.
+- Kat döşemesine de kompozit yapı atanır (kat kotu yapının kalınlığından hesaplanır).
+
+### Malzeme katmanları ve yapı fiziği
+- **Kompozit yapılar:** duvar ve döşemelerde katman katman malzeme ve kalınlık; taşıyıcı katman; katmanlar planda ve kesitte renk + taramayla.
+- **Malzemeler ve yapılar** penceresi: hazır yapıları düzenleme, kopyalama, yeni yapı ve malzeme ekleme (projeye özel).
+- Her malzeme için yoğunluk ρ, ısı iletkenliği λ, özgül ısı c, buhar difüzyon direnci μ, yangına tepki sınıfı.
+- Her duvar / döşeme için otomatik: toplam kalınlık, birim alan kütlesi m', **U-değeri** (EN ISO 6946), R<sub>T</sub>, s<sub>d</sub>,
+  **R<sub>w</sub>** (kütle yasası, EN 12354-1 Ek B; hafif sistemlerde test değeri), döşemede **L<sub>n,w,eq</sub>** (EN 12354-2 Ek B), en düşük yangın sınıfı.
+- Değerler EN ISO 10456 ve yaygın ürün beyanlarına dayalı tipik tasarım değerleridir; projede ürünün performans beyanı (DoP) girilmelidir.
+
+### Ölçek ve birim
+- **Ölçü birimi** mm / cm / m: plan ölçüleri, özellik paneli girişleri, kesit / görünüş ölçüleri (kotlar her zaman metre).
+- **Çizim ölçeği** 1:1 … 1:1000: ölçekli paftada çizimin kağıttaki boyu; yazı ve ölçü boyları kağıtta sabit.
+- **Ölçekli pafta (PDF):** plan, kesit ve görünüşler gerçek ölçekte, antetli, grafik ölçekli; kağıt boyu (A4–A0) otomatik.
+
+### Kesit ve görünüşler
+- **Kesit hattı** (X) aracıyla istenen sayıda kesit; dört **cephe görünüşü** (plan yukarısı kuzey).
+- Kesilen duvar, döşeme, kolon, kiriş katmanlarıyla taranır; arkada kalanlar görünüş olarak çizilir; çatılar dahil.
+- **Otomatik ölçülendirme:** kat kotları arası zincir ve toplam yükseklik, kot işaretleri, genel genişlik, kesilen duvar /
+  açıklık zinciri, kesilen duvarda parapet – lento düşey zinciri.
+- Çıktı: ölçekli pafta PDF (tek görünüm ya da tümü), SVG, DXF (mm, katmanlı).
+
 ### İçe aktarma (DXF / PDF)
 - AutoCAD **DXF** veya vektör **PDF** plan otomatik olarak çizime dönüşür: duvarlar paralel çift çizgilerden, kapılar
   açılım yayından, pencereler cam çizgilerinden, odalar kapalı alanlardan; oda adları çizimdeki yazılardan.
@@ -72,6 +100,8 @@ index.html, manifest.webmanifest, sw.js   giriş sayfası, PWA bildirimi, çevri
 js/main.js        SAGGCAD kabuğu: projeler, proje ekranı, çizim ekranı (2D / 3D / yan yana), dışa aktarma, listeler
 js/store.js       yerel depo (IndexedDB): projeler, görseller, ayarlar, proje dosyası içe / dışa aktarma
 js/plan2d.js      2D rölöve editörü          js/plan3d.js      3D görünüm ve render
+js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı elemanları (çizim, panel, kütüphane)
+js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek
 js/plan-geom.js   plan geometrisi ve metraj   js/importer.js, importui.js   DXF / PDF içe aktarma
 js/exporters.js   DXF, DAE, 3DS, STL, DXF 3D  js/cabinet.js, cabdesign.js   mutfak / dolap tasarlayıcı
 js/roof.js, stairs.js, tiles.js, openings.js, fixtures.js, joinery.js, floororder.js, labels.js, cnc.js, forms.js …
