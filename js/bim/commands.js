@@ -21,7 +21,8 @@ import { V, wallLen, wallNormal } from '../plan-geom.js';
 import { wallCommands } from './wallcmds.js';
 
 export const COMMANDS = ['createType', 'duplicateType', 'updateType', 'deleteType', 'assignType', 'setInstanceParam', 'resetInstanceParam', 'setElementLevelBinding',
-  'moveWallEnd', 'offsetWall', 'setWallLength', 'setWallReference', 'setJoinEnabled'];   // B2B: duvar geometrisi (wallcmds.js)
+  'moveWallEnd', 'offsetWall', 'setWallLength', 'setWallReference', 'setJoinEnabled',   // B2B: duvar geometrisi (wallcmds.js)
+  'setTopBinding', 'setLevelHeight', 'setLevelSlab', 'syncLevelBindings'];                   // B2B: kata bağlı geometri
 
 class CmdError extends Error {}
 const fail = m => { throw new CmdError(m); };
@@ -34,6 +35,8 @@ const META = { lv: -1, coll: 'meta', id: null };
 /* ───────────── yama ───────────── */
 function targetOf(root, e, create = false) {
   if (e.coll === 'meta') { if (!root.meta && create) root.meta = {}; return root.meta || null; }
+  if (e.coll === 'level') return levelPlans(root)[e.lv] || null;                       // kat planı alanı (ör. slab)
+  if (e.coll === 'levelMeta') { const L = levelPlans(root)[e.lv]; if (L && !L.meta && create) L.meta = {}; return L?.meta || null; }   // kat meta (ör. wallH)
   const P = levelPlans(root)[e.lv], arr = P?.[e.coll];
   return Array.isArray(arr) ? arr.find(x => x && typeof x === 'object' && x.id === e.id) || null : null;
 }
@@ -100,7 +103,8 @@ function session(root) {
   const types = () => (Array.isArray(W.meta.bimTypes) ? W.meta.bimTypes : []);
   const setTypes = list => set(META, W.meta, 'bimTypes', list.length ? list : undefined);
   const orig = lv => levelPlans(root)[lv];   // değişiklik öncesi kat planı (salt okunur)
-  return { W, patch, set, find, records, types, setTypes, touched, warnings, orig };
+  const level = lv => levelPlans(W)[lv] || null;
+  return { W, patch, set, find, records, types, setTypes, touched, warnings, orig, level };
 }
 
 /* ───────────── alan yazıcıları ───────────── */

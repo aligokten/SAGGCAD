@@ -5,6 +5,8 @@
  *   • gerçekçi — GPU path tracing (three-gpu-pathtracer), ilerlemeli örnekleme
  */
 import { V, wallLen, wallDir, polyCentroid, pointInPoly, polyArea, wallExt, planLevels } from './plan-geom.js';
+import { wallPrisms } from './bim/wallgeom.js';
+import { prismFaces, toThree } from './bim/mesh.js';
 import { roofFaces, coverOf, outlineOf } from './roof.js';
 import { floorTexture } from './textures.js';
 import { stairWorld, stairBuild, stairXf, stairSolid, stairOutline } from './stairs.js';
@@ -332,6 +334,14 @@ export class Plan3D {
     for (const w of P.walls) {
       const L = wallLen(w); if (L < 1) continue;
       const t = w.t || meta.wallT, H0 = w.h || meta.wallH, H = cut ? Math.min(cutH, H0) : H0;
+      if (!w.arc) {   // B2B: düz duvar gövdesi aşağıda ortak geometriden; burada yalnız kapı / pencere elemanları
+        const B = Math.min(+w.z0 || 0, H - 1), u = wallDir(w), ang = -Math.atan2(u.y, u.x);
+        for (const o of P.openings.filter(x => x.wallId === w.id)) {
+          const sill = B + (o.type === 'window' ? o.sill : 0), top = Math.min(H0, sill + o.h);
+          this.opening(o, w, u, ang, t, Math.min(top, H) - B, g, B);
+        }
+        continue;
+      }
       const B = Math.min(+w.z0 || 0, H - 1);   // duvarın alt kotu (çukur döşemeden başlayabilir: −); açıklıklar bu kottan ölçülür
       const color = w.color || roomColorOf(w) || meta.wallColor || '#F7F5F0';
       const mw = this.std(color, 0.92);
@@ -357,6 +367,20 @@ export class Plan3D {
         s = o1;
       }
       piece(s, L + ex.b, B, H);
+    }
+    // B2B: düz duvarlar — birleşimleri temizlenmiş ortak geometriden kapalı yüzey (iç / çakışan yüz yok); kesit modunda üst kırpılır
+    {
+      const { prisms } = wallPrisms(this.plan, P, meta);
+      const clipped = prisms.map(pr => ({ ...pr, z1: cut ? Math.min(cutH, pr.z1) : pr.z1 })).filter(pr => pr.z1 - pr.z0 >= 0.1);
+      const { groups } = toThree(prismFaces(clipped));
+      for (const [wid, gr] of groups) {
+        const w = P.walls.find(x => x.id === wid); if (!w) continue;
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(gr.pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(gr.nor, 3));
+        const m = new THREE.Mesh(geo, this.std(w.color || roomColorOf(w) || meta.wallColor || '#F7F5F0', 0.92));
+        m.castShadow = m.receiveShadow = true; m.name = 'Duvar'; m.userData.wall = wid;
+        g.add(m);
+      }
     }
 
     // korkuluklar

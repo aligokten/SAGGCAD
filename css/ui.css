@@ -332,6 +332,13 @@ select.mini { height: 30px; padding: 0 22px 0 8px; border: 1px solid var(--ui-li
 .bim-par tr.bim-act-row .btn { padding: 2px 8px; font-size: 11px; }
 .bim-par tr.bim-act-row .check { font-size: 11px; gap: 6px; }
 .bim-legend { display: flex; flex-wrap: wrap; gap: 4px; }
+/* B2B: birleşim ve referans, kat bağı */
+.bim-joins { display: flex; flex-direction: column; gap: 4px; }
+.bim-join { display: grid; grid-template-columns: 70px 1fr auto; gap: 6px; align-items: center; font-size: 11.5px; padding: 4px 0; border-bottom: 1px solid var(--ui-line-2); }
+.bim-join span { color: var(--ui-muted); }
+.bim-join b { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.bim-join .check { font-size: 11px; gap: 4px; }
+.bim-top { align-items: end; }
 /* BIM Türleri ve Parametreler penceresi */
 .tm { display: flex; flex-direction: column; gap: 10px; }
 .tm-tabs { flex-wrap: wrap; }

@@ -2353,7 +2353,19 @@ export class PlanEditor {
         if (el.dataset.len) v = +fromU(v, this._root).toFixed(3);   // seçili birim → cm
         this.snap();
         const x = this.obj(this.sel);
-        if (this.structChange(k, v, x)) { this.bimNote(k, x); this.changed(); return; }
+        // B2B: kat yüksekliği / döşeme kalınlığı komutla — bağlı duvar, kolon ve kirişler aynı işlemde güncellenir
+        if (k === 'meta.wallH' || k === 'lv.slab') {
+          this.undoS.pop();
+          const res = this.bimCommand(k === 'meta.wallH' ? { op: 'setLevelHeight', level: this.lv, height: v } : { op: 'setLevelSlab', level: this.lv, thickness: Math.max(0, v) });
+          if (!res.ok) reportCmd(res); if (!res.applied) this.renderInsp(); this.updateLvSel(); this.renderHud(); return;
+        }
+        // bağlı elemanın yüksekliği elle değişirse kat bağı kaldırılır (sabit yükseklik)
+        if (x?.bimTop && ((this.sel.kind === 'wall' && k === 'h') || (this.sel.kind === 'item' && (k === 'top' || k === 'z' || (k === 'h' && x.type === 'kolon'))))) { delete x.bimTop; toast('Kat bağı kaldırıldı — sabit yükseklik'); }
+        if (this.structChange(k, v, x)) {
+          this.bimNote(k, x); this.changed();
+          if (k === 'lv.slabComp') { const r = this.bimCommand({ op: 'syncLevelBindings' }); if (r.applied) toast('Kat bağlı elemanlar döşeme kalınlığına göre güncellendi (ayrı geri al adımı)'); }
+          return;
+        }
         if (k.startsWith('lv.')) {
           const q = k.slice(3);
           if (this.lv) this.plan[q] = q === 'slab' ? Math.max(0, v) : v;

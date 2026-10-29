@@ -19,6 +19,9 @@ import { CLASSES, validateElement as validateEl } from './schema.js';
 import { getType, listTypes, resolveParameters, materialLink, typeParameters, deriveType, validateType, saveCustomType } from './types.js';
 import { validateRelations, inverseIndex, relationsOf } from './relations.js';
 import { planCommand, summaryText, COMMANDS } from './commands.js';
+import { levelWallGeometry, wallQuantities, PRIO_LABEL } from './wallgeom.js';
+import { wallJoinInfo } from './joins.js';
+import { planLevels } from '../plan-geom.js';
 
 const freeze = o => { if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
 /* dışa verilen eleman: eski kayıt başvurusu olmadan, derin kopya ve dondurulmuş */
@@ -78,6 +81,22 @@ export function createBim(getRoot, { getVersion = null } = {}) {
       }
       return m;
     }),
+    /* B2B: duvar birleşimleri, referans çizgisi, katman öncelikleri, kat bağı */
+    getWallJoinInfo(id) {
+      const el = str(id) && state().model.elements.get(id); if (!el || el.cls !== 'wall' || !el.legacy) return null;
+      const R = state().root, L = planLevels(R)[el.meta.src.level]; if (!L) return null;
+      const P = L.plan, geo = levelWallGeometry(R, P, { T: P.meta?.wallT ?? R.meta?.wallT }), S = geo.walls.get(id), o = el.legacy;
+      const info = wallJoinInfo(geo.joins, id);
+      return freeze(JSON.parse(JSON.stringify({ ...info, issues: geo.issues.filter(i => (i.ids || []).includes(id)), legacy: !!S?.legacy, ref: o.face ? (o.face > 0 ? 'face+' : 'face-') : 'axis',
+        joinOff: Array.isArray(o.joinOff) ? o.joinOff : [], top: o.bimTop || null,
+        layers: (S?.layers || []).map(l => ({ idx: l.idx, mat: l.mat, name: l.m.t, prio: l.prio, prioLabel: PRIO_LABEL[l.prio] || '', core: l.core, thickness: +(l.hi - l.lo).toFixed(2) })) })));
+    },
+    getTopBinding: id => { const el = str(id) && state().model.elements.get(id); return el?.legacy ? (el.legacy.bimTop ? { ...el.legacy.bimTop } : null) : null; },
+    /* B2B: duvar metrajı (birleşimlerde çift sayım yok): kat başına toplam ve malzeme hacimleri */
+    wallQuantities: () => memo('wallQ', s => planLevels(s.root).filter(l => l.kind !== 'roof').map(l => {
+      const meta = { ...s.root.meta, ...(l.plan.meta || {}) }, q = wallQuantities(s.root, l.plan, meta);
+      return { level: l.idx, name: l.name, total: q.total, byMat: q.byMat, legacy: q.legacy, walls: [...q.walls.values()] };
+    })),
     getElementRelations: id => { if (!str(id)) return null; const s = state(); return relationsOf(s.model, s.inv, id); },
     validateElement: x => validateEl(typeof x === 'string' ? api.getElement(x) : x),
     resolveElementParameters: id => { const el = str(id) && state().model.elements.get(id); return el ? resolveParameters(state().root, el) : []; },

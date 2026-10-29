@@ -57,6 +57,8 @@ function inspHtml(bim, sel) {
     </div>
     <label class="bim-type">BIM tipi${typeSel}</label>
     ${tbl('Geometri', geo)}${tbl('Yapı', str)}
+    ${el.cls === 'wall' ? joinHtml(bim, el) : ''}
+    ${['wall', 'column', 'beam'].includes(el.cls) && writable ? topHtml(bim, el) : ''}
     <p class="bim-legend small">${['type', 'override', 'instance', 'level', 'derived'].map(srcBadge).join('')}</p>
     ${rel ? `<div class="bim-rel">${rel.outgoing.filter(r => r.kind !== 'containedIn').map(r => `<span class="${r.exists ? '' : 'danger-t'}">${esc(REL_KINDS[r.kind]?.t || r.kind)}: <code>${esc(r.target || '—')}</code></span>`).join('')}
       ${rel.incoming.length ? `<span>Bağlı elemanlar: ${rel.incoming.length}</span>` : ''}</div>` : ''}
@@ -64,6 +66,30 @@ function inspHtml(bim, sel) {
     <p class="muted small">Değerleri panelin yukarıdaki alanlarından düzenleyin: atanmış türden farklı bir değer açık geçersiz kılma olur ve "Türe döndür" ile geri alınır. Tür parametreleri Model → BIM Türleri ve Parametreler penceresinde düzenlenir.</p>
     <div class="row wrap"><button class="btn btn-xs btn-ghost" data-bim="mgr">Türleri yönet…</button></div>
   </details>`;
+}
+
+/* B2B: Birleşim ve Referans */
+const JK = { L: 'L köşe', T: 'T birleşimi', X: 'X kesişim', I: 'Doğrusal devam', STAR: 'Çok duvarlı düğüm', LEGACY: 'Yay duvar (eski kural)' };
+function joinHtml(bim, el) {
+  const J = bim.getWallJoinInfo(el.id); if (!J) return '';
+  const end = e => { const j = J[e], off = J.joinOff.includes(e);
+    return `<div class="bim-join"><span>${e === 'a' ? 'Başlangıç' : 'Bitiş'}</span><b>${off ? '<i class="muted">kapalı</i>' : j ? `${esc(JK[j.kind] || j.kind)} · ${j.walls.map(w => `<code>${esc(w)}</code>`).join(' ')}` : '<i class="muted">serbest uç</i>'}</b>
+      ${J.legacy ? '' : `<label class="check" title="Bu uçta otomatik birleşim"><input type="checkbox" data-bim-join="${e}" ${off ? '' : 'checked'}> Otomatik</label>`}</div>`; };
+  const opt = (v, t) => `<option value="${v}" ${J.ref === v ? 'selected' : ''}>${t}</option>`;
+  return `<h5>Birleşim ve referans</h5>
+    <div class="bim-joins">${end('a')}${end('b')}
+      ${J.body.length ? `<div class="bim-join"><span>Gövdede</span><b>${J.body.map(j => `${esc(JK[j.kind] || j.kind)} · ${j.walls.map(w => `<code>${esc(w)}</code>`).join(' ')}`).join('<br>')}</b></div>` : ''}</div>
+    ${J.legacy ? '<p class="muted small">Yay duvar: birleşim temizliği bu sürümde uygulanmaz (eski çizim kuralı).</p>' : `<label class="bim-type">Referans çizgisi<select class="inp sm" data-bim-ref>${opt('axis', 'Eksen')}${opt('face+', 'Yüz (+ normal)')}${opt('face-', 'Yüz (− normal)')}</select></label>`}
+    ${J.layers.length ? `<table class="mat-tbl bim-par"><thead><tr><th>Katman</th><th class="r">d</th><th>Öncelik</th></tr></thead><tbody>${J.layers.map(l => `<tr><td>${l.core ? '<b>' : ''}${esc(l.name)}${l.core ? '</b>' : ''}</td><td class="r nowrap">${fmtNum(l.thickness, 1)}</td><td><i class="bim-src" title="${esc(l.prioLabel)}">${l.prio} · ${esc(l.prioLabel)}</i></td></tr>`).join('')}</tbody></table>` : ''}
+    ${J.issues.length ? `<ul class="bim-iss">${J.issues.map(i => `<li class="s-${i.severity}">${esc(i.msg)}</li>`).join('')}</ul>` : ''}`;
+}
+/* B2B: kat bağı (üst kot) */
+function topHtml(bim, el) {
+  const b = bim.getTopBinding(el.id), mode = b?.mode || (el.cls === 'wall' && el.inherited?.height === 'level' ? 'level' : 'fixed');
+  const opt = (v, t) => `<option value="${v}" ${mode === v ? 'selected' : ''}>${t}</option>`;
+  return `<h5>Kat bağı</h5><div class="grid2 bim-top">
+    <label>Üst kot<select class="inp sm" data-bim-top>${opt('fixed', 'Sabit yükseklik')}${opt('level', 'Kat yüksekliği (üst döşeme altı)')}${opt('nextSlabTop', 'Üst kat döşemesi üstü')}</select></label>
+    ${mode !== 'fixed' ? `<label>Ofset<div class="inp-unit sm"><input type="number" step="1" data-bim-topoff value="${+(b?.off || 0)}"><span>cm</span></div></label>` : '<span></span>'}</div>`;
 }
 
 /* komut sonucunu kullanıcıya bildir */
@@ -80,6 +106,12 @@ export function bindBimInsp(sec, ed, openManager) {
     const t = e.target;
     if (t.dataset.bim === 'type') reportCmd(ed.bimCommand({ op: 'assignType', ids: [id], typeId: t.value || null }));
     else if (t.dataset.bimLv) reportCmd(ed.bimCommand({ op: 'setElementLevelBinding', id, key: t.dataset.bimLv, bound: t.checked }));
+    else if (t.dataset.bimJoin) reportCmd(ed.bimCommand({ op: 'setJoinEnabled', id, end: t.dataset.bimJoin, enabled: t.checked }));
+    else if (t.dataset.bimRef !== undefined) reportCmd(ed.bimCommand({ op: 'setWallReference', id, ref: t.value }));
+    else if (t.dataset.bimTop !== undefined || t.dataset.bimTopoff !== undefined) {
+      const mode = sec.querySelector('[data-bim-top]')?.value || 'fixed', off = +(sec.querySelector('[data-bim-topoff]')?.value || 0);
+      reportCmd(ed.bimCommand({ op: 'setTopBinding', id, mode, offset: t.dataset.bimTop !== undefined && mode !== 'fixed' ? (Number.isFinite(off) ? off : 0) : off }));
+    }
   });
   sec.addEventListener('click', e => {
     const b = e.target.closest('[data-bim-reset], [data-bim="mgr"]'); if (!b) return;
