@@ -1,0 +1,36 @@
+/* SAGGCAD kabuğu: üst çubuk, projeler ve proje ekranları (çizim ekranı stilleri app.css'te) */
+#view { margin: 0 auto; width: 100%; padding-top: 0; }
+body.plan-mode #view { margin: 0; }
+
+.sc-top {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 calc(-1 * clamp(16px, 3vw, 40px));
+  padding: calc(10px + var(--safe-t)) clamp(16px, 3vw, 40px) 10px;
+  background: var(--dark); color: #fff;
+  position: sticky; top: 0; z-index: 20;
+}
+.sc-brand { font-family: var(--fd); font-weight: 900; font-size: 22px; letter-spacing: .5px; color: #fff; text-decoration: none; }
+.sc-brand span, .sc-mark i { color: #38BDF8; font-style: normal; }
+.sc-mark { font-family: var(--fd); font-weight: 900; margin-right: 6px; }
+.sc-crumb { color: #C9CDD3; }
+b.sc-crumb { color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-top-act { margin-left: auto; display: flex; gap: 6px; }
+.sc-top .btn-ghost { color: #fff; border-color: rgba(255, 255, 255, .18); background: transparent; }
+.sc-top .btn-ghost:hover { background: rgba(255, 255, 255, .08); }
+
+.sc-page { display: flex; flex-direction: column; gap: 18px; }
+.sc-page h2 { margin: 0; font-family: var(--fd); }
+
+.gimg [data-phd] { position: absolute; top: 6px; right: 6px; background: rgba(0, 0, 0, .55); color: #fff; opacity: 0; transition: opacity .2s; }
+.gimg:hover [data-phd], .gimg:focus-within [data-phd] { opacity: 1; }
+@media (hover: none) { .gimg [data-phd] { opacity: 1; } }
+
+@media (max-width: 700px) {
+  .sc-top .btn span { display: none; }
+  .grid3 { grid-template-columns: 1fr; }
+}
+
+/* üst çubuk sayfa genişliğinde, içerik sütunuyla hizalı */
+.sc-top { margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50% + clamp(16px, 3vw, 40px)); }
+label.btn { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; }
+.gallery > p { grid-column: 1 / -1; }
