@@ -306,3 +306,26 @@ select.mini { height: 30px; padding: 0 22px 0 8px; border: 1px solid var(--ui-li
   .tool .ic { width: 17px; height: 17px; }
   .tg { padding: 2px 0 4px; }
 }
+
+/* ── BIM bilgisi (özellik paneli, salt okunur) ── */
+.bim-sec { border: 1px solid var(--ui-line); border-radius: 8px; background: var(--ui-panel-2); }
+.bim-sec summary { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; list-style: none; font-size: 12.5px; }
+.bim-sec summary::-webkit-details-marker { display: none; }
+.bim-sec summary small { margin-left: auto; color: var(--ui-muted); }
+.bim-sec[open] summary { border-bottom: 1px solid var(--ui-line); }
+.bim-sec > :not(summary) { margin: 8px 10px; }
+.bim-badge { font: 800 9.5px/1 var(--f); letter-spacing: .06em; padding: 3px 5px; border-radius: 4px; background: var(--accent); color: #fff; }
+.bim-id { font-size: 12px; }
+.mono, .bim-rel code, .bim-report code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11px; }
+.bim-par td { font-size: 11.5px; }
+.bim-src { font-style: normal; font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 4px; background: var(--ui-line-2); color: var(--ui-muted); white-space: nowrap; }
+.bim-src.b-type { background: var(--accent-50); color: var(--accent); }
+.bim-src.b-inst { background: rgba(245, 158, 11, .14); color: #B45309; }
+.bim-src.b-lvl { background: rgba(34, 160, 107, .14); color: #1C7C55; }
+.bim-rel { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--ui-text-2); }
+.bim-iss { list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; max-height: 50vh; overflow: auto; }
+.bim-iss li { padding: 4px 8px; border-radius: 5px; border-left: 3px solid var(--ui-muted); background: var(--ui-panel-2); }
+.bim-iss li.s-error { border-left-color: #D33A4A; }
+.bim-iss li.s-warning { border-left-color: #F59E0B; }
+.bim-iss li.s-info { border-left-color: var(--accent); }
+.bim-report h4 { margin: 10px 0 6px; font-size: 13.5px; }

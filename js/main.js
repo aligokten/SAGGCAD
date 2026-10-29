@@ -9,6 +9,8 @@ import { PlanEditor, planThumbSvg, planImageUrl, planSheetView, TOOLS } from './
 import { scaleOf, unitOf, kotM, UNITS, SCALES } from './units.js';
 import { levelName, planLevels } from './plan-geom.js';
 import { viewsOf } from './sections.js';
+import { createBim } from './bim/api.js';
+import { bimReportHtml } from './bim/ui.js';
 import { mountMenubar, mountNavigator, mountStatusbar, openPalette, bindPaletteKey, WORKSPACES, getWorkspace, setWorkspaceKey, getTheme, toggleTheme, applyTheme } from './workbench.js';
 import { useName, modelName } from './openings.js';
 import { emptyPlan, planMetrics, roomMetrics } from './plan-geom.js';
@@ -340,7 +342,9 @@ function planScreen() {
   root.classList.toggle('nav-off', !navOn);
   const sync3d = debounce(() => S.p3?.setPlan(S.editor.root), 350);
   const refresh = debounce(() => { nav?.render(); sb?.render(); }, 120);
+  S.bim = createBim(() => S.editor?.root);   // BIM çekirdeği: eski veriden türetilen salt okunur model
   S.editor = new PlanEditor($('#ps2d'), dw.plan, {
+    bim: S.bim,
     onChange: pl => { dw.plan = pl; dw.updatedAt = Date.now(); save(); if (mode !== '2d') sync3d(); refresh(); },
     onLevel: lv => { if (S.p3) { S.p3.opt.level = lv; S.p3.build(); } refresh(); },
     views: id => openViews(id),
@@ -521,6 +525,7 @@ function planScreen() {
     { id: 'tools.draw', cat: 'tools', t: 'Çizim ayarları (birim, ölçek)', ic: 'settings', run: () => { setMode(mode === '3d' ? '2d' : mode); E.setSel([]); E.toggleInsp(true); } },
     { id: 'tools.scale', cat: 'tools', t: 'Planı ölçekle (bilinen ölçüden)', ic: 'ruler', run: tool('scale') },
     { id: 'tools.render', cat: 'tools', t: 'Gerçekçi render…', ic: 'sparkle', sep: true, run: render },
+    { id: 'tools.bim', cat: 'tools', t: 'BIM model raporu', ic: 'layers', kw: 'bim tür eleman doğrulama ilişki', sep: true, run: () => modal({ title: 'BIM model raporu', wide: true, body: bimReportHtml(S.bim), actions: [{ k: 'ok', t: 'Kapat', cls: 'btn-primary' }] }) },
     { id: 'tools.keys', cat: 'tools', t: 'Klavye kısayolları', ic: 'list', sep: true, run: () => keysDialog() },
   ];
   S.cmds = commands;
