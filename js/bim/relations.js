@@ -3,7 +3,8 @@
  *   containedIn  her eleman → bulunduğu / referans aldığı kat (kolon, kiriş için referans kat)
  *   hostedBy     kapı, pencere, boşluk → bağlı olduğu duvar
  *   boundedBy    mahal → sınır duvarları (eski modeldeki room.walls sırasıyla; boş yuvalar raporlanır)
- * Otomatik birleşim temizleme, kısıt çözümleme ve bağımlılık grafiğinin geometrik güncellemesi B2/B3 kapsamındadır.
+ *   joinedAt     duvar → birleştiği duvar (B2B: joins.js birleşim grafiğinden türetilir; join: birleşim kimliği, end: uç)
+ * Bağımlılık grafiği ve artımlı güncelleme B3 kapsamındadır.
  */
 import { CLASSES } from './schema.js';
 
@@ -11,6 +12,7 @@ export const REL_KINDS = {
   containedIn: { t: 'Bulunduğu kat', from: null, to: ['level'] },
   hostedBy: { t: 'Bağlı olduğu duvar', from: ['door', 'window', 'opening'], to: ['wall'] },
   boundedBy: { t: 'Sınır elemanı', from: ['room'], to: ['wall'] },
+  joinedAt: { t: 'Birleştiği duvar', from: ['wall'], to: ['wall'] },
 };
 
 /* model üzerinde ters dizin: hedef → [{ kind, source }] */
