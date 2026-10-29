@@ -49,6 +49,14 @@ burada müşteri / teklif / keşif akışından bağımsız, kendi proje yöneti
 - **Döşeme** (F): köşelerle ya da dış hattan otomatik; ara kat, zemine oturan, balkon / çıkma, teras; üst yüz kotu.
 - Kat döşemesine de kompozit yapı atanır (kat kotu yapının kalınlığından hesaplanır).
 
+### BIM çekirdeği (B1 — salt okunur)
+- Tüm yapı elemanları (duvar, kolon, kiriş, döşeme, kapı, pencere, boşluk, mahal, çatı, merdiven, korkuluk) ortak bir
+  BIM şemasıyla okunur: kalıcı kimlik, sınıf (IFC karşılığı), tür, kat, geometri ve özellikler ayrı, ilişkiler.
+- Eleman türleri (Archicad favori / Revit Family Type mantığı): `DIS-DUV-01` gibi yerleşik türler kompozit kütüphanesine
+  bağlıdır; tür ve eleman parametreleri ayrı tutulur, her değerin kaynağı (tür / eleman / kat) gösterilir.
+- Özellik panelinin altında **BIM** bölümü; Araçlar → **BIM model raporu** (sınıflar, türler, ilişki ve veri doğrulaması).
+- Eski projeler aynen açılır: BIM modeli kayıtlı veriden türetilir, dosyaya yazılmaz. Ayrıntı: [docs/BIM-CEKIRDEK.md](docs/BIM-CEKIRDEK.md).
+
 ### Malzeme katmanları ve yapı fiziği
 - **Kompozit yapılar:** duvar ve döşemelerde katman katman malzeme ve kalınlık; taşıyıcı katman; katmanlar planda ve kesitte renk + taramayla.
 - **Malzemeler ve yapılar** penceresi: hazır yapıları düzenleme, kopyalama, yeni yapı ve malzeme ekleme (projeye özel).
@@ -101,7 +109,8 @@ qrcode `vendor/` altında gömülüdür (çevrimdışı çalışır).
 
 ```bash
 npm start        # http://localhost:8080  (python3 -m http.server)
-npm test         # sözdizimi denetimi + çizim motoru duman testleri (node --test)
+npm test         # sözdizimi denetimi + çizim motoru, yapı fiziği ve BIM testleri (node --test)
+node tests/e2e/b1.e2e.cjs http://localhost:8080/   # isteğe bağlı tarayıcı testi (Playwright gerekir)
 ```
 
 Herhangi bir statik sunucu da olur; dosyayı doğrudan `file://` ile açmak ES modülleri nedeniyle çalışmaz.
@@ -117,6 +126,7 @@ js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı e
 js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek
 js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
 css/ui.css        arayüz tasarım sistemi ve temalar
+js/bim/           BIM çekirdeği: schema, types, adapter, relations, api, ui
 js/plan-geom.js   plan geometrisi ve metraj   js/importer.js, importui.js   DXF / PDF içe aktarma
 js/exporters.js   DXF, DAE, 3DS, STL, DXF 3D  js/cabinet.js, cabdesign.js   mutfak / dolap tasarlayıcı
 js/roof.js, stairs.js, tiles.js, openings.js, fixtures.js, joinery.js, floororder.js, labels.js, cnc.js, forms.js …

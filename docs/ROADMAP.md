@@ -33,6 +33,12 @@ Swiss Minimalism + Professional CAD: #1786FF vurgu, #0F1B2D üst çubuk, #1D2631
 
 Sonraki aşama: [parametrik BIM çekirdeği](BIM-CEKIRDEK.md).
 
+## B1 — BIM eleman şeması ve tür sistemi (tamamlandı, salt okunur)
+- [x] `js/bim/`: eleman şeması, tür sistemi, eski veri adaptörü, ilişki modeli ve doğrulaması, okuma API'si
+- [x] Özellik panelinde salt okunur BIM bölümü; BIM model raporu
+- [x] Eski proje dosyası örneği ve 8 senaryolu test; isteğe bağlı tarayıcı testi
+- [ ] B2: yazma modeli, tür düzenleme arayüzü, duvar birleşimleri, parametrik kısıtlar ([plan](BIM-CEKIRDEK.md#b2--eleman-ilişkileri-ve-parametrik-kısıtlar-teknik-plan))
+
 ## Kaynakla eşitleme
 Saha uygulamasında rölöve modülüne yapılan geliştirmeler buraya elle taşınır. Taşınan dosyalar `js/` altında aynı adla
 durur; SAGGCAD'e özgü dosyalar `main.js`, `store.js`, `print.js`, `sample.js`, `materials.js`, `structure.js`,

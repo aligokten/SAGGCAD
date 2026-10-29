@@ -12,6 +12,7 @@ import { DOOR_MODELS, DOOR_USES, WIN_MODELS, WIN_USES, FRAME_COLORS, LEAF_COLORS
 import { WALL_KINDS, SLAB_KINDS, compOf, compThickness, matOf, slabKind } from './materials.js';
 import { structDefs, wallLayersSvg, slabSvg, columnSvg, beamSvg, sectionMarkSvg, wallStructInsp, columnInsp, beamInsp, slabInsp, sectionInsp, drawingSettingsInsp, libraryDialog } from './structure.js';
 import { unitOf, toU, fromU, fmtL, fmtLU } from './units.js';
+import { bimInspHtml } from './bim/ui.js';
 import { newCabinet, autoFill, itemDims, planSymbol, runLength, FRONTS, pick as cabPick, MT as CAB_MT } from './cabinet.js';
 
 /* mobilya seçim listesi: kategorilere göre gruplu */
@@ -106,7 +107,8 @@ export class PlanEditor {
   get root() { return this._root; }
   prep(P) { for (const k of ['walls', 'openings', 'rooms', 'items', 'dims', 'labels', 'rails', 'roofs', 'stairs', 'slabs', 'sections']) P[k] ||= []; P.meta ||= { ...this._root.meta }; return P; }
 
-  constructor(host, plan, { onChange, resolvePhoto, pickBackground, addImage, cab, ghost, onLevel, views } = {}) {
+  constructor(host, plan, { onChange, resolvePhoto, pickBackground, addImage, cab, ghost, onLevel, views, bim } = {}) {
+    this.bim = bim || null;       // BIM çekirdeği servis katmanı (salt okunur bilgi; js/bim/api.js)
     this.views = views || null;   // kesit / görünüş penceresi (kesit kimliğiyle)
     this.addImage = addImage;
     this.ghost = ghost || null;   // proje çiziminde rölöve (mevcut durum) altlığı
@@ -2213,7 +2215,11 @@ export class PlanEditor {
     } else if (s.kind === 'label') {
       body = `<h4>Yazı</h4><label>Metin<input class="inp sm" data-k="text" value="${esc(o.text)}"></label>${num('size', 'Boyut', o.size || 25)}`;
     }
-    this.insp.innerHTML = `<div class="insp-body">${body}</div>${o ? `<button class="btn btn-danger btn-xs del" data-act="del">${icon('trash')}Sil</button>` : ''}`;
+    let bimH = '';
+    try { bimH = o ? bimInspHtml(this.bim, s, this._root) : ''; } catch (e) { console.warn('BIM paneli', e); }   // BIM bölümü hiçbir koşulda paneli bozmaz
+    this.insp.innerHTML = `<div class="insp-body">${body}${bimH}</div>${o ? `<button class="btn btn-danger btn-xs del" data-act="del">${icon('trash')}Sil</button>` : ''}`;
+    const bd = $('.bim-sec', this.insp);
+    if (bd) { bd.open = localStorage.getItem('sg-bim-open') === '1'; bd.ontoggle = () => { try { localStorage.setItem('sg-bim-open', bd.open ? '1' : '0'); } catch { /* yok say */ } }; }
     this.el.classList.toggle('has-sel', !!o);
     this.bindInsp(o);
   }

@@ -1,0 +1,1470 @@
+{
+ "format": "saggcad",
+ "version": 1,
+ "project": {
+  "id": "prfx1",
+  "name": "Eski proje örneği",
+  "client": "",
+  "address": "",
+  "note": "B1 uyumluluk test dosyası",
+  "createdAt": 1761000000000,
+  "updatedAt": 1761000000000,
+  "drawings": [
+   {
+    "id": "dwfx1",
+    "name": "Rölöve (mevcut durum)",
+    "kind": "rolove",
+    "main": true,
+    "plan": {
+     "v": 1,
+     "walls": [
+      {
+       "id": "wfx001",
+       "a": {
+        "x": -7.5,
+        "y": -7.5
+       },
+       "b": {
+        "x": 527.5,
+        "y": -7.5
+       },
+       "t": 26.5,
+       "h": 0,
+       "kind": "dis",
+       "struct": false,
+       "comp": "dis-tugla-eps"
+      },
+      {
+       "id": "wfx002",
+       "a": {
+        "x": 527.5,
+        "y": -7.5
+       },
+       "b": {
+        "x": 527.5,
+        "y": 427.5
+       },
+       "t": 27,
+       "h": 0,
+       "kind": "perde",
+       "struct": true,
+       "comp": "perde-25"
+      },
+      {
+       "id": "wfx003",
+       "a": {
+        "x": 527.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": -7.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx004",
+       "a": {
+        "x": -7.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": -7.5,
+        "y": -7.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx005",
+       "a": {
+        "x": 527.5,
+        "y": -7.5
+       },
+       "b": {
+        "x": 842.5,
+        "y": -7.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx006",
+       "a": {
+        "x": 842.5,
+        "y": -7.5
+       },
+       "b": {
+        "x": 842.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx007",
+       "a": {
+        "x": 842.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": 527.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx008",
+       "a": {
+        "x": 387.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": 387.5,
+        "y": 802.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx009",
+       "a": {
+        "x": 387.5,
+        "y": 802.5
+       },
+       "b": {
+        "x": -7.5,
+        "y": 802.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx00a",
+       "a": {
+        "x": -7.5,
+        "y": 802.5
+       },
+       "b": {
+        "x": -7.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx00b",
+       "a": {
+        "x": 387.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": 632.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx00c",
+       "a": {
+        "x": 632.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": 632.5,
+        "y": 702.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx00d",
+       "a": {
+        "x": 632.5,
+        "y": 702.5
+       },
+       "b": {
+        "x": 387.5,
+        "y": 702.5
+       },
+       "t": 15,
+       "h": 0
+      }
+     ],
+     "openings": [
+      {
+       "id": "ofx00e",
+       "wallId": "wfx001",
+       "type": "window",
+       "pos": 260,
+       "w": 180,
+       "h": 150,
+       "sill": 80,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00f",
+       "wallId": "wfx004",
+       "type": "door",
+       "pos": 200,
+       "w": 100,
+       "h": 215,
+       "sill": 0,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00g",
+       "wallId": "wfx005",
+       "type": "window",
+       "pos": 150,
+       "w": 120,
+       "h": 120,
+       "sill": 100,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00h",
+       "wallId": "wfx002",
+       "type": "gap",
+       "pos": 210,
+       "w": 120,
+       "h": 220,
+       "sill": 0,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00i",
+       "wallId": "wfx00a",
+       "type": "window",
+       "pos": 180,
+       "w": 140,
+       "h": 140,
+       "sill": 90,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00j",
+       "wallId": "wfx003",
+       "type": "door",
+       "pos": 280,
+       "w": 90,
+       "h": 210,
+       "sill": 0,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00k",
+       "wallId": "wfx00b",
+       "type": "door",
+       "pos": 120,
+       "w": 80,
+       "h": 210,
+       "sill": 0,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00l",
+       "wallId": "wfx00c",
+       "type": "window",
+       "pos": 130,
+       "w": 60,
+       "h": 60,
+       "sill": 150,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofxorphan",
+       "wallId": "wSILINMIS",
+       "type": "window",
+       "pos": 50,
+       "w": 100,
+       "h": 120,
+       "sill": 90,
+       "flip": false,
+       "side": 1,
+       "model": "cift",
+       "use": "oda"
+      }
+     ],
+     "rooms": [
+      {
+       "id": "rfx00m",
+       "name": "Salon",
+       "rect": true,
+       "pts": [
+        {
+         "x": 0,
+         "y": 0
+        },
+        {
+         "x": 520,
+         "y": 0
+        },
+        {
+         "x": 520,
+         "y": 420
+        },
+        {
+         "x": 0,
+         "y": 420
+        }
+       ],
+       "floor": "parke",
+       "wallColor": "",
+       "h": 0,
+       "walls": [
+        "wfx001",
+        "wfx002",
+        "wfx003",
+        "wfx004"
+       ]
+      },
+      {
+       "id": "rfx00n",
+       "name": "Mutfak",
+       "rect": true,
+       "pts": [
+        {
+         "x": 535,
+         "y": 0
+        },
+        {
+         "x": 835,
+         "y": 0
+        },
+        {
+         "x": 835,
+         "y": 420
+        },
+        {
+         "x": 535,
+         "y": 420
+        }
+       ],
+       "floor": "seramik",
+       "wallColor": "",
+       "h": 0,
+       "walls": [
+        "wfx005",
+        "wfx006",
+        "wfx007",
+        null
+       ]
+      },
+      {
+       "id": "rfx00o",
+       "name": "Yatak Odası",
+       "rect": true,
+       "pts": [
+        {
+         "x": 0,
+         "y": 435
+        },
+        {
+         "x": 380,
+         "y": 435
+        },
+        {
+         "x": 380,
+         "y": 795
+        },
+        {
+         "x": 0,
+         "y": 795
+        }
+       ],
+       "floor": "parke",
+       "wallColor": "",
+       "h": 0,
+       "walls": [
+        null,
+        "wfx008",
+        "wfx009",
+        "wfx00a"
+       ]
+      },
+      {
+       "id": "rfx00p",
+       "name": "Banyo",
+       "rect": true,
+       "pts": [
+        {
+         "x": 395,
+         "y": 435
+        },
+        {
+         "x": 625,
+         "y": 435
+        },
+        {
+         "x": 625,
+         "y": 695
+        },
+        {
+         "x": 395,
+         "y": 695
+        }
+       ],
+       "floor": "mermer",
+       "wallColor": "#DDE4E4",
+       "h": 0,
+       "walls": [
+        "wfx00b",
+        "wfx00c",
+        "wfx00d",
+        null
+       ]
+      }
+     ],
+     "items": [
+      {
+       "id": "ifx00q",
+       "type": "kanepe",
+       "label": "Kanepe",
+       "x": 260,
+       "y": 340,
+       "w": 220,
+       "d": 90,
+       "h": 85,
+       "z": 0,
+       "rot": 180,
+       "color": "#9AA3AE"
+      },
+      {
+       "id": "ifx00r",
+       "type": "sehpa",
+       "label": "Sehpa",
+       "x": 260,
+       "y": 270,
+       "w": 110,
+       "d": 60,
+       "h": 40,
+       "z": 0,
+       "rot": 0,
+       "color": "#6E5341"
+      },
+      {
+       "id": "ifx00s",
+       "type": "tv",
+       "label": "TV",
+       "x": 260,
+       "y": 25,
+       "w": 180,
+       "d": 45,
+       "h": 50,
+       "z": 0,
+       "rot": 0,
+       "color": "#2E3135"
+      },
+      {
+       "id": "ifx00t",
+       "type": "bitki",
+       "label": "Bitki",
+       "x": 480,
+       "y": 380,
+       "w": 50,
+       "d": 50,
+       "h": 120,
+       "z": 0,
+       "rot": 0,
+       "color": "#4F8A4B"
+      },
+      {
+       "id": "ifx00u",
+       "type": "koltuk",
+       "label": "Berjer",
+       "x": 75,
+       "y": 290,
+       "w": 85,
+       "d": 85,
+       "h": 85,
+       "z": 0,
+       "rot": 90,
+       "color": "#C7A27A"
+      },
+      {
+       "id": "ifx00v",
+       "type": "tezgah",
+       "label": "Tezgah",
+       "x": 566,
+       "y": 210,
+       "w": 300,
+       "d": 62,
+       "h": 90,
+       "z": 0,
+       "rot": 270,
+       "color": "#F4F4F2"
+      },
+      {
+       "id": "ifx00w",
+       "type": "ada",
+       "label": "Ada",
+       "x": 720,
+       "y": 250,
+       "w": 180,
+       "d": 90,
+       "h": 90,
+       "z": 0,
+       "rot": 90,
+       "color": "#22B8C8"
+      },
+      {
+       "id": "ifx00x",
+       "type": "buzdolabi",
+       "label": "Buzdolabı",
+       "x": 795,
+       "y": 40,
+       "w": 70,
+       "d": 70,
+       "h": 190,
+       "z": 0,
+       "rot": 0,
+       "color": "#D9DCDF"
+      },
+      {
+       "id": "ifx00y",
+       "type": "yatak",
+       "label": "Yatak",
+       "x": 190,
+       "y": 695,
+       "w": 160,
+       "d": 200,
+       "h": 50,
+       "z": 0,
+       "rot": 180,
+       "color": "#ECE8E1"
+      },
+      {
+       "id": "ifx00z",
+       "type": "gardirop",
+       "label": "Gardırop",
+       "x": 190,
+       "y": 466,
+       "w": 200,
+       "d": 60,
+       "h": 240,
+       "z": 0,
+       "rot": 0,
+       "color": "#F2F0EC"
+      },
+      {
+       "id": "ifx010",
+       "type": "klozet",
+       "label": "WC",
+       "x": 425,
+       "y": 665,
+       "w": 38,
+       "d": 60,
+       "h": 40,
+       "z": 0,
+       "rot": 180,
+       "color": "#FFFFFF"
+      },
+      {
+       "id": "ifx011",
+       "type": "lavabo",
+       "label": "Lavabo",
+       "x": 545,
+       "y": 671,
+       "w": 80,
+       "d": 48,
+       "h": 85,
+       "z": 0,
+       "rot": 180,
+       "color": "#FFFFFF"
+      },
+      {
+       "id": "ifx012",
+       "type": "dus",
+       "label": "Duş",
+       "x": 580,
+       "y": 485,
+       "w": 90,
+       "d": 90,
+       "h": 5,
+       "z": 0,
+       "rot": 0,
+       "color": "#F5F5F5"
+      },
+      {
+       "id": "ifxcol1",
+       "type": "kolon",
+       "label": "Kolon",
+       "x": 100,
+       "y": 100,
+       "w": 30,
+       "d": 30,
+       "h": 280,
+       "z": 0,
+       "rot": 0,
+       "color": "#B9B6AF",
+       "shape": "rect",
+       "mat": "betonarme",
+       "struct": true
+      },
+      {
+       "id": "ifxcol2",
+       "type": "kolon",
+       "label": "Kolon",
+       "x": 400,
+       "y": 100,
+       "w": 40,
+       "d": 40,
+       "h": 280,
+       "z": 0,
+       "rot": 0,
+       "color": "#7C8794",
+       "shape": "round",
+       "mat": "celik",
+       "struct": true
+      },
+      {
+       "id": "ifxbeam1",
+       "type": "kiris",
+       "label": "K",
+       "x": 250,
+       "y": 100,
+       "w": 300,
+       "d": 25,
+       "h": 50,
+       "z": 230,
+       "rot": 0,
+       "color": "#B9B6AF",
+       "mat": "betonarme",
+       "struct": true
+      }
+     ],
+     "dims": [],
+     "labels": [],
+     "rails": [],
+     "stairs": [],
+     "meta": {
+      "wallH": 280,
+      "wallT": 15,
+      "wallColor": "#F7F5F0",
+      "bg": null,
+      "slab": 0,
+      "unit": "cm",
+      "scale": 50
+     },
+     "slabs": [
+      {
+       "id": "slfx1",
+       "name": "",
+       "kind": "balkon",
+       "comp": "dos-balkon",
+       "pts": [
+        {
+         "x": 0,
+         "y": -150
+        },
+        {
+         "x": 500,
+         "y": -150
+        },
+        {
+         "x": 500,
+         "y": -10
+        },
+        {
+         "x": 0,
+         "y": -10
+        }
+       ],
+       "top": 0
+      }
+     ],
+     "sections": [
+      {
+       "id": "scfx1",
+       "name": "A",
+       "a": {
+        "x": 250,
+        "y": -200
+       },
+       "b": {
+        "x": 250,
+        "y": 900
+       },
+       "side": 1
+      }
+     ],
+     "levels": [
+      {
+       "v": 1,
+       "walls": [
+        {
+         "id": "wfxu1",
+         "a": {
+          "x": 0,
+          "y": 0
+         },
+         "b": {
+          "x": 500,
+          "y": 0
+         },
+         "t": 15,
+         "h": 0
+        },
+        {
+         "id": "wfxu2",
+         "a": {
+          "x": 500,
+          "y": 0
+         },
+         "b": {
+          "x": 500,
+          "y": 400
+         },
+         "t": 15,
+         "h": 0
+        }
+       ],
+       "openings": [
+        {
+         "id": "ofxu1",
+         "wallId": "wfxu1",
+         "type": "door",
+         "pos": 200,
+         "w": 90,
+         "h": 210,
+         "sill": 0,
+         "flip": false,
+         "side": 1,
+         "model": "tek",
+         "use": "ic"
+        }
+       ],
+       "rooms": [],
+       "items": [],
+       "dims": [],
+       "labels": [],
+       "rails": [],
+       "stairs": [],
+       "meta": {
+        "wallH": 280,
+        "wallT": 15,
+        "wallColor": "#F7F5F0",
+        "bg": null
+       },
+       "id": "lvfx1",
+       "kind": "floor",
+       "name": "1. Kat",
+       "slab": 15,
+       "roofs": []
+      }
+     ]
+    },
+    "createdAt": 1761000000000,
+    "updatedAt": 1761000000000
+   },
+   {
+    "id": "dwfx2",
+    "name": "Proje 1",
+    "kind": "proje",
+    "plan": {
+     "v": 1,
+     "walls": [
+      {
+       "id": "wfx001",
+       "a": {
+        "x": -7.5,
+        "y": -7.5
+       },
+       "b": {
+        "x": 527.5,
+        "y": -7.5
+       },
+       "t": 26.5,
+       "h": 0,
+       "kind": "dis",
+       "struct": false,
+       "comp": "dis-tugla-eps"
+      },
+      {
+       "id": "wfx002",
+       "a": {
+        "x": 527.5,
+        "y": -7.5
+       },
+       "b": {
+        "x": 527.5,
+        "y": 427.5
+       },
+       "t": 27,
+       "h": 0,
+       "kind": "perde",
+       "struct": true,
+       "comp": "perde-25"
+      },
+      {
+       "id": "wfx003",
+       "a": {
+        "x": 527.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": -7.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx004",
+       "a": {
+        "x": -7.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": -7.5,
+        "y": -7.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx005",
+       "a": {
+        "x": 527.5,
+        "y": -7.5
+       },
+       "b": {
+        "x": 842.5,
+        "y": -7.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx006",
+       "a": {
+        "x": 842.5,
+        "y": -7.5
+       },
+       "b": {
+        "x": 842.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx007",
+       "a": {
+        "x": 842.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": 527.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx008",
+       "a": {
+        "x": 387.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": 387.5,
+        "y": 802.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx009",
+       "a": {
+        "x": 387.5,
+        "y": 802.5
+       },
+       "b": {
+        "x": -7.5,
+        "y": 802.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx00a",
+       "a": {
+        "x": -7.5,
+        "y": 802.5
+       },
+       "b": {
+        "x": -7.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx00b",
+       "a": {
+        "x": 387.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": 632.5,
+        "y": 427.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx00c",
+       "a": {
+        "x": 632.5,
+        "y": 427.5
+       },
+       "b": {
+        "x": 632.5,
+        "y": 702.5
+       },
+       "t": 15,
+       "h": 0
+      },
+      {
+       "id": "wfx00d",
+       "a": {
+        "x": 632.5,
+        "y": 702.5
+       },
+       "b": {
+        "x": 387.5,
+        "y": 702.5
+       },
+       "t": 15,
+       "h": 0
+      }
+     ],
+     "openings": [
+      {
+       "id": "ofx00e",
+       "wallId": "wfx001",
+       "type": "window",
+       "pos": 260,
+       "w": 180,
+       "h": 150,
+       "sill": 80,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00f",
+       "wallId": "wfx004",
+       "type": "door",
+       "pos": 200,
+       "w": 100,
+       "h": 215,
+       "sill": 0,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00g",
+       "wallId": "wfx005",
+       "type": "window",
+       "pos": 150,
+       "w": 120,
+       "h": 120,
+       "sill": 100,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00h",
+       "wallId": "wfx002",
+       "type": "gap",
+       "pos": 210,
+       "w": 120,
+       "h": 220,
+       "sill": 0,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00i",
+       "wallId": "wfx00a",
+       "type": "window",
+       "pos": 180,
+       "w": 140,
+       "h": 140,
+       "sill": 90,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00j",
+       "wallId": "wfx003",
+       "type": "door",
+       "pos": 280,
+       "w": 90,
+       "h": 210,
+       "sill": 0,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00k",
+       "wallId": "wfx00b",
+       "type": "door",
+       "pos": 120,
+       "w": 80,
+       "h": 210,
+       "sill": 0,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofx00l",
+       "wallId": "wfx00c",
+       "type": "window",
+       "pos": 130,
+       "w": 60,
+       "h": 60,
+       "sill": 150,
+       "flip": false,
+       "side": 1
+      },
+      {
+       "id": "ofxorphan",
+       "wallId": "wSILINMIS",
+       "type": "window",
+       "pos": 50,
+       "w": 100,
+       "h": 120,
+       "sill": 90,
+       "flip": false,
+       "side": 1,
+       "model": "cift",
+       "use": "oda"
+      }
+     ],
+     "rooms": [
+      {
+       "id": "rfx00m",
+       "name": "Salon",
+       "rect": true,
+       "pts": [
+        {
+         "x": 0,
+         "y": 0
+        },
+        {
+         "x": 520,
+         "y": 0
+        },
+        {
+         "x": 520,
+         "y": 420
+        },
+        {
+         "x": 0,
+         "y": 420
+        }
+       ],
+       "floor": "parke",
+       "wallColor": "",
+       "h": 0,
+       "walls": [
+        "wfx001",
+        "wfx002",
+        "wfx003",
+        "wfx004"
+       ]
+      },
+      {
+       "id": "rfx00n",
+       "name": "Mutfak",
+       "rect": true,
+       "pts": [
+        {
+         "x": 535,
+         "y": 0
+        },
+        {
+         "x": 835,
+         "y": 0
+        },
+        {
+         "x": 835,
+         "y": 420
+        },
+        {
+         "x": 535,
+         "y": 420
+        }
+       ],
+       "floor": "seramik",
+       "wallColor": "",
+       "h": 0,
+       "walls": [
+        "wfx005",
+        "wfx006",
+        "wfx007",
+        null
+       ]
+      },
+      {
+       "id": "rfx00o",
+       "name": "Yatak Odası",
+       "rect": true,
+       "pts": [
+        {
+         "x": 0,
+         "y": 435
+        },
+        {
+         "x": 380,
+         "y": 435
+        },
+        {
+         "x": 380,
+         "y": 795
+        },
+        {
+         "x": 0,
+         "y": 795
+        }
+       ],
+       "floor": "parke",
+       "wallColor": "",
+       "h": 0,
+       "walls": [
+        null,
+        "wfx008",
+        "wfx009",
+        "wfx00a"
+       ]
+      },
+      {
+       "id": "rfx00p",
+       "name": "Banyo",
+       "rect": true,
+       "pts": [
+        {
+         "x": 395,
+         "y": 435
+        },
+        {
+         "x": 625,
+         "y": 435
+        },
+        {
+         "x": 625,
+         "y": 695
+        },
+        {
+         "x": 395,
+         "y": 695
+        }
+       ],
+       "floor": "mermer",
+       "wallColor": "#DDE4E4",
+       "h": 0,
+       "walls": [
+        "wfx00b",
+        "wfx00c",
+        "wfx00d",
+        null
+       ]
+      }
+     ],
+     "items": [
+      {
+       "id": "ifx00q",
+       "type": "kanepe",
+       "label": "Kanepe",
+       "x": 260,
+       "y": 340,
+       "w": 220,
+       "d": 90,
+       "h": 85,
+       "z": 0,
+       "rot": 180,
+       "color": "#9AA3AE"
+      },
+      {
+       "id": "ifx00r",
+       "type": "sehpa",
+       "label": "Sehpa",
+       "x": 260,
+       "y": 270,
+       "w": 110,
+       "d": 60,
+       "h": 40,
+       "z": 0,
+       "rot": 0,
+       "color": "#6E5341"
+      },
+      {
+       "id": "ifx00s",
+       "type": "tv",
+       "label": "TV",
+       "x": 260,
+       "y": 25,
+       "w": 180,
+       "d": 45,
+       "h": 50,
+       "z": 0,
+       "rot": 0,
+       "color": "#2E3135"
+      },
+      {
+       "id": "ifx00t",
+       "type": "bitki",
+       "label": "Bitki",
+       "x": 480,
+       "y": 380,
+       "w": 50,
+       "d": 50,
+       "h": 120,
+       "z": 0,
+       "rot": 0,
+       "color": "#4F8A4B"
+      },
+      {
+       "id": "ifx00u",
+       "type": "koltuk",
+       "label": "Berjer",
+       "x": 75,
+       "y": 290,
+       "w": 85,
+       "d": 85,
+       "h": 85,
+       "z": 0,
+       "rot": 90,
+       "color": "#C7A27A"
+      },
+      {
+       "id": "ifx00v",
+       "type": "tezgah",
+       "label": "Tezgah",
+       "x": 566,
+       "y": 210,
+       "w": 300,
+       "d": 62,
+       "h": 90,
+       "z": 0,
+       "rot": 270,
+       "color": "#F4F4F2"
+      },
+      {
+       "id": "ifx00w",
+       "type": "ada",
+       "label": "Ada",
+       "x": 720,
+       "y": 250,
+       "w": 180,
+       "d": 90,
+       "h": 90,
+       "z": 0,
+       "rot": 90,
+       "color": "#22B8C8"
+      },
+      {
+       "id": "ifx00x",
+       "type": "buzdolabi",
+       "label": "Buzdolabı",
+       "x": 795,
+       "y": 40,
+       "w": 70,
+       "d": 70,
+       "h": 190,
+       "z": 0,
+       "rot": 0,
+       "color": "#D9DCDF"
+      },
+      {
+       "id": "ifx00y",
+       "type": "yatak",
+       "label": "Yatak",
+       "x": 190,
+       "y": 695,
+       "w": 160,
+       "d": 200,
+       "h": 50,
+       "z": 0,
+       "rot": 180,
+       "color": "#ECE8E1"
+      },
+      {
+       "id": "ifx00z",
+       "type": "gardirop",
+       "label": "Gardırop",
+       "x": 190,
+       "y": 466,
+       "w": 200,
+       "d": 60,
+       "h": 240,
+       "z": 0,
+       "rot": 0,
+       "color": "#F2F0EC"
+      },
+      {
+       "id": "ifx010",
+       "type": "klozet",
+       "label": "WC",
+       "x": 425,
+       "y": 665,
+       "w": 38,
+       "d": 60,
+       "h": 40,
+       "z": 0,
+       "rot": 180,
+       "color": "#FFFFFF"
+      },
+      {
+       "id": "ifx011",
+       "type": "lavabo",
+       "label": "Lavabo",
+       "x": 545,
+       "y": 671,
+       "w": 80,
+       "d": 48,
+       "h": 85,
+       "z": 0,
+       "rot": 180,
+       "color": "#FFFFFF"
+      },
+      {
+       "id": "ifx012",
+       "type": "dus",
+       "label": "Duş",
+       "x": 580,
+       "y": 485,
+       "w": 90,
+       "d": 90,
+       "h": 5,
+       "z": 0,
+       "rot": 0,
+       "color": "#F5F5F5"
+      },
+      {
+       "id": "ifxcol1",
+       "type": "kolon",
+       "label": "Kolon",
+       "x": 100,
+       "y": 100,
+       "w": 30,
+       "d": 30,
+       "h": 280,
+       "z": 0,
+       "rot": 0,
+       "color": "#B9B6AF",
+       "shape": "rect",
+       "mat": "betonarme",
+       "struct": true
+      },
+      {
+       "id": "ifxcol2",
+       "type": "kolon",
+       "label": "Kolon",
+       "x": 400,
+       "y": 100,
+       "w": 40,
+       "d": 40,
+       "h": 280,
+       "z": 0,
+       "rot": 0,
+       "color": "#7C8794",
+       "shape": "round",
+       "mat": "celik",
+       "struct": true
+      },
+      {
+       "id": "ifxbeam1",
+       "type": "kiris",
+       "label": "K",
+       "x": 250,
+       "y": 100,
+       "w": 300,
+       "d": 25,
+       "h": 50,
+       "z": 230,
+       "rot": 0,
+       "color": "#B9B6AF",
+       "mat": "betonarme",
+       "struct": true
+      }
+     ],
+     "dims": [],
+     "labels": [],
+     "rails": [],
+     "stairs": [],
+     "meta": {
+      "wallH": 280,
+      "wallT": 15,
+      "wallColor": "#F7F5F0",
+      "bg": null,
+      "slab": 0,
+      "unit": "cm",
+      "scale": 50
+     },
+     "slabs": [
+      {
+       "id": "slfx1",
+       "name": "",
+       "kind": "balkon",
+       "comp": "dos-balkon",
+       "pts": [
+        {
+         "x": 0,
+         "y": -150
+        },
+        {
+         "x": 500,
+         "y": -150
+        },
+        {
+         "x": 500,
+         "y": -10
+        },
+        {
+         "x": 0,
+         "y": -10
+        }
+       ],
+       "top": 0
+      }
+     ],
+     "sections": [
+      {
+       "id": "scfx1",
+       "name": "A",
+       "a": {
+        "x": 250,
+        "y": -200
+       },
+       "b": {
+        "x": 250,
+        "y": 900
+       },
+       "side": 1
+      }
+     ],
+     "levels": []
+    },
+    "createdAt": 1761000000000,
+    "updatedAt": 1761000000000
+   }
+  ],
+  "photos": []
+ },
+ "blobs": {}
+}
