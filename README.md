@@ -7,11 +7,12 @@ internet olmadan da açılır (telefon / tablette *Ana ekrana ekle* ile uygulama
 (`aligokten/tadilatbodrum.com` → `public/saha`, commit `f8d5070`) alınmıştır. Orada iş takibinin bir sekmesi olan araç,
 burada müşteri / teklif / keşif akışından bağımsız, kendi proje yönetimiyle çalışır.
 
-🌐 Canlı sürüm: <https://aligokten.github.io/SAGGCAD/> (`main` dalına her gönderimde otomatik yayınlanır)
+🌐 Canlı sürüm: <https://aligokten.github.io/SAGGCAD/> (`main` dalına her gönderimde otomatik yayınlanır) ·
+sürüm **0.4.0-b2a** (B2A geliştirme sürümü; sürüm geçmişi [docs/ROADMAP.md](docs/ROADMAP.md))
 
 ## Özellikler
 
-### Arayüz (v0.3)
+### Arayüz (0.3)
 - **Menü çubuğu:** Dosya, Çizim, Model, Görünüm, Belgele, Araçlar — tüm komutlar ve kısayolları.
 - **Komut paleti (Ctrl+K):** her komut ve araç aranabilir; son kullanılanlar üstte. Mobilde ☰ düğmesi aynı listeyi açar.
 - **Araç çubuğu:** Seçim, Duvar ve mahal, Kapı ve pencere, Yapı elemanları, Donatı, Belgeleme grupları;
@@ -49,13 +50,16 @@ burada müşteri / teklif / keşif akışından bağımsız, kendi proje yöneti
 - **Döşeme** (F): köşelerle ya da dış hattan otomatik; ara kat, zemine oturan, balkon / çıkma, teras; üst yüz kotu.
 - Kat döşemesine de kompozit yapı atanır (kat kotu yapının kalınlığından hesaplanır).
 
-### BIM çekirdeği (B1 — salt okunur)
+### BIM çekirdeği (B1 + B2A — parametrik düzenleme)
 - Tüm yapı elemanları (duvar, kolon, kiriş, döşeme, kapı, pencere, boşluk, mahal, çatı, merdiven, korkuluk) ortak bir
   BIM şemasıyla okunur: kalıcı kimlik, sınıf (IFC karşılığı), tür, kat, geometri ve özellikler ayrı, ilişkiler.
-- Eleman türleri (Archicad favori / Revit Family Type mantığı): `DIS-DUV-01` gibi yerleşik türler kompozit kütüphanesine
-  bağlıdır; tür ve eleman parametreleri ayrı tutulur, her değerin kaynağı (tür / eleman / kat) gösterilir.
-- Özellik panelinin altında **BIM** bölümü; Araçlar → **BIM model raporu** (sınıflar, türler, ilişki ve veri doğrulaması).
-- Eski projeler aynen açılır: BIM modeli kayıtlı veriden türetilir, dosyaya yazılmaz. Ayrıntı: [docs/BIM-CEKIRDEK.md](docs/BIM-CEKIRDEK.md).
+- **Model → BIM Türleri ve Parametreler**: yerleşik türleri çoğaltıp projeye özel türler oluşturun (ör. `DIS-DUV-02`),
+  işlev / kompozit / kalınlık / yükseklik / taşıyıcılık düzenleyin, elemanlara atayın. Tür değişince aynı türdeki
+  elemanlar güncellenir; elemanda özel olarak değiştirilmiş değerler korunur ("Bu değişiklik 12 duvarı etkileyecek…").
+- Özellik panelinin **BIM** bölümü: tür atama, her değerin kaynağı (Tür / Geçersiz kılındı / Eleman / Kat / Hesaplanan),
+  **Türe döndür**, **Kata bağlı** yükseklik. Tüm BIM değişiklikleri tek adımda geri alınır (Ctrl+Z).
+- Eski projeler aynen açılır: kayıt biçimi değişmedi; türler `meta.bimTypes`, atama `bimType`, geçersiz kılma `bimOv`
+  isteğe bağlı alanlarında. Ayrıntı: [docs/BIM-CEKIRDEK.md](docs/BIM-CEKIRDEK.md).
 
 ### Malzeme katmanları ve yapı fiziği
 - **Kompozit yapılar:** duvar ve döşemelerde katman katman malzeme ve kalınlık; taşıyıcı katman; katmanlar planda ve kesitte renk + taramayla.
@@ -110,7 +114,9 @@ qrcode `vendor/` altında gömülüdür (çevrimdışı çalışır).
 ```bash
 npm start        # http://localhost:8080  (python3 -m http.server)
 npm test         # sözdizimi denetimi + çizim motoru, yapı fiziği ve BIM testleri (node --test)
-node tests/e2e/b1.e2e.cjs http://localhost:8080/   # isteğe bağlı tarayıcı testi (Playwright gerekir)
+node tests/e2e/b1.e2e.cjs http://localhost:8080/    # isteğe bağlı tarayıcı testleri (Playwright gerekir)
+node tests/e2e/b2a.e2e.cjs http://localhost:8080/
+npm run bench    # BIM servis katmanı ölçümü
 ```
 
 Herhangi bir statik sunucu da olur; dosyayı doğrudan `file://` ile açmak ES modülleri nedeniyle çalışmaz.
@@ -126,7 +132,7 @@ js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı e
 js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek
 js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
 css/ui.css        arayüz tasarım sistemi ve temalar
-js/bim/           BIM çekirdeği: schema, types, adapter, relations, api, ui
+js/bim/           BIM çekirdeği: schema, types, fields, adapter, relations, commands, api, ui, manager
 js/plan-geom.js   plan geometrisi ve metraj   js/importer.js, importui.js   DXF / PDF içe aktarma
 js/exporters.js   DXF, DAE, 3DS, STL, DXF 3D  js/cabinet.js, cabdesign.js   mutfak / dolap tasarlayıcı
 js/roof.js, stairs.js, tiles.js, openings.js, fixtures.js, joinery.js, floororder.js, labels.js, cnc.js, forms.js …

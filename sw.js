@@ -1,6 +1,6 @@
 /* SAGGCAD — çevrimdışı kabuk önbelleği. Kendi dosyalarımız önce ağdan (yeni sürüm hemen gelsin),
  * çevrimdışıysa önbellekten; yazı tipleri önce önbellekten. Sürüm değişince CACHE adını artırın. */
-const CACHE = 'saggcad-v4';
+const CACHE = 'saggcad-v5';
 const CORE = [
   './',
   'index.html',
@@ -45,6 +45,9 @@ const CORE = [
   'js/workbench.js',
   'js/bim/adapter.js',
   'js/bim/api.js',
+  'js/bim/commands.js',
+  'js/bim/fields.js',
+  'js/bim/manager.js',
   'js/bim/relations.js',
   'js/bim/schema.js',
   'js/bim/types.js',

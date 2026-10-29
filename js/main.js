@@ -342,7 +342,7 @@ function planScreen() {
   root.classList.toggle('nav-off', !navOn);
   const sync3d = debounce(() => S.p3?.setPlan(S.editor.root), 350);
   const refresh = debounce(() => { nav?.render(); sb?.render(); }, 120);
-  S.bim = createBim(() => S.editor?.root);   // BIM çekirdeği: eski veriden türetilen salt okunur model
+  S.bim = createBim(() => S.editor?.root, { getVersion: () => S.editor?.rev });   // BIM çekirdeği: eski veriden türetilir; yazma editör komutlarıyla
   S.editor = new PlanEditor($('#ps2d'), dw.plan, {
     bim: S.bim,
     onChange: pl => { dw.plan = pl; dw.updatedAt = Date.now(); save(); if (mode !== '2d') sync3d(); refresh(); },
@@ -505,6 +505,7 @@ function planScreen() {
     ...planLevels(E.root).map((l, i) => ({ id: 'lv.' + l.idx, cat: 'model', t: `Kata geç: ${l.name}`, sep: i === 0, run: () => E.setLevel(l.idx), on: () => E.lv === l.idx })),
     { id: 'model.cab', cat: 'model', t: 'Mutfak / dolap tasarla (seçili duvar)', ic: 'kitchen', sep: true, run: () => E.cabFromSelection() },
     { id: 'model.lib', cat: 'model', t: 'Malzemeler ve yapılar…', ic: 'layers', run: () => E.openLibrary() },
+    { id: 'model.bimtypes', cat: 'model', t: 'BIM Türleri ve Parametreler…', ic: 'layers', kw: 'bim tür tip parametre favori family type', run: () => E.openBimTypes() },
     { id: 'view.2d', cat: 'view', t: '2D plan', k: '', ic: 'grid', run: () => setMode('2d'), on: () => mode === '2d' },
     { id: 'view.3d', cat: 'view', t: '3D model', ic: 'cube', run: () => setMode('3d'), on: () => mode === '3d' },
     { id: 'view.split', cat: 'view', t: 'Yan yana (2D + 3D)', run: () => setMode('split'), on: () => mode === 'split', when: () => !small },

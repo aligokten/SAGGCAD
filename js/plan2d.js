@@ -12,7 +12,10 @@ import { DOOR_MODELS, DOOR_USES, WIN_MODELS, WIN_USES, FRAME_COLORS, LEAF_COLORS
 import { WALL_KINDS, SLAB_KINDS, compOf, compThickness, matOf, slabKind } from './materials.js';
 import { structDefs, wallLayersSvg, slabSvg, columnSvg, beamSvg, sectionMarkSvg, wallStructInsp, columnInsp, beamInsp, slabInsp, sectionInsp, drawingSettingsInsp, libraryDialog } from './structure.js';
 import { unitOf, toU, fromU, fmtL, fmtLU } from './units.js';
-import { bimInspHtml } from './bim/ui.js';
+import { bimInspHtml, bindBimInsp } from './bim/ui.js';
+import { runCommand, applyPatch, noteLegacyEdit } from './bim/commands.js';
+import { openTypeManager } from './bim/manager.js';
+import { clsOfLegacy } from './bim/fields.js';
 import { newCabinet, autoFill, itemDims, planSymbol, runLength, FRONTS, pick as cabPick, MT as CAB_MT } from './cabinet.js';
 
 /* mobilya seçim listesi: kategorilere göre gruplu */
@@ -108,7 +111,9 @@ export class PlanEditor {
   prep(P) { for (const k of ['walls', 'openings', 'rooms', 'items', 'dims', 'labels', 'rails', 'roofs', 'stairs', 'slabs', 'sections']) P[k] ||= []; P.meta ||= { ...this._root.meta }; return P; }
 
   constructor(host, plan, { onChange, resolvePhoto, pickBackground, addImage, cab, ghost, onLevel, views, bim } = {}) {
-    this.bim = bim || null;       // BIM çekirdeği servis katmanı (salt okunur bilgi; js/bim/api.js)
+    this.bim = bim || null;       // BIM çekirdeği servis katmanı (js/bim/api.js); yazma bimCommand() üzerinden
+    this.rev = 0;                 // veri sürümü: her değişiklikte artar (BIM önbelleği bununla geçersizleşir)
+    this.bim?.commands?.setExecutor(cmd => this.bimCommand(cmd));
     this.views = views || null;   // kesit / görünüş penceresi (kesit kimliğiyle)
     this.addImage = addImage;
     this.ghost = ghost || null;   // proje çiziminde rölöve (mevcut durum) altlığı
@@ -118,7 +123,8 @@ export class PlanEditor {
     this.onLevel = onLevel || null;
     this.plan = plan || emptyPlan();
     this.prep(this.plan);
-    this.onChange = onChange || (() => {});
+    const oc = onChange || (() => {});
+    this.onChange = r => { this.rev++; oc(r); };
     this.resolvePhoto = resolvePhoto;
     this.pickBackground = pickBackground;
     this.s = 0.5; this.ox = 40; this.oy = 40;
@@ -396,17 +402,46 @@ export class PlanEditor {
 
   snap() { this.undoS.push(JSON.stringify(this.plan)); if (this.undoS.length > 120) this.undoS.shift(); this.redoS = []; }
   changed() { this.onChange(this._root); this.render(); this.renderInsp(); this.emit('change'); }
+  /* geri al yığını: kat planı anlık görüntüsü (JSON metni) ya da BIM komutu yaması ({ bim: patch, label }) */
   undo() {
     if (!this.undoS.length) return;
-    this.redoS.push(JSON.stringify(this.plan));
-    this.plan = JSON.parse(this.undoS.pop());
-    this.validateSel(); this.changed();
+    const e = this.undoS.at(-1);
+    if (e && typeof e === 'object' && e.bim) {
+      try { applyPatch(this._root, e.bim, 'undo'); } catch (err) { toast('Geri alınamadı: ' + err.message, 'err'); return; }
+      this.undoS.pop(); this.redoS.push(e);
+    } else {
+      this.redoS.push(JSON.stringify(this.plan));
+      this.plan = JSON.parse(this.undoS.pop());
+    }
+    this.validateSel(); this.updateLvSel(); this.changed();
   }
   redo() {
     if (!this.redoS.length) return;
-    this.undoS.push(JSON.stringify(this.plan));
-    this.plan = JSON.parse(this.redoS.pop());
-    this.validateSel(); this.changed();
+    const e = this.redoS.at(-1);
+    if (e && typeof e === 'object' && e.bim) {
+      try { applyPatch(this._root, e.bim, 'redo'); } catch (err) { toast('Yinelenemedi: ' + err.message, 'err'); return; }
+      this.redoS.pop(); this.undoS.push(e);
+    } else {
+      this.undoS.push(JSON.stringify(this.plan));
+      this.plan = JSON.parse(this.redoS.pop());
+    }
+    this.validateSel(); this.updateLvSel(); this.changed();
+  }
+  /* BIM komutu (js/bim/commands.js): kopyada hesaplanır, doğrulanır, tek geri alınabilir işlem olarak uygulanır */
+  bimCommand(cmd) {
+    if (this.chain) this.finishChain();
+    const r = runCommand(this._root, cmd);
+    if (!r.applied) return r;
+    this.undoS.push({ bim: r.patch, label: r.label }); if (this.undoS.length > 120) this.undoS.shift(); this.redoS = [];
+    this.validateSel(); this.updateLvSel(); this.changed();
+    return r;
+  }
+  /* özellik panelindeki eski alan düzenlemesini açık türün geçersiz kılma kaydına işle */
+  bimNote(k, x) {
+    if (!x?.bimType || !this.sel) return;
+    const coll = { wall: 'walls', opening: 'openings', item: 'items', slab: 'slabs', room: 'rooms' }[this.sel.kind];
+    const r = coll && noteLegacyEdit(this._root, clsOfLegacy(coll, x), x, k);
+    if (r === 'detached') toast('Türe ait bir değer değişti — eleman türden ayrıldı');
   }
   validateSel() { if (this.sel && !this.obj(this.sel)) this.sel = null; }
   setPlan(p) { this.plan = p; p.rails ||= []; this.sel = null; this.undoS = []; this.redoS = []; this.loadBg(); this.changed(); this.fit(); }
@@ -2222,7 +2257,10 @@ export class PlanEditor {
     if (bd) { bd.open = localStorage.getItem('sg-bim-open') === '1'; bd.ontoggle = () => { try { localStorage.setItem('sg-bim-open', bd.open ? '1' : '0'); } catch { /* yok say */ } }; }
     this.el.classList.toggle('has-sel', !!o);
     this.bindInsp(o);
+    if (bd) bindBimInsp(bd, this, () => this.openBimTypes());
   }
+  /* Model → BIM Türleri ve Parametreler (js/bim/manager.js) */
+  openBimTypes(opts = {}) { if (this.bim) return openTypeManager(this, opts); }
 
   /* çokgen kenar ölçüleri: uzunluk girilir, + ile kenara köşe eklenir, köşe silinir */
   edgeInsp(o) {
@@ -2316,7 +2354,7 @@ export class PlanEditor {
         if (el.dataset.len) v = +fromU(v, this._root).toFixed(3);   // seçili birim → cm
         this.snap();
         const x = this.obj(this.sel);
-        if (this.structChange(k, v, x)) { this.changed(); return; }
+        if (this.structChange(k, v, x)) { this.bimNote(k, x); this.changed(); return; }
         if (k.startsWith('lv.')) {
           const q = k.slice(3);
           if (this.lv) this.plan[q] = q === 'slab' ? Math.max(0, v) : v;
@@ -2382,6 +2420,7 @@ export class PlanEditor {
           this.setWallT(x, v);
         } else x[k] = v;
         if (k === 'floor' && this.sel.kind === 'room' && tileable(x) && !x.tile) x.tile = tileDefaults();
+        this.bimNote(k, x);
         this.changed();
         if (k === 'meta.wallT') this.renderHud();
       };

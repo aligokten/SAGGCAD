@@ -322,6 +322,36 @@ select.mini { height: 30px; padding: 0 22px 0 8px; border: 1px solid var(--ui-li
 .bim-src.b-type { background: var(--accent-50); color: var(--accent); }
 .bim-src.b-inst { background: rgba(245, 158, 11, .14); color: #B45309; }
 .bim-src.b-lvl { background: rgba(34, 160, 107, .14); color: #1C7C55; }
+.bim-src.b-ovr { background: rgba(211, 58, 74, .13); color: #B42335; }
+.bim-src.b-der { background: var(--ui-line-2); color: var(--ui-text-2); }
+.bim-sec h5 { font: 700 10.5px/1.2 var(--f); letter-spacing: .06em; text-transform: uppercase; color: var(--ui-muted); margin-top: 10px; }
+.bim-type { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.bim-par .nowrap { white-space: nowrap; }
+.bim-par tr.bim-act-row td { padding-top: 0; border-top: 0; }
+.bim-par tr.bim-act-row td > * { display: inline-flex; margin: 0 8px 2px 0; vertical-align: middle; }
+.bim-par tr.bim-act-row .btn { padding: 2px 8px; font-size: 11px; }
+.bim-par tr.bim-act-row .check { font-size: 11px; gap: 6px; }
+.bim-legend { display: flex; flex-wrap: wrap; gap: 4px; }
+/* BIM Türleri ve Parametreler penceresi */
+.tm { display: flex; flex-direction: column; gap: 10px; }
+.tm-tabs { flex-wrap: wrap; }
+.tm-wrap { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: 14px; align-items: start; }
+.tm-list { display: flex; flex-direction: column; gap: 4px; max-height: 58vh; overflow: auto; padding-right: 2px; }
+.tm-list .lib-item { position: relative; padding-right: 40px; }
+.tm-n { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font: 700 11px/1 var(--f); font-style: normal; padding: 3px 6px; border-radius: 10px; background: var(--ui-line-2); color: var(--ui-text-2); }
+.tm-lock { font-style: normal; font-size: 10px; }
+.tm-ed { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tm-head { display: flex; flex-direction: column; gap: 2px; }
+.tm-head b { font-size: 14px; }
+.tm-ro { font-size: 12px; padding: 6px 0; color: var(--ui-text-2); }
+.tm-sum { font-size: 12px; padding: 8px 10px; border-radius: 6px; border-left: 3px solid var(--accent); background: var(--accent-50); color: var(--ui-text); }
+.tm-sum.err { border-left-color: #D33A4A; background: rgba(211, 58, 74, .1); }
+.tm-del { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; padding-top: 8px; border-top: 1px solid var(--ui-line); }
+.tm-del label { flex: 1 1 180px; }
+@media (max-width: 720px) {
+  .tm-wrap { grid-template-columns: 1fr; }
+  .tm-list { max-height: 30vh; }
+}
 .bim-rel { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--ui-text-2); }
 .bim-iss { list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; max-height: 50vh; overflow: auto; }
 .bim-iss li { padding: 4px 8px; border-radius: 5px; border-left: 3px solid var(--ui-muted); background: var(--ui-panel-2); }

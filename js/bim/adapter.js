@@ -29,7 +29,7 @@ export function elementFromLegacy(ctx, o) {
     const t = typeForLegacy(root, cls, o);
     return {
       schema: BIM_SCHEMA_VERSION, id: null, cls, typeId: t.typeId, typeSource: t.typeSource, levelId,
-      geom, props, rels: [{ kind: 'containedIn', target: levelId }, ...rels], inherited: {},
+      geom, props, rels: [{ kind: 'containedIn', target: levelId }, ...rels], inherited: {}, ovKeys: Array.isArray(o?.bimOv) ? o.bimOv.filter(k => typeof k === 'string') : [],
       vis: { visible: true, layer: CLASSES[cls].layer, ifc: CLASSES[cls].ifc },
       meta: { createdAt: num(o?.createdAt), modifiedAt: num(o?.updatedAt), origin: 'legacy', src: { coll: ctx.coll, level: ctx.levelIdx, index: ctx.index } },
     };
