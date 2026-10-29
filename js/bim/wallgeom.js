@@ -20,7 +20,7 @@
  *   LEGACY (yay duvar içeren düğüm) eski yarım kalınlık uzatması korunur ve sorun olarak raporlanır (B3)
  */
 import { analyzeJoins } from './joins.js';
-import { sub, add, mul, dot, cross, len, norm, perp, hp, hpThrough, hpFlip, clipAll, diffAll, bigQuad, area, absArea, interArea, lineX, edgeCoverage, centroid } from './geom2d.js';
+import { sub, add, mul, dot, cross, len, norm, perp, hp, hpThrough, hpFlip, clipAll, diffAll, bigQuad, area, absArea, interArea, lineX, edgeCoverage, centroid, bbox, bbHit } from './geom2d.js';
 import { compOf, compThickness, matOf, wallKind } from '../materials.js';
 import { V, wallExt } from '../plan-geom.js';
 
@@ -221,21 +221,27 @@ function compute(R, P, wallT) {
 function resolveOverlaps(W) {
   const all = [];
   for (const S of W.values()) for (const l of S.layers) for (const p of l.pieces) all.push({ S, l, p, bb: bbox(p) });
+  const pairs = [];
+  piecePairs(all, (A, B) => { if (A.S !== B.S && interArea(A.p, B.p) > 0.01) pairs.push([A, B]); });
+  if (!pairs.length) return [];
+  pairs.sort(([a, b], [c, d]) => (a.S.id + b.S.id < c.S.id + d.S.id ? -1 : 1));
   const out = [];
-  for (let i = 0; i < all.length; i++) for (let k = i + 1; k < all.length; k++) {
-    const A = all[i], B = all[k];
-    if (A.S === B.S || !A.p || !B.p || !bbHit(A.bb, B.bb) || interArea(A.p, B.p) <= 0.01) continue;
+  // kaybedenin parçası değişince güncel parçaları üzerinden çıkarılır (parça → güncel liste eşlemesi)
+  const cur = new Map(all.map(x => [x, [x.p]]));
+  for (const [A, B] of pairs) {
     const keepA = A.l.prio > B.l.prio || (A.l.prio === B.l.prio && A.S.id < B.S.id), [K, L] = keepA ? [A, B] : [B, A];
-    const rest = diffAll([L.p], K.p);
-    L.l.pieces = L.l.pieces.filter(q => q !== L.p).concat(rest);
-    out.push({ keep: K.S.id, lose: L.S.id, area: absArea(L.p) - rest.reduce((s, q) => s + absArea(q), 0) });
-    // kaybedenin yeni parçaları listede yerini alır (sonraki çiftler için)
-    L.p = null; for (const q of rest) all.push({ S: L.S, l: L.l, p: q, bb: bbox(q) });
+    const before = cur.get(L), keepPieces = cur.get(K);
+    let rest = before;
+    for (const kp of keepPieces) rest = diffAll(rest, kp);
+    const lost = before.reduce((s, q) => s + absArea(q), 0) - rest.reduce((s, q) => s + absArea(q), 0);
+    if (lost <= 0.01) continue;
+    L.l.pieces = L.l.pieces.filter(q => !before.includes(q)).concat(rest);
+    cur.set(L, rest);
+    out.push({ keep: K.S.id, lose: L.S.id, area: lost });
   }
   return out;
 }
-const bbox = p => ({ x0: Math.min(...p.map(q => q.x)), y0: Math.min(...p.map(q => q.y)), x1: Math.max(...p.map(q => q.x)), y1: Math.max(...p.map(q => q.y)) });
-const bbHit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
 
 /* ── açıklık bölgeleri: duvar boyunca (s) ve düşey (z) aralıklar; dış bölgeler sonsuz (birleşim uzantıları dahil) ── */
 export function wallZones(P, w, meta) {
@@ -288,16 +294,23 @@ export function wallQuantities(R, P, meta) {
   return { walls: per, byMat, total, legacy: [...geo.walls.values()].filter(S => S.legacy).map(S => S.id) };
 }
 
-/* ── doğrulama: katmanlar arası çakışma alanı (test ve tanı) ── */
+/* ── doğrulama: katmanlar arası çakışma alanı (test ve tanı); ızgara + sınır kutusu ile aday çiftler ── */
+function piecePairs(items, fn) {
+  const cell = 200, m = new Map();
+  items.forEach((it, i) => { const b = it.bb; for (let x = Math.floor(b.x0 / cell); x <= Math.floor(b.x1 / cell); x++) for (let y = Math.floor(b.y0 / cell); y <= Math.floor(b.y1 / cell); y++) { const k = x + ',' + y; (m.get(k) || m.set(k, []).get(k)).push(i); } });
+  const seen = new Set();
+  for (const list of m.values()) for (let a = 0; a < list.length; a++) for (let c = a + 1; c < list.length; c++) {
+    const i = Math.min(list[a], list[c]), k = Math.max(list[a], list[c]), key = i * 1e7 + k;
+    if (seen.has(key)) continue; seen.add(key);
+    if (bbHit(items[i].bb, items[k].bb)) fn(items[i], items[k]);
+  }
+}
 export function overlapReport(geo, minArea = 0.01) {
   const all = [];
-  for (const S of geo.walls.values()) for (const l of S.layers || []) for (const p of l.pieces || []) all.push({ wid: S.id, layer: l.idx, p });
+  for (const S of geo.walls.values()) for (const l of S.layers || []) for (const p of l.pieces || []) all.push({ wid: S.id, layer: l.idx, p, bb: bbox(p) });
   const bad = [];
-  for (let i = 0; i < all.length; i++) for (let k = i + 1; k < all.length; k++) {
-    const A = all[i], B = all[k], a = interArea(A.p, B.p);
-    if (a > minArea) bad.push({ a: `${A.wid}#${A.layer}`, b: `${B.wid}#${B.layer}`, area: a });
-  }
-  return bad;
+  piecePairs(all, (A, B) => { const a = interArea(A.p, B.p); if (a > minArea) bad.push({ a: `${A.wid}#${A.layer}`, b: `${B.wid}#${B.layer}`, area: a }); });
+  return bad.sort((x, y) => (x.a + x.b < y.a + y.b ? -1 : 1));
 }
 
 /* ── 2D kontur: kenarların örtüşmesine göre dış hat, malzeme sınırı ve çekirdek sınırı ── */

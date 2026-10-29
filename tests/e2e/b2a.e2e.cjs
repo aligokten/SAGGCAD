@@ -64,7 +64,7 @@ const ok = (c, m) => { if (!c) throw new Error('B2A HATA: ' + m); console.log('�
   const sum = await p.textContent('.tm-sum');
   ok(sum.includes('Bu değişiklik 12 duvarı etkileyecek. 2 duvarda özel kalınlık ve kompozit yapı korunacak.'), 'canlı özet: ' + sum.trim());
   await shot('b2a-mgr.png');
-  const layersSvg = () => p.evaluate(() => [...document.querySelectorAll('#ps2d .wlayers')].map(g => g.innerHTML).join('|'));
+  const layersSvg = () => p.evaluate(() => [...document.querySelectorAll('#ps2d .walls')].map(g => g.innerHTML).join('|'));
   const layers0 = await layersSvg();
   await p.click('.tm [data-tm=apply]'); await p.waitForTimeout(150); await closeModal();
   ok((await W('wfx003')).t === 26.5 && (await W('wfx003')).comp === 'dis-tugla-eps' && (await W('wfx004')).t === 32 && (await W('wfx005')).t === 35, 'uygun 10 duvar güncellendi, 2 özel kalınlık korundu');
@@ -87,7 +87,7 @@ const ok = (c, m) => { if (!c) throw new Error('B2A HATA: ' + m); console.log('�
 
   // 7) kat bağı ve 3D yüksekliği
   await p.click('#psMode [data-m="3d"]'); await p.waitForSelector('#p3host canvas', { timeout: 30000 }); await p.waitForTimeout(900);
-  const ySum = () => p.evaluate(() => { let s = 0; window.SAGGCAD.p3.root.traverse(o => { if (o.isMesh) s += o.position.y + (o.geometry?.parameters?.height || 0); }); return +s.toFixed(4); });
+  const ySum = () => p.evaluate(() => { let s = 0; window.SAGGCAD.p3.root.traverse(o => { if (!o.isMesh || o.name !== 'Duvar') return; const g = o.geometry; if (g?.parameters?.height) s += o.position.y + g.parameters.height; else if (g) { g.computeBoundingBox(); s += o.position.y + g.boundingBox.max.y; } }); return +s.toFixed(4); });
   await p.evaluate(() => { const v = window.SAGGCAD.p3; v.opt.cut = false; v.build(); });   // 3D varsayılan kesit (110 cm) kapalı: tam yükseklik
   const y0 = await ySum();
   const r7 = await p.evaluate(() => window.SAGGCAD.bim.commands.run({ op: 'setElementLevelBinding', id: 'wfx006', key: 'height', bound: false }));

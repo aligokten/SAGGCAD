@@ -2113,7 +2113,15 @@ export class PlanEditor {
   }
 
   /* ───────────── özellik paneli ───────────── */
+  /* panel yeniden çizimi yeniden girişe karşı korunur: odaktaki alan silinirken tarayıcının gönderdiği change / blur
+   * olayı ikinci bir çizim ya da komut başlatmaz (iç içe innerHTML hatası ve çift uygulama önlenir) */
   renderInsp() {
+    if (this._rIns) { this._rInsAgain = true; return; }
+    this._rIns = true;
+    try { this._renderInsp(); } finally { this._rIns = false; }
+    if (this._rInsAgain) { this._rInsAgain = false; queueMicrotask(() => this.renderInsp()); }
+  }
+  _renderInsp() {
     const s = this.sel, o = this.obj(s), P = this.plan;
     const U = unitOf(this._root), RT = this._root;
     // uzunluk alanları seçili birimde gösterilir (data-len: kayıtta cm'ye çevrilir)
@@ -2347,6 +2355,7 @@ export class PlanEditor {
         return;
       }
       el.onchange = () => {
+        if (this._rIns || !el.isConnected) return;   // panel yeniden çizilirken silinen alanın geç change olayı
         const k = el.dataset.k;
         let v = el.type === 'number' ? parseFloat(el.value) : el.type === 'checkbox' ? el.checked : el.value;
         if (el.type === 'number' && !Number.isFinite(v)) return;

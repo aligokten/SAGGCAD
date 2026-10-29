@@ -59,9 +59,11 @@ export function edgesHP(p) {
   return q.map((a, i) => { const b = q[(i + 1) % q.length], e = norm(sub(b, a)); return hpThrough(a, perp(e)); });
 }
 /* A \ B (ikisi de dışbükey) → ayrık dışbükey parçalar */
+export const bbox = p => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const q of p) { if (q.x < x0) x0 = q.x; if (q.y < y0) y0 = q.y; if (q.x > x1) x1 = q.x; if (q.y > y1) y1 = q.y; } return { x0, y0, x1, y1 }; };
+export const bbHit = (a, b, e = 1e-9) => a.x0 < b.x1 - e && b.x0 < a.x1 - e && a.y0 < b.y1 - e && b.y0 < a.y1 - e;
 export function diff(A, B) {
   if (!A) return [];
-  if (!B || !overlaps(A, B)) return [A];
+  if (!B || !bbHit(bbox(A), bbox(B)) || !overlaps(A, B)) return [A];
   const out = []; let rest = A;
   for (const h of edgesHP(B)) {
     if (!rest) break;

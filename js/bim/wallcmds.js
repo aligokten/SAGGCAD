@@ -64,8 +64,12 @@ export function wallCommands(fail) {
 
   /* mahal çokgeni: sınır duvarı değişen kenarlar duvarı izler (eksene uzaklık korunur), diğerleri yerinde kalır */
   function syncRooms(S, rec, changedIds) {
-    const P = rec.P, lv = rec.t.lv, out = { updated: [], unresolved: [] }, changed = new Set(changedIds), ref = S.orig(lv);
+    const P = rec.P, lv = rec.t.lv, out = { updated: [], unresolved: [] }, ref = S.orig(lv);
     const refWall = id => (ref.walls || []).find(w => w && w.id === id);
+    // yalnız geometrisi gerçekten değişen duvarlar (aynı komut tekrar edilince mahal yeniden hesaplanmaz — idempotent)
+    const moved = id => { const a = refWall(id), b = P.walls.find(x => x.id === id); return !!(a && b) && (!V.eq(a.a, b.a, 1e-6) || !V.eq(a.b, b.b, 1e-6) || (+a.t || 0) !== (+b.t || 0)); };
+    const changed = new Set(changedIds.filter(moved));
+    if (!changed.size) return out;
     for (const room of (P.rooms || [])) {
       if (!room || !Array.isArray(room.pts) || room.pts.length < 3) continue;
       const n = room.pts.length, edges = room.pts.map((a, i) => ({ a, b: room.pts[(i + 1) % n] }));
@@ -101,7 +105,7 @@ export function wallCommands(fail) {
       if (pts.length !== n) { fail1('ardışık kenarlar paralel'); continue; }
       if (Math.sign(polyArea(pts)) !== Math.sign(polyArea(room.pts)) || Math.abs(polyArea(pts)) < 1) { fail1('yeni sınır ters döndü ya da alanı sıfır'); continue; }
       if (selfIntersects(pts)) { fail1('yeni sınır kendini kesiyor'); continue; }
-      if (JSON.stringify(pts) === JSON.stringify(room.pts)) continue;
+      if (pts.every((q, i) => Math.abs(q.x - room.pts[i].x) <= 0.02 && Math.abs(q.y - room.pts[i].y) <= 0.02)) continue;   // yuvarlama toleransı
       S.set(tgt(lv, 'rooms', room.id), room, 'pts', pts);
       if (room.rect && !isAxisRect(pts)) S.set(tgt(lv, 'rooms', room.id), room, 'rect', undefined);
       out.updated.push(room.id);

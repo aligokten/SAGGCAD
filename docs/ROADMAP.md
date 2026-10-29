@@ -1,8 +1,8 @@
 # SAGGCAD Yol Haritası
 
 Sürümler (`package.json`): 0.2.0 bağımsız program · 0.3.0 yapı elemanları, kesit / görünüş ve arayüz revizyonu ·
-0.3.1 B1 BIM çekirdeği (salt okunur) · **0.4.0-b2a** B2A parametrik BIM düzenleme (geliştirme sürümü; `main`'e
-birleştirilene kadar `claude/bim-b2a` dalında).
+0.3.1 B1 BIM çekirdeği (salt okunur) · 0.4.0-b2a B2A parametrik BIM düzenleme · **0.4.0-b2b** B2B akıllı duvar
+birleşimleri (geliştirme sürümleri; `main`'e birleştirilene kadar `claude/bim-b2a` ve `claude/bim-b2b` dallarında).
 
 ## v0.2.0 — Bağımsız program (tamamlandı)
 - TadilatBodrum Saha "Rölöve & 3D" modülü (`aligokten/tadilatbodrum.com`, `public/saha`, commit `f8d5070`) ayrı programa taşındı
@@ -51,8 +51,23 @@ Sonraki aşama: [parametrik BIM çekirdeği](BIM-CEKIRDEK.md).
 - [x] Tür değişikliği aynı türdeki elemanlara yayılır; açık / örtük geçersiz kılınan değerler korunur (eski veri geçiş kuralı)
 - [x] Olay tabanlı BIM önbelleği (editör sürümü), dondurulmuş okuma görünümleri; ölçüm: `tests/bench/bim.bench.mjs`
 - [x] Testler: `tests/bim-b2a.test.mjs` (14 senaryo), `tests/e2e/b2a.e2e.cjs`
-- [ ] B2B: akıllı duvar birleşimleri ([plan](BIM-CEKIRDEK.md#b2b--akıllı-duvar-birleşimleri-teknik-plan))
-- [ ] B3: bağımlılık grafiği, artımlı türetme, tek işlem günlüğü
+
+## 0.4.0-b2b · B2B — Akıllı duvar birleşimleri ve parametrik yapı ilişkileri (tamamlandı)
+- [x] B2B-1 birleşim grafiği (`joins.js`): L / T / X / I / serbest uç, toleranslar, sorun raporları, `joinedAt`
+- [x] B2B-2 katman önceliği ve ortak kırpma geometrisi (`geom2d.js`, `wallgeom.js`), 2D plan, kütüphanede öncelik
+- [x] B2B-3 duvar komutları, açıklık konum politikası, mahal sınırı, otomatik birleşimi kapatma
+- [x] B2B-4 3D mesh (`mesh.js`) ve kesit ortak geometriden; kata bağlı duvar / kolon / kiriş; kesit penceresi aboneliği; panelde birleşim ve kat bağı
+- [x] Testler: 4 yeni birim test dosyası, `tests/e2e/b2b.e2e.cjs`; örnek SVG'ler `docs/b2b/`
+- [ ] Yay duvar birleşimleri, kanvas sürüklemenin komut katmanına alınması → B3
+
+## Sıradaki aşamalar
+- [ ] **B3** — Bağımlılık grafiği ve artımlı model güncelleme, tek işlem günlüğü ([plan](BIM-CEKIRDEK.md#b3--bağımlılık-grafiği-ve-artımlı-model-güncelleme-teknik-plan))
+- [ ] Rölöve / proje revizyon karşılaştırması (eleman kimliğiyle fark: eklenen / kaldırılan / değişen; plan ve metraj farkı)
+- [ ] Akıllı metraj tabloları (tür, malzeme, kat ve mahal bazlı; birleşim temizliği sonrası hacim; dışa aktarma)
+- [ ] Gelişmiş pafta düzenleyici (çoklu görünüş yerleşimi, antet, ölçek, revizyon tablosu)
+- [ ] IFC4 dışa aktarma (IfcWall / IfcSlab / IfcColumn / IfcBeam / IfcOpeningElement, kompozit katmanlar `IfcMaterialLayerSet`)
+- [ ] Parametrik merdiven ve çatı araçları (tür sistemi ve kat bağlarıyla)
+- [ ] Proje genelinde ortak BIM tür kütüphanesi (rölöve ve proje çizimlerinin türleri paylaşması; içe / dışa aktarma)
 
 ## Kaynakla eşitleme
 Saha uygulamasında rölöve modülüne yapılan geliştirmeler buraya elle taşınır. Taşınan dosyalar `js/` altında aynı adla
