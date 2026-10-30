@@ -900,6 +900,28 @@ export class Plan3D {
     this.controls.target.set(b.cx, 0, b.cz);
     this.controls.update(); this.dirty = true;
   }
+  /* U1 (UniCAD FusionNavigationBar esinli): görünüm ön ayarları — iso | top | front | back | left | right */
+  viewPreset(k) {
+    if (k === 'iso') return this.frame();
+    if (k === 'top') return this.top();
+    const b = this.bounds(), H = this.hTop || 3, dir = { front: [0, 1], back: [0, -1], left: [-1, 0], right: [1, 0] }[k]; if (!dir) return;
+    this.opt.mode = 'orbit';
+    this.camera.fov = 40; this.camera.updateProjectionMatrix();
+    const ext = Math.max(b.x1 - b.x0, b.z1 - b.z0, H), d = (ext * 0.5 + 1) / Math.tan(20 * Math.PI / 180) * Math.max(1, 1.2 / (this.camera.aspect || 1));
+    this.camera.position.set(b.cx + dir[0] * d, H * 0.5, b.cz + dir[1] * d);
+    this.controls.target.set(b.cx, H * 0.45, b.cz);
+    this.controls.enableZoom = true; this.controls.enablePan = true; this.controls.maxPolarAngle = Math.PI * 0.49;
+    this.controls.update(); this.dirty = true;
+  }
+  /* U1 (UniCAD ViewportStyleManager esinli): görünüm stili — default | dark (koyu stüdyo) | clay (beyaz maket) */
+  setStyle(k) {
+    if (!THREE || !this.scene) return;
+    this.style = ['default', 'dark', 'clay'].includes(k) ? k : 'default';
+    this.scene.background = new THREE.Color(this.style === 'dark' ? '#18212B' : this.style === 'clay' ? '#F4F5F7' : '#E9F1F2');
+    this.clayMat ||= new THREE.MeshStandardMaterial({ color: '#F2F0EB', roughness: 0.9, metalness: 0 });
+    this.scene.overrideMaterial = this.style === 'clay' ? this.clayMat : null;
+    this.dirty = true;
+  }
   interior(roomId) {
     const P = this.plan, r = P.rooms.find(x => x.id === roomId) || P.rooms[0];
     if (!r) return false;

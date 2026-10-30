@@ -68,6 +68,10 @@ sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMA
   sıralı kısıt çözücü çakışmaları raporlar, sessizce düzeltmez. **Araçlar → Model Sağlığı**: eleman, kata bağlı,
   birleşim sorunu, çözülemeyen kısıt, geçersiz geometri, son güncelleme; önerilen düzeltmeyi "Uygula". Yay duvarda
   yarıçap / ok yüksekliği parametrik (panelde "Yarıçap").
+- **UniCAD esinli iş akışı (U1)**: işlem **zaman çizelgesi** (bir adıma tıklayıp modeli o ana sar), **seçim filtresi**,
+  **Akıllı Bas-Çek** (`Q`: seçime göre ötele / kalınlık / yükseklik / yarıçap…), imleçte **komut paleti** (`S`) ve
+  sabitlenen komutlar, 3D **gezinme çubuğu** (Üst / Ön / Arka / Sol / Sağ / izometrik) ve **görünüm stilleri**
+  (Koyu stüdyo, Beyaz maket). Ayrıntı: [docs/UNICAD-REFERANS.md](docs/UNICAD-REFERANS.md).
 - Eski projeler aynen açılır: kayıt biçimi değişmedi; türler `meta.bimTypes`, atama `bimType`, geçersiz kılma `bimOv`
   isteğe bağlı alanlarında. Ayrıntı: [docs/BIM-CEKIRDEK.md](docs/BIM-CEKIRDEK.md).
 
@@ -144,6 +148,7 @@ js/plan2d.js      2D rölöve editörü          js/plan3d.js      3D görünüm
 js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı elemanları (çizim, panel, kütüphane)
 js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek
 js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
+js/timeline.js    işlem zaman çizelgesi      js/presspull.js   Akıllı Bas-Çek (Q) kipleri
 css/ui.css        arayüz tasarım sistemi ve temalar
 js/bim/           BIM çekirdeği: schema, types, fields, adapter, relations, commands, wallcmds, api, ui, manager,
                   joins, wallgeom, geom2d, mesh (duvar birleşimleri ve ortak geometri),

@@ -345,6 +345,22 @@ function newErrors(root, W, ids) {
   return out;
 }
 
+/* U1: açıklık duvara sığmalı — önceden sığan açıklık komut sonrası sığmıyorsa hata (önceden bozuk olanlar engellenmez) */
+function openingFitErrors(root, W, ids) {
+  const out = [], fits = (P, o) => { const w = (P.walls || []).find(x => x && x.id === o.wallId); if (!w?.a || !w?.b) return null; const L = wallLen(w); return o.pos - o.w / 2 >= -0.01 && o.pos + o.w / 2 <= L + 0.01 ? true : L; };
+  levelPlans(W).forEach((P, lv) => {
+    const P0 = levelPlans(root)[lv];
+    for (const o of P?.openings || []) {
+      if (!o || typeof o.id !== 'string') continue;
+      const touched = ids.has(o.id) || ids.has(o.wallId); if (!touched) continue;
+      const now = fits(P, o); if (now === true || now === null) continue;
+      const o0 = (P0?.openings || []).find(x => x && x.id === o.id);
+      if (o0 && fits(P0, o0) !== true) continue;
+      out.push(`${o.id} (${+(+o.w).toFixed(1)} cm) duvar ${o.wallId} (${+now.toFixed(1)} cm) içine sığmıyor`);
+    }
+  });
+  return out;
+}
 /* komutu kopya üzerinde hesapla — kökü değiştirmez. → { ok, errors, warnings, patch, summary, label } */
 export function planCommand(root, cmd) {
   const res = (o) => ({ ok: false, errors: [], warnings: [], patch: [], summary: null, label: '', ...o });
@@ -355,7 +371,7 @@ export function planCommand(root, cmd) {
     S = session(root);
     const out = C[cmd.op](S, cmd) || {};
     const patch = S.patch.filter(e => e.hadBefore !== e.hasAfter || JSON.stringify(e.before) !== JSON.stringify(e.after));
-    const errs = newErrors(root, S.W, S.touched);
+    const errs = [...newErrors(root, S.W, S.touched), ...openingFitErrors(root, S.W, S.touched)];
     if (errs.length) return res({ errors: ['Komut geçersiz eleman üretirdi; değişiklik yapılmadı', ...errs], warnings: S.warnings, summary: out.summary, label: out.label });
     return res({ ok: true, warnings: S.warnings, patch, summary: out.summary || null, label: out.label || cmd.op });
   } catch (e) {
