@@ -19,6 +19,7 @@ import { FIELDS, TYPE_KEYS, fieldOf, clsOfLegacy, readField, checkValue, ovOf, s
 import { compOf, compThickness, matOf } from '../materials.js';
 import { V, wallLen, wallNormal } from '../plan-geom.js';
 import { wallCommands } from './wallcmds.js';
+import { linkPlan } from './joins.js';
 
 export const COMMANDS = ['createType', 'duplicateType', 'updateType', 'deleteType', 'assignType', 'setInstanceParam', 'resetInstanceParam', 'setElementLevelBinding',
   'moveWallEnd', 'offsetWall', 'setWallLength', 'setWallReference', 'setJoinEnabled',   // B2B: duvar geometrisi (wallcmds.js)
@@ -71,6 +72,7 @@ export function applyPatch(root, patch, dir = 'redo') {
 /* ───────────── çalışma oturumu (geçici kopya) ───────────── */
 function session(root) {
   const W = clone(root); W.meta ||= {};
+  levelPlans(W).forEach((P, i) => linkPlan(P, levelPlans(root)[i]));   // B3-C: kopyanın birleşim / geometri önbelleği özgünden başlar
   const patch = [], byKey = new Map(), touched = new Set(), warnings = [];
   /* t: { lv, coll, id } — o: W içindeki kayıt; v === undefined → alanı sil */
   const set = (t, o, k, v) => {

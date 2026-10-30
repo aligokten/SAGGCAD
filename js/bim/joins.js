@@ -184,19 +184,67 @@ export function updateJoins(prev, P, D, { T } = {}) {
   const dropped = prev.joins.filter(j => touchesD(j) || j.members.some(m => m.end && subDEnds.has(`${m.id}.${m.end}`)));
   const droppedEnds = endKeys(dropped), dropSet = new Set(dropped.map(j => j.id));
   const added = sub.joins.filter(j => touchesD(j) || j.members.some(m => m.end && droppedEnds.has(`${m.id}.${m.end}`)));
-  const byId = new Map(prev.joins.filter(j => !dropSet.has(j.id)).map(j => [j.id, j]));
-  for (const j of added) byId.set(j.id, j);
-  const joins = [...byId.values()].sort((p, q) => p.id < q.id ? -1 : p.id > q.id ? 1 : 0);
+  // birleşim listesi sıralı kalır: korunanlar (önceki sıra) + eklenenler (sıralı) birleştirilir — tam sıralama yok
+  const cmp = (p, q) => p.id < q.id ? -1 : p.id > q.id ? 1 : 0, addSorted = [...added].sort(cmp), replaced = new Set([...dropSet, ...addSorted.map(j => j.id)]);
+  const kept = prev.joins.filter(j => !replaced.has(j.id)), joins = [];
+  for (let i = 0, k = 0; i < kept.length || k < addSorted.length;) joins.push(k >= addSorted.length || (i < kept.length && cmp(kept[i], addSorted[k]) < 0) ? kept[i++] : addSorted[k++]);
   // eksenler
   // eksenler kayıt sırasıyla (tam analizle aynı sıra): bölgedekiler alt analizden, diğerleri önceki grafikten
   const axes = new Map();
   for (const w of walls) { const ax = cIds.has(w.id) ? sub.axes.get(w.id) : prev.axes.get(w.id); if (ax && !axes.has(w.id)) axes.set(w.id, ax); }
-  const endJoin = new Map(), byWall = new Map();
-  for (const j of joins) for (const m of j.members) { if (m.end) endJoin.set(`${m.id}.${m.end}`, j.id); (byWall.get(m.id) || byWall.set(m.id, []).get(m.id)).push(j.id); }
+  // dizinler: önceki dizinden yalnız değişen birleşimlerin üyeleri yamanır
+  const endJoin = new Map(prev.endJoin), byWall = new Map(prev.byWall), gone = prev.joins.filter(j => replaced.has(j.id)), touchedW = new Set();
+  for (const j of gone) for (const m of j.members) { touchedW.add(m.id); const k = `${m.id}.${m.end}`; if (m.end && endJoin.get(k) === j.id) endJoin.delete(k); }
+  for (const j of addSorted) for (const m of j.members) touchedW.add(m.id);
+  for (const id of touchedW) {
+    const list = (prev.byWall.get(id) || []).filter(jid => !replaced.has(jid));
+    for (const j of addSorted) if (j.members.some(m => m.id === id)) list.push(j.id);
+    if (list.length) byWall.set(id, list); else byWall.delete(id);
+  }
+  for (const j of addSorted) for (const m of j.members) if (m.end) endJoin.set(`${m.id}.${m.end}`, j.id);
+  for (const id of [...byWall.keys()]) if (!axes.has(id)) byWall.delete(id);   // silinen duvar
   const affected = new Set([...D].filter(id => axes.has(id)));
   for (const j of [...dropped, ...added]) for (const m of j.members) if (axes.has(m.id)) affected.add(m.id);
   // sorunlar: etkilenen duvarlara ait olanlar alt analizden, diğerleri önceki grafikten
   const touch = i => (i.ids || []).some(id => affected.has(id) || D.has(id));
   const issues = [...prev.issues.filter(i => !touch(i)), ...sub.issues.filter(i => touch(i) && (i.ids || []).every(id => cIds.has(id)))];
   return { G: { axes, joins, endJoin, byWall, issues }, affected, candidates: C.length };
+}
+
+/* ── B3-C: önbellekli birleşim grafiği ──
+ * Plan nesnesi başına duvar imzası + grafik saklanır; değişen duvarlar için updateJoins (yerel). Komut oturumunun
+ * kopyası linkPlan ile özgün plana bağlanır: kopyanın ilk sorgusu özgünün grafiğinden başlar (tam analiz yok).
+ * Dönen grafik paylaşımlıdır — çağıranlar yalnız okur. Güvenli tam analiz: ilk çağrı, T değişimi, tekrar eden kimlik,
+ * yay duvar değişimi, büyük değişiklik. Eşdeğerlik: tests/b3-incremental.test.mjs. */
+const JCACHE = new WeakMap(), ORIGIN = new WeakMap();
+export const JOIN_STATS = { full: 0, incremental: 0, reused: 0 };
+export const originOf = P => (P && typeof P === 'object' ? ORIGIN.get(P) || null : null);
+export function linkPlan(copy, orig) { if (copy && orig && typeof copy === 'object' && typeof orig === 'object' && copy !== orig) ORIGIN.set(copy, orig); }
+export function joinGraph(P, { T } = {}) {
+  const wallT = T ?? +P?.meta?.wallT ?? 15;   // analyzeJoins ile aynı çözüm
+  if (!P || typeof P !== 'object' || !Array.isArray(P.walls)) return analyzeJoins(P, { T });
+  const sigs = new Map(); let dup = false;
+  for (const w of P.walls) { if (!w || typeof w.id !== 'string') continue; if (sigs.has(w.id)) dup = true; sigs.set(w.id, JSON.stringify(w)); }
+  const full = () => { JOIN_STATS.full++; const G = analyzeJoins(P, { T }); JCACHE.set(P, { T: String(wallT), sigs, G }); return G; };
+  const c = JCACHE.get(P) || (ORIGIN.has(P) ? JCACHE.get(ORIGIN.get(P)) : null);
+  if (!c || dup || c.T !== String(wallT)) return full();
+  const D = new Set();
+  for (const [id, s] of sigs) if (c.sigs.get(id) !== s) D.add(id);
+  for (const id of c.sigs.keys()) if (!sigs.has(id)) D.add(id);
+  if (!D.size) { JOIN_STATS.reused++; if (JCACHE.get(P) !== c) JCACHE.set(P, { ...c, G: rebind(c.G, P) }); return JCACHE.get(P).G; }
+  if (D.size > Math.max(64, sigs.size / 4)) return full();
+  const arcOf = id => { const s = c.sigs.get(id), w = P.walls.find(x => x?.id === id); return !!(w?.arc) || (!!s && JSON.parse(s).arc); };
+  if ([...D].some(arcOf)) return full();
+  JOIN_STATS.incremental++;
+  const G = rebind(updateJoins(c.G, P, D, { T: wallT }).G, P);
+  JCACHE.set(P, { T: String(wallT), sigs, G });
+  return G;
+}
+/* eksenlerin kayıt nesnelerini bu planınkilere bağla (kopya plan ya da yenilenmiş kayıt) */
+function rebind(G, P) {
+  const cur = new Map(P.walls.filter(w => w && typeof w.id === 'string').map(w => [w.id, w]));
+  let same = true; for (const [id, ax] of G.axes) if (ax.w !== cur.get(id)) { same = false; break; }
+  if (same) return G;
+  const axes = new Map(); for (const [id, ax] of G.axes) axes.set(id, ax.w === cur.get(id) ? ax : { ...ax, w: cur.get(id) || ax.w });
+  return { ...G, axes };
 }

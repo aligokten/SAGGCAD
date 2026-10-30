@@ -12,7 +12,7 @@ import { V, planLevels, polyArea, wallLen } from '../plan-geom.js';
 import { compOf, compThickness } from '../materials.js';
 import { BIM_SCHEMA_VERSION, GROUND_LEVEL_ID, CLASSES } from './schema.js';
 import { typeForLegacy } from './types.js';
-import { analyzeJoins } from './joins.js';
+import { joinGraph } from './joins.js';
 
 export const LEGACY_FORMAT = 1;   // plan.v
 
@@ -155,7 +155,7 @@ export function buildModel(root) {
     }
     // B2B: duvar birleşimleri geometriden türetilir → joinedAt ilişkileri ve birleşim sorunları
     if (Array.isArray(P.walls) && P.walls.length > 1) {
-      let G = null; try { G = analyzeJoins(P, { T: num(meta.wallT, 15) }); } catch (e) { issues.push({ severity: 'error', code: 'JOINS_FAILED', id: levelId, msg: `${lv.name}: birleşim grafiği hesaplanamadı (${e.message})` }); }
+      let G = null; try { G = joinGraph(P, { T: num(meta.wallT, 15) }); } catch (e) { issues.push({ severity: 'error', code: 'JOINS_FAILED', id: levelId, msg: `${lv.name}: birleşim grafiği hesaplanamadı (${e.message})` }); }
       if (G) {
         for (const j of G.joins) for (const m of j.members) {
           const el = elements.get(m.id); if (!el || el.cls !== 'wall' || el.levelId !== levelId) continue;

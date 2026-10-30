@@ -19,7 +19,7 @@
  *   I  uçlar düğümde dik kesilir · STAR açıortaylarla bölünür · serbest uç işaretlenen noktada biter
  *   LEGACY (yay duvar içeren düğüm) eski yarım kalınlık uzatması korunur ve sorun olarak raporlanır (B3)
  */
-import { analyzeJoins, updateJoins } from './joins.js';
+import { analyzeJoins, updateJoins, originOf } from './joins.js';
 import { sub, add, mul, dot, cross, len, norm, perp, hp, hpThrough, hpFlip, clipAll, diffAll, bigQuad, area, absArea, interArea, lineX, edgeCoverage, centroid, bbox, bbHit } from './geom2d.js';
 import { compOf, compThickness, matOf, wallKind } from '../materials.js';
 import { V, wallExt } from '../plan-geom.js';
@@ -76,7 +76,7 @@ function wallSigs(P) {
 export function levelWallGeometry(R, P, { T, full = false } = {}) {
   const wallT = +(T ?? P?.meta?.wallT ?? R?.meta?.wallT) || 15;
   if (!P || typeof P !== 'object') return compute(R, P, wallT);
-  const c = CACHE.get(P), lib = libSig(R, wallT), sigs = wallSigs(P);
+  const c = CACHE.get(P) || CACHE.get(originOf(P)), lib = libSig(R, wallT), sigs = wallSigs(P);   // komut kopyası: özgün planın önbelleğinden
   const fullRun = why => { GEO_STATS.full++; if (why) GEO_STATS.fallback[why] = (GEO_STATS.fallback[why] || 0) + 1; const res = compute(R, P, wallT); CACHE.set(P, { lib, sigs: sigs.m, res }); return res; };
   if (full || !c) return fullRun(full ? 'istek' : null);
   if (c.lib !== lib) return fullRun('kütüphane');
@@ -84,7 +84,7 @@ export function levelWallGeometry(R, P, { T, full = false } = {}) {
   const D = new Set();
   for (const [id, sg] of sigs.m) if (c.sigs.get(id) !== sg) D.add(id);
   for (const id of c.sigs.keys()) if (!sigs.m.has(id)) D.add(id);
-  if (!D.size) { GEO_STATS.reused++; return c.res; }
+  if (!D.size) { GEO_STATS.reused++; if (CACHE.get(P) !== c) CACHE.set(P, c); return c.res; }
   if (D.size > Math.max(64, sigs.m.size * 0.25)) return fullRun('büyük değişiklik');
   if ([...D].some(id => c.res.walls.get(id)?.legacy || P.walls.find(w => w.id === id)?.arc)) return fullRun('yay');
   const res = incremental(R, P, wallT, c.res, D);
@@ -92,6 +92,17 @@ export function levelWallGeometry(R, P, { T, full = false } = {}) {
   GEO_STATS.incremental++;
   CACHE.set(P, { lib, sigs: sigs.m, res });
   return res;
+}
+/* duvarın tüm parçalarının sınır kutusu (parça dizileri değişmez → dizi kimliğiyle önbellek) */
+const BOX = new WeakMap(), SBOX = new WeakMap();
+function wallBox(layerPieces) {
+  let b = null;
+  for (const arr of layerPieces) {
+    let c = BOX.get(arr);
+    if (c === undefined) { c = null; for (const p of arr) { const q = bbox(p); c = c ? { x0: Math.min(c.x0, q.x0), y0: Math.min(c.y0, q.y0), x1: Math.max(c.x1, q.x1), y1: Math.max(c.y1, q.y1) } : q; } BOX.set(arr, c); }
+    if (c) b = b ? { x0: Math.min(b.x0, c.x0), y0: Math.min(b.y0, c.y0), x1: Math.max(b.x1, c.x1), y1: Math.max(b.y1, c.y1) } : c;
+  }
+  return b;
 }
 function incremental(R, P, wallT, prev, D) {
   const { G, affected } = updateJoins(prev.joins, P, D, { T: wallT });
@@ -107,9 +118,15 @@ function incremental(R, P, wallT, prev, D) {
   const items = [];
   // ayrıştırmada kırpılan (kaybeden) duvarlar: tam yolun ham çakışma denetimi gibi ayrıştırma ÖNCESİ parçalarla
   const pre = prev.diag.prePieces || new Map();
+  const piecesOf = S => { const raw = !affected.has(S.id) && pre.get(S.id); return S.layers.map((l, k) => raw ? raw[k] : l.pieces); };
+  const boxOf = S => { if (pre.has(S.id)) return wallBox(piecesOf(S)); let b = SBOX.get(S); if (b === undefined) { b = wallBox(piecesOf(S)); SBOX.set(S, b); } return b; };   // S oluştuktan sonra değişmez
+  const hotBox = [];
+  for (const id of affected) { const S = W.get(id); if (S) { const b = boxOf(S); if (b) hotBox.push(b); } }
   for (const S of W.values()) {
-    const hot = affected.has(S.id), raw = !hot && pre.get(S.id);
-    S.layers.forEach((l, k) => { for (const p of raw ? raw[k] : l.pieces) items.push({ wid: S.id, layer: l.idx, p, bb: bbox(p), hot }); });
+    const hot = affected.has(S.id);
+    if (!hot) { const b = boxOf(S); if (!b || !hotBox.some(h => bbHit(h, b))) continue; }   // sıcak duvarlara değmeyen duvar çifte giremez
+    const pcs = piecesOf(S);
+    S.layers.forEach((l, k) => { for (const p of pcs[k]) items.push({ wid: S.id, layer: l.idx, p, bb: bbox(p), hot }); });
   }
   let bad = false;
   const hotRaw = [];   // ham çakışma raporu aynı duvarın katmanlarını da sayar (tam yoldaki overlapReport ile aynı ölçüt)

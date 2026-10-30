@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { levelWallGeometry, wallPrisms, wallQuantities, GEO_STATS, overlapReport } from '../js/bim/wallgeom.js';
-import { analyzeJoins } from '../js/bim/joins.js';
+import { analyzeJoins, joinGraph, linkPlan, JOIN_STATS } from '../js/bim/joins.js';
 import { runCommand, applyPatch } from '../js/bim/commands.js';
 
 const FILE = JSON.parse(readFileSync(new URL('./fixtures/eski-proje-v1.saggcad.json', import.meta.url), 'utf8'));
@@ -39,7 +39,9 @@ test('artımlı birleşim grafiği = tam analiz (rastgele düzenlemeler)', () =>
     else if (op < 0.8 && P.walls.length > 10) P.walls.splice(P.walls.indexOf(w), 1);
     else P.walls.push({ id: 'n' + k, a: { x: Math.round(rnd() * 2000), y: Math.round(rnd() * 2000) }, b: { x: Math.round(rnd() * 2000), y: Math.round(rnd() * 2000) }, t: 14, comp: 'ic-tugla' });
     const inc = levelWallGeometry(R, P), ref = levelWallGeometry(R, JSON.parse(JSON.stringify(P)), { full: true });
-    assert.deepEqual(inc.joins.joins.map(j => j.id).sort(), ref.joins.joins.map(j => j.id).sort(), `adım ${k}: birleşimler`);
+    assert.deepEqual(inc.joins.joins.map(j => j.id), ref.joins.joins.map(j => j.id), `adım ${k}: birleşimler (sıralı)`);
+    const idx = G => JSON.stringify([[...G.endJoin].sort(), [...G.byWall].map(([id, l]) => [id, [...l].sort()]).sort()]);
+    assert.equal(idx(inc.joins), idx(ref.joins), `adım ${k}: uç / duvar dizinleri`);
     assert.equal(geoSig(inc), geoSig(ref), `adım ${k}: geometri`);
   }
   // rastgele uzun duvarlar planı hızla çakışmalarla doldurur → çoğu adım güvenli tam hesaba düşer; burada ölçüt doğruluktur
@@ -122,3 +124,19 @@ test('güvenli tam hesap: kütüphane değişimi, tekrar eden kimlik, çakışma
 });
 import { COMPOSITES } from '../js/materials.js';
 function await_import() { return { COMPOSITES }; }
+
+test('önbellekli birleşim grafiği (komut kopyası özgünden başlar) = tam analiz', () => {
+  const P = gridPlan(6), sig = G => JSON.stringify([G.joins.map(j => [j.id, j.kind, j.members]), G.issues.map(i => [i.code, i.ids]).sort(), [...G.endJoin].sort(), [...G.byWall].map(([k, l]) => [k, [...l].sort()]).sort(), [...G.axes.keys()]]);
+  joinGraph(P);
+  const inc0 = JOIN_STATS.incremental;
+  for (let k = 0; k < 40; k++) {
+    const Q = JSON.parse(JSON.stringify(P)); linkPlan(Q, P);
+    const w = pick(Q.walls), e = rnd() < 0.5 ? 'a' : 'b';
+    if (rnd() < 0.5) w[e] = { x: w[e].x + Math.round((rnd() - 0.5) * 50), y: w[e].y + Math.round((rnd() - 0.5) * 50) }; else w.t = pick([10, 14, 20]);
+    const G = joinGraph(Q);
+    assert.equal(sig(G), sig(analyzeJoins(Q)), `adım ${k}`);
+    assert.ok([...G.axes].every(([id, ax]) => ax.w === Q.walls.find(x => x.id === id)), 'eksenler kopyanın kayıtlarına bağlı');
+    if (k % 3 === 0) { Object.assign(P, Q); joinGraph(P); }   // ara sıra uygula (özgün ilerler)
+  }
+  assert.ok(JOIN_STATS.incremental - inc0 >= 30, `artımlı birleşim (${JOIN_STATS.incremental - inc0}/40)`);
+});

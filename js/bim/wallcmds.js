@@ -15,7 +15,7 @@
  * kaplaması ve diğer alanları korunur (yalnız pts; dikdörtgen değilse `rect` bayrağı).
  */
 import { V, wallLen, wallDir, wallNormal, projSeg, polyArea, planLevels } from '../plan-geom.js';
-import { analyzeJoins } from './joins.js';
+import { joinGraph } from './joins.js';
 
 const r2 = n => +(+n).toFixed(2);
 const P2 = p => ({ x: r2(p.x), y: r2(p.y) });
@@ -41,7 +41,7 @@ export function wallCommands(fail) {
   }
   /* uçları taşı: moves = [{ w, e, to }] (aynı kat). Açıklıklar ve T temasları değerlendirilir. */
   function applyMoves(S, rec, moves, summary) {
-    const P = rec.P, lv = rec.t.lv, errors = [], before = analyzeJoins(P), L0 = new Map(moves.map(m => [m.w.id, wallLen(m.w)]));
+    const P = rec.P, lv = rec.t.lv, errors = [], before = joinGraph(P), L0 = new Map(moves.map(m => [m.w.id, wallLen(m.w)]));
     const anchorOf = new Map();
     for (const m of moves) { const k = m.w.id; anchorOf.set(k, anchorOf.has(k) ? 'none' : (m.e === 'a' ? 'b' : 'a')); }
     for (const m of moves) S.set(tgt(lv, 'walls', m.w.id), m.w, m.e, P2(m.to));
@@ -53,7 +53,7 @@ export function wallCommands(fail) {
     }
     if (errors.length) fail(errors.join(' · '));
     // T temasları: önceden bu duvarlara bağlı olup kopan kollar
-    const after = analyzeJoins(P), ids = new Set(anchorOf.keys());
+    const after = joinGraph(P), ids = new Set(anchorOf.keys());
     const tOf = G => new Set(G.joins.filter(j => j.kind === 'T' && j.members.some(m => ids.has(m.id))).map(j => j.id));
     const lost = [...tOf(before)].filter(j => !tOf(after).has(j));
     if (lost.length) S.warnings.push(`T bağlantısı koptu: ${lost.join(', ')} (kol duvarı kendiliğinden uzatılmadı)`);
