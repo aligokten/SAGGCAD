@@ -15,6 +15,7 @@ import { unitOf, toU, fromU, fmtL, fmtLU } from './units.js';
 import { bimInspHtml, bindBimInsp, reportCmd } from './bim/ui.js';
 import { runCommand, applyPatch, noteLegacyEdit } from './bim/commands.js';
 import { openTypeManager } from './bim/manager.js';
+import { History } from './bim/history.js';
 import { clsOfLegacy } from './bim/fields.js';
 import { newCabinet, autoFill, itemDims, planSymbol, runLength, FRONTS, pick as cabPick, MT as CAB_MT } from './cabinet.js';
 
@@ -141,7 +142,7 @@ export class PlanEditor {
     this.snapInd = null;
     this.ptrs = new Map();
     this.g = null;                // aktif hareket
-    this.undoS = []; this.redoS = [];
+    this.hist = new History(() => this._root);   // B3: çizim başına tek işlem günlüğü (katlar arası)
     this.opt = JSON.parse(localStorage.getItem('tb-plan-opt') || '{"snap":true,"ortho":true,"dims":true,"step":5}');
     this.itemType = 'kanepe';
     this.railPick = { kind: 'dikey', h: 110 };   // çizilecek korkuluk
@@ -321,10 +322,8 @@ export class PlanEditor {
   }
   setLevel(i) {
     if (this.chain) this.finishChain();
-    this.undoM ||= {}; this.undoM[this.lv] = [this.undoS, this.redoS];
-    this.lv = Math.max(0, Math.min((this._root.levels || []).length, i));
+    this.lv = Math.max(0, Math.min((this._root.levels || []).length, i));   // geçmiş tek günlükte: kat değişince kaybolmaz
     this.prep(this.plan);
-    [this.undoS, this.redoS] = this.undoM[this.lv] || [[], []];
     this.arc = null; this.sel = null; this.msel = []; this.preview = null;
     this.updateLvSel(); this.loadBg(); this.renderHud(); this.renderInsp(); this.render();
     this.onLevel?.(this.lv);
@@ -341,6 +340,7 @@ export class PlanEditor {
       <p class="muted small">Yeni kat, en üstteki katın (${esc(below.name)}) üzerine eklenir. Alt kat çizimde soluk görünür; kat kotu = alt katın kotu + kat yüksekliği + döşeme kalınlığı.</p>`,
       actions: [{ k: 'no', t: 'Vazgeç' }, { k: 'ok', t: 'Kat ekle', cls: 'btn-primary' }] });
     if (r?.k !== 'ok') return this.updateLvSel();
+    this.hist.open('Kat ekle');
     const L = newLevel(this._root, 'floor');
     L.name = $('#lvN', r.el).value.trim() || L.name; L.slab = Math.max(0, +$('#lvS', r.el).value || 0); L.meta.wallH = Math.max(100, +$('#lvH', r.el).value || 280);
     const mode = $('#lvC', r.el).value, src = below.plan;
@@ -362,7 +362,7 @@ export class PlanEditor {
   addRoofLevel() {
     const lv = this._root.levels ||= [];
     let i = lv.findIndex(l => l.kind === 'roof');
-    if (i < 0) { const L = newLevel(this._root, 'roof'); L.slab = 15; lv.push(L); i = lv.length - 1; this.onChange(this._root); }
+    if (i < 0) { this.hist.open('Çatı planı ekle'); const L = newLevel(this._root, 'roof'); L.slab = 15; lv.push(L); i = lv.length - 1; this.onChange(this._root); }
     this.setLevel(i + 1);
     if (!this.plan.roofs.length) setTimeout(() => this.autoRoof(), 50);
   }
@@ -400,41 +400,45 @@ export class PlanEditor {
     }).join('');
   }
 
-  snap() { this.undoS.push(JSON.stringify(this.plan)); if (this.undoS.length > 120) this.undoS.shift(); this.redoS = []; }
+  /* eylem sınırı: önceki eylem kapanır, yeni eylemin temel kopyası alınır (B3: history.js — tek günlük, katlar arası) */
+  snap(label) { this.hist.open(label || ({ wall: 'Duvar çizimi', arc: 'Yay duvar', rect: 'Oda', poly: 'Oda', door: 'Kapı', window: 'Pencere', column: 'Kolon', beam: 'Kiriş', slab: 'Döşeme', stair: 'Merdiven', roof: 'Çatı', rail: 'Korkuluk', item: 'Donatı', dim: 'Ölçü', section: 'Kesit hattı', text: 'Yazı' })[this.tool] || (this.sel ? 'Düzenleme' : 'Değişiklik')); }
   changed() { this.onChange(this._root); this.render(); this.renderInsp(); this.emit('change'); }
-  /* geri al yığını: kat planı anlık görüntüsü (JSON metni) ya da BIM komutu yaması ({ bim: patch, label }) */
-  undo() {
-    if (!this.undoS.length) return;
-    const e = this.undoS.at(-1);
-    if (e && typeof e === 'object' && e.bim) {
-      try { applyPatch(this._root, e.bim, 'undo'); } catch (err) { toast('Geri alınamadı: ' + err.message, 'err'); return; }
-      this.undoS.pop(); this.redoS.push(e);
-    } else {
-      this.redoS.push(JSON.stringify(this.plan));
-      this.plan = JSON.parse(this.undoS.pop());
-    }
-    this.validateSel(); this.updateLvSel(); this.changed();
-  }
-  redo() {
-    if (!this.redoS.length) return;
-    const e = this.redoS.at(-1);
-    if (e && typeof e === 'object' && e.bim) {
-      try { applyPatch(this._root, e.bim, 'redo'); } catch (err) { toast('Yinelenemedi: ' + err.message, 'err'); return; }
-      this.redoS.pop(); this.undoS.push(e);
-    } else {
-      this.undoS.push(JSON.stringify(this.plan));
-      this.plan = JSON.parse(this.redoS.pop());
-    }
-    this.validateSel(); this.updateLvSel(); this.changed();
+  undo() { this.histStep('undo'); }
+  redo() { this.histStep('redo'); }
+  histStep(dir) {
+    if (this.chain) this.finishChain();
+    let e;
+    try { e = this.hist.step(dir); } catch (err) { console.error('Geçmiş', err); toast(`${dir === 'undo' ? 'Geri alınamadı' : 'Yinelenemedi'} — model değiştirilmedi`, 'err'); return; }
+    if (!e) return;
+    this.lv = Math.max(0, Math.min((this._root.levels || []).length, this.lv));   // silinen / geri gelen kat
+    this.prep(this.plan);
+    this.validateSel(); this.updateLvSel(); this.loadBg(); this.changed();
+    this.emit('history', { dir, label: e.label });
   }
   /* BIM komutu (js/bim/commands.js): kopyada hesaplanır, doğrulanır, tek geri alınabilir işlem olarak uygulanır */
   bimCommand(cmd) {
     if (this.chain) this.finishChain();
+    this.hist.close();   // önceki eylem kendi kaydı olur; komut öncesi durum kesinleşir
     const r = runCommand(this._root, cmd);
-    if (!r.applied) return r;
-    this.undoS.push({ bim: r.patch, label: r.label }); if (this.undoS.length > 120) this.undoS.shift(); this.redoS = [];
+    if (!r.applied) { if (!r.ok) console.warn('BIM komutu reddedildi', cmd, r.errors); return r; }
+    this.hist.record(r.patch, r.label);
     this.validateSel(); this.updateLvSel(); this.changed();
+    this.emit('patch', { patch: r.patch, label: r.label, op: cmd.op });
     return r;
+  }
+  /* B3: duvar sürüklemesinin sonu — önizleme atılır, model başlangıç hâline döner ve son konumdan BIM komutu çalışır
+   * (birleşen uçlar, açıklık sığma denetimi, mahal sınırı ve tek geri al kaydı komutta). Reddedilirse model değişmez. */
+  commitWallDrag(g) {
+    const cur = this.obj(g.ht), before = JSON.parse(g.before), o0 = before.walls?.find(w => w.id === g.ht.id);
+    if (!cur || !o0) { this.hist.close(); this.changed(); return; }
+    const end = g.ht.handle === 'a' || g.ht.handle === 'b' ? g.ht.handle : null;
+    const cmd = end ? { op: 'moveWallEnd', id: o0.id, end, to: { x: cur[end].x, y: cur[end].y } }
+      : { op: 'offsetWall', id: o0.id, d: +V.dot(V.sub(cur.a, o0.a), wallNormal(o0)).toFixed(2) };
+    try { this.hist.abort(); } catch (e) { console.error('Sürükleme geri sarılamadı', e); }   // önizleme kaldırıldı
+    if (end ? V.eq(cmd.to, o0[end], 0.01) : Math.abs(cmd.d) < 0.01) { this.changed(); return; }
+    const r = this.bimCommand(cmd);
+    if (!r.applied) { if (!r.ok) toast(`Sürükleme uygulanmadı: ${r.errors[0]}`, 'err'); this.changed(); }
+    else if (r.warnings?.length) toast(r.warnings[0]);
   }
   /* özellik panelindeki eski alan düzenlemesini açık türün geçersiz kılma kaydına işle */
   bimNote(k, x) {
@@ -444,7 +448,7 @@ export class PlanEditor {
     if (r === 'detached') toast('Türe ait bir değer değişti — eleman türden ayrıldı');
   }
   validateSel() { if (this.sel && !this.obj(this.sel)) this.sel = null; }
-  setPlan(p) { this.plan = p; p.rails ||= []; this.sel = null; this.undoS = []; this.redoS = []; this.loadBg(); this.changed(); this.fit(); }
+  setPlan(p) { this.plan = p; p.rails ||= []; this.sel = null; this.hist.clear(); this.loadBg(); this.changed(); this.fit(); }
 
   /* ───────────── koordinat ───────────── */
   toW(sx, sy) { return { x: (sx - this.ox) / this.s, y: (sy - this.oy) / this.s }; }
@@ -668,18 +672,18 @@ export class PlanEditor {
 
     if (this.tool === 'select') {
       const ht = this.hit(wp);
-      if (ht?.kind === 'arc') { this.g = { type: 'arcdrag', ht, sp, before: JSON.stringify(this.plan), moved: false }; return; }
+      if (ht?.kind === 'arc') { this.hist.open('Yay duvar biçimi'); this.g = { type: 'arcdrag', ht, sp, before: JSON.stringify(this.plan), moved: false }; return; }
       const multi = e.shiftKey || this.opt.box;
       // çoklu seçimdeki bir nesneyi tutup sürükleme → hepsini taşı
       if (ht && !ht.handle && this.msel.length && this.isSel(ht) && !e.shiftKey) {
-        this.g = { type: 'mmove', sp, w0: wp, before: JSON.stringify(this.plan), moved: false, ht };
+        this.hist.open('Çoklu taşıma'); this.g = { type: 'mmove', sp, w0: wp, before: JSON.stringify(this.plan), moved: false, ht };
         return;
       }
       const grp = ht && !ht.handle && !multi && ht.kind === 'wall' ? this.arcSel(ht.id) : null;
       if (grp) {   // yay duvar: tüm parçalar birlikte seçilir ve taşınır
         const same = this.msel.length === grp.length && grp.every(g => this.isSel(g));
         this.msel = grp; this.sel = null; if (!same) this.renderInsp();
-        this.g = { type: 'mmove', sp, w0: wp, before: JSON.stringify(this.plan), moved: false, ht };
+        this.hist.open('Yay duvar taşı'); this.g = { type: 'mmove', sp, w0: wp, before: JSON.stringify(this.plan), moved: false, ht };
         this.render(); return;
       }
       if (multi) {
@@ -691,7 +695,7 @@ export class PlanEditor {
         const same = this.sel && this.sel.kind === ht.kind && this.sel.id === ht.id;
         this.sel = { kind: ht.kind, id: ht.id };
         if (!same) this.renderInsp();
-        this.g = { type: 'move', ht, sp, w0: wp, before: JSON.stringify(this.plan), moved: false };
+        this.hist.open('Taşıma'); this.g = { type: 'move', ht, sp, w0: wp, before: JSON.stringify(this.plan), moved: false };
         this.render();
       } else this.g = { type: 'pan', sp, ox: this.ox, oy: this.oy, tap: true };
       return;
@@ -737,12 +741,13 @@ export class PlanEditor {
     if (g.type === 'pinch') { if (this.ptrs.size === 0) this.g = null; return; }
     if (this.ptrs.size) return;
     this.g = null;
-    if (cancel) { if (g.before && g.moved) { this.plan = JSON.parse(g.before); this.render(); } return; }
+    if (cancel) { if (g.before && g.moved) { this.plan = JSON.parse(g.before); this.render(); } this.hist.close(); return; }   // iptal: model eski hâlinde
     const wp = this.toW(...Object.values(this.evPt(e)));
     if (g.type === 'pan') { if (g.tap && !g.moved && (this.sel || this.msel.length)) this.setSel([]); return; }
-    if (g.type === 'arcdrag') { if (g.moved) { this.undoS.push(g.before); this.redoS = []; this.changed(); this.renderInsp(); } return; }
+    if (g.type === 'arcdrag') { if (g.moved) { this.hist.close(); this.changed(); this.renderInsp(); } return; }
     if (g.type === 'move') {
-      if (g.moved) { this.undoS.push(g.before); this.redoS = []; this.changed(); }
+      if (g.moved && g.ht.kind === 'wall' && !this.obj(g.ht)?.arc) { this.commitWallDrag(g); return; }   // B3: duvar sürüklemesi BIM komutuyla
+      if (g.moved) { this.hist.close(); this.changed(); }
       else if (typeof g.ht.handle === 'number' && (g.ht.kind === 'room' || g.ht.kind === 'roof' || g.ht.kind === 'slab')) {
         // köşeye çift dokunma: köşeyi sil (dokunmatikte dblclick güvenilir değil)
         const L = this.lastTap, now = Date.now();
@@ -759,7 +764,7 @@ export class PlanEditor {
       return;
     }
     if (g.type === 'mmove') {
-      if (g.moved) { this.undoS.push(g.before); this.redoS = []; this.changed(); }
+      if (g.moved) { this.hist.close(); this.changed(); }
       else if (!this.opt.box) { this.setSel((g.ht.kind === 'wall' && this.arcSel(g.ht.id)) || [g.ht]); }   // dokunup bırakınca yalnız onu seç (yay: tüm parçalar)
       return;
     }
@@ -966,9 +971,11 @@ export class PlanEditor {
     if (!this.lv) return;
     const L = planLevels(this._root)[this.lv];
     if (!await confirmDlg(`"${L.name}" ve içindeki tüm çizimler silinecek.`, 'Katı sil')) return;
+    this.hist.open('Kat sil');   // kat (kimliği ve içeriğiyle) geri alınabilir
     this._root.levels.splice(this.lv - 1, 1);
-    this.undoM = {}; this.lv = 0; this.undoS = []; this.redoS = [];
+    this.lv = 0;
     this.onChange(this._root); this.setLevel(Math.min(this._root.levels.length, L.idx - 1));
+    this.hist.close();
   }
 
   /* yayın çizilen (tıklanan) noktaları: yüz çiziminde köşelerin yarıçap ofseti geri alınır */
@@ -1033,7 +1040,7 @@ export class PlanEditor {
       const v = parseFloat(e.target.value); if (!(v > 0)) return;
       if (k === 'sag') {
         const A = this.arcPts(ws); if (!A) return;
-        this.snap(); if (!this.reshapeArc(ws, A.p1, A.p2, (A.h < 0 ? -1 : 1) * v, A.off)) { this.undo(); toast('Bu ok yüksekliği ile yay oluşmuyor', 'err'); return; }
+        this.snap(); if (!this.reshapeArc(ws, A.p1, A.p2, (A.h < 0 ? -1 : 1) * v, A.off)) { this.hist.abort(); this.render(); toast('Bu ok yüksekliği ile yay oluşmuyor', 'err'); return; }
         this.changed(); this.renderInsp(); return;
       }
       this.snap(); ws.forEach(w => { w[k] = k === 't' ? Math.max(2, v) : v; }); this.changed();
@@ -2364,7 +2371,6 @@ export class PlanEditor {
         const x = this.obj(this.sel);
         // B2B: kat yüksekliği / döşeme kalınlığı komutla — bağlı duvar, kolon ve kirişler aynı işlemde güncellenir
         if (k === 'meta.wallH' || k === 'lv.slab') {
-          this.undoS.pop();
           const res = this.bimCommand(k === 'meta.wallH' ? { op: 'setLevelHeight', level: this.lv, height: v } : { op: 'setLevelSlab', level: this.lv, thickness: Math.max(0, v) });
           if (!res.ok) reportCmd(res); if (!res.applied) this.renderInsp(); this.updateLvSel(); this.renderHud(); return;
         }
@@ -2414,7 +2420,6 @@ export class PlanEditor {
           // B2B: uzunluk komutla (başlangıç ucu sabit; birleşen uçlar, açıklıklar ve mahaller birlikte; sığmayan açıklık reddedilir)
           const r = x.face ? wallRef(x, P.meta.wallT, P) : null;   // yüz uzunluğu girildiyse eksen aynı farkla uzar
           const L = Math.max(1, r ? wallLen(x) + v - V.dist(r.a, r.b) : v);
-          this.undoS.pop();   // bimCommand kendi geri al kaydını ekler
           const res = this.bimCommand({ op: 'setWallLength', id: x.id, length: +L.toFixed(2), anchor: 'a' });
           reportCmd(res); if (!res.applied) this.renderInsp();
           return;
@@ -2581,10 +2586,9 @@ export class PlanEditor {
   }
   /* malzeme / yapı kütüphanesi; kaydedilince yapısı değişen duvar ve kat döşemesi kalınlıkları güncellenir */
   async openLibrary(focus) {
-    const before = JSON.stringify(this.plan);   // geri alma etkin kat planını saklar
+    this.hist.open('Malzemeler ve yapılar');   // tüm katlardaki kalınlık güncellemeleriyle tek kayıt
     const ok = await libraryDialog(this._root, { focus });
-    if (!ok) return;
-    this.undoS.push(before); this.redoS = [];
+    if (!ok) { this.hist.close(); return; }
     const RT = this._root;
     [RT, ...(RT.levels || [])].forEach(L => {
       (L.walls || []).forEach(w => { const c = compOf(RT, w.comp); if (!w.comp) return; if (!c) { delete w.comp; return; } const t = compThickness(c); if (Math.abs((w.t || 0) - t) > 0.01) { if (L === this.plan) this.setWallT(w, t); else w.t = t; } });
