@@ -120,24 +120,11 @@ export function wallCommands(fail) {
    *   nextSlabTop  = kat yüksekliği + üst katın döşeme kalınlığı + off   (üst kat döşemesinin üstü)
    * Değer eski alanlara yazılır (duvar h, kolon h = üst − z, kiriş z = üst − h); çizim motorları değişmeden okur.
    * Geçersiz bağ (üst kat yok, çatı katı, sıfır / negatif yükseklik) reddedilir. */
-  const topOf = (S, lv, mode, off) => {
-    const L = planLevels(S.W), cur = L[lv]; if (!cur) fail('Kat bulunamadı');
-    if (cur.kind === 'roof') fail('Çatı planı katında kat bağı yok');
-    if (mode === 'level') return cur.h + off;
-    if (mode === 'nextSlabTop') { const nx = L[lv + 1]; if (!nx) fail('Üst kat yok: "üst kat döşemesi üstü" bağlantısı geçersiz'); return cur.h + nx.slab + off; }
-    fail(`Geçersiz bağ türü: ${mode}`);
-  };
   const BINDABLE = { wall: 1, column: 1, beam: 1 };
   function applyTop(S, rec, b) {
-    const top = topOf(S, rec.t.lv, b.mode, +b.off || 0), o = rec.o, put = (k, v) => S.set(rec.t, o, k, v);
-    if (rec.cls === 'wall') {
-      const B = Math.min(+o.z0 || 0, 0);
-      if (top - B < 1) fail(`Duvar ${o.id}: bağlı üst kot ${r2(top)} cm — yükseklik sıfır ya da negatif olur`);
-      if (b.mode === 'level' && !(+b.off)) { put('h', 0); return; }   // kat yüksekliğini doğrudan izler (eski kat bağı)
-      put('h', r2(top)); return;
-    }
-    if (rec.cls === 'column') { const h = top - (+o.z || 0); if (h < 1) fail(`Kolon ${o.id}: bağlı yükseklik ${r2(h)} cm (en az 1)`); put('h', r2(h)); return; }
-    if (rec.cls === 'beam') { const z = top - (+o.h || 0); if (z < 0) fail(`Kiriş ${o.id}: alt kotu ${r2(z)} cm olur (döşemenin altına iner)`); put('z', r2(z)); }
+    const r = bindingTarget(S.W, rec.t.lv, rec.cls, rec.o, b);
+    if (r.error) fail(r.error);
+    S.set(rec.t, rec.o, r.key, r.value);
   }
   /* katlardaki bağlı elemanları yeniden hesapla */
   function syncBindings(S, lvs) {
@@ -240,4 +227,25 @@ function selfIntersects(p) {
   const n = p.length, X = (a, b, c, d) => { const o = (p1, p2, p3) => Math.sign((p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x)); return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0; };
   for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) { if (i === 0 && j === n - 1) continue; if (X(p[i], p[(i + 1) % n], p[j], p[(j + 1) % n])) return true; }
   return false;
+}
+
+/* ── kata bağlı üst kot hedefi (saf; komutlar ve kısıt çözücü ortak kullanır) ──
+ * → { key, value } yazılacak eski alan, ya da { error }. Bkz. wallCommands açıklaması (bimTop). */
+export function bindingTarget(root, lv, cls, o, b) {
+  const L = planLevels(root), cur = L[lv], off = +b?.off || 0;
+  if (!cur) return { error: 'Kat bulunamadı' };
+  if (cur.kind === 'roof') return { error: 'Çatı planı katında kat bağı yok' };
+  let top;
+  if (b?.mode === 'level') top = cur.h + off;
+  else if (b?.mode === 'nextSlabTop') { const nx = L[lv + 1]; if (!nx) return { error: 'Üst kat yok: "üst kat döşemesi üstü" bağlantısı geçersiz' }; top = cur.h + nx.slab + off; }
+  else return { error: `Geçersiz bağ türü: ${b?.mode}` };
+  if (cls === 'wall') {
+    const B = Math.min(+o.z0 || 0, 0);
+    if (top - B < 1) return { error: `Duvar ${o.id}: bağlı üst kot ${r2(top)} cm — yükseklik sıfır ya da negatif olur` };
+    if (b.mode === 'level' && !off) return { key: 'h', value: 0 };   // kat yüksekliğini doğrudan izler (eski kat bağı)
+    return { key: 'h', value: r2(top) };
+  }
+  if (cls === 'column') { const h = top - (+o.z || 0); if (h < 1) return { error: `Kolon ${o.id}: bağlı yükseklik ${r2(h)} cm (en az 1)` }; return { key: 'h', value: r2(h) }; }
+  if (cls === 'beam') { const z = top - (+o.h || 0); if (z < 0) return { error: `Kiriş ${o.id}: alt kotu ${r2(z)} cm olur (döşemenin altına iner)` }; return { key: 'z', value: r2(z) }; }
+  return { error: `${o.id}: kat bağı yalnız duvar, kolon ve kirişte` };
 }
