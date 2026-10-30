@@ -352,45 +352,123 @@ kiriş için **Kat bağı** (üst kot türü + ofset). Mobilde aynı denetimler 
 
 ---
 
-## B3 — Bağımlılık grafiği ve artımlı model güncelleme (teknik plan)
+## B3 — Bağımlılık grafiği, merkezi işlem geçmişi ve artımlı BIM modelleme
 
-Hedef: her değişiklikte tüm modeli yeniden türetmek yerine yalnız etkilenen elemanları yeniden hesaplamak; tüm
-düzenleme yollarını (kanvas sürükleme dahil) komut katmanına almak; kat başına geri al yığınını tek işlem günlüğüyle
-değiştirmek; yay duvar birleşimlerini desteklemek.
+Sürüm `0.5.0-b3`. Kayıt biçimi (`.saggcad.json`) değişmedi; eski veri tek doğruluk kaynağı, BIM modeli ondan türetilir.
+Yeni modüller: `js/bim/history.js`, `js/bim/deps.js`, `js/bim/solver.js`. Değişenler: `joins.js` (`updateJoins`,
+`joinGraph`), `wallgeom.js` (artımlı hesap, prizma önbelleği), `wallcmds.js` (`setArcGeometry`, `bindingTarget`,
+`arcParameters`), `commands.js` (kopya bağlama), `adapter.js`, `api.js`, `ui.js`, `plan2d.js`, `plan3d.js`, `main.js`, `sw.js`.
 
-### B3.1 Değişiklik olayları ve kirli işaretleme
-- `commands.js` yaması zaten alan düzeyinde: `{ lv, coll, id, key }`. Editör her uygulanan yamayı `pe:patch` olayıyla
-  yayınlar; eski doğrudan yazma yolları (sürükleme, panel alanları) için `editor.touch(lv, coll, id, keys)` eklenir.
-- `js/bim/deps.js`: bağımlılık grafiği — düğümler eleman kimlikleri; kenarlar:
-  duvar → birleşim komşuları (joins), duvar → açıklıklar (hostedBy), duvar → mahaller (boundedBy / geometrik eşleme),
-  kat → kata bağlı elemanlar (bimTop, h = 0), tür → atanmış elemanlar (bimType), kompozit → kullanan duvar / döşemeler.
-- Kirli küme = değişen kimlikler + grafikte bir adım (geometri için birleşim komşuları iki adım).
+### B3-A Merkezi işlem günlüğü (`history.js`)
+- Çizim başına **tek** geri al / yinele günlüğü (kat başına yığınların yerine). Bir kullanıcı eylemi = bir kayıt.
+- İki kayıt türü: `cmd` (BIM komutunun alan düzeyindeki yaması) ve `diff` (eski düzenleme yolları: eylem başında
+  `open()` kökün kopyasını alır, `close()` kopya ile güncel kök arasındaki yapısal farkı kaydeder). Fark kimlikli
+  dizilerde kimlikle eşlenir; yalnız değişen alanlar ve eklenen / silinen kayıtlar saklanır; anahtar sırası korunur.
+- Uygulama atomiktir: bir adım başarısız olursa o kaydın tüm adımları geri sarılır, kök değişmez, hata bildirilir
+  ("Geri alınamadı — model değiştirilmedi").
+- Kat değişince geçmiş korunur; iki katta 15 elemanı değiştiren işlem tek Ctrl+Z ile geri alınır; kat ekleme / silme
+  ve geri alma kat kimliğini ve içeriğini birebir korur. `onRecord` değişiklik olayını (`model-change`) üretir.
 
-### B3.2 Artımlı türetme
-- `adapter.buildModel` → eleman başına `elementFromLegacy` önbelleği (kimlik + kayıt imzası); yalnız kirli elemanlar
-  yeniden üretilir, `issues` ve ters dizin artımlı güncellenir.
-- `wallgeom`: kat başına birleşim grafiği ızgara dizini kalıcı tutulur; kirli duvar + komşuları için hücre çözümü yeniden
-  yapılır, diğer duvarların katman çokgenleri korunur. Kabul ölçütü: 2000 duvarlı katta tek duvar taşıma < 10 ms.
-- 3D: duvar başına mesh zaten ayrı; yalnız kirli duvarların `BufferGeometry`'si değiştirilir (tam `build()` yerine).
-- Kesit / metraj: kat ve eleman başına önbellek; açık kesit penceresi yalnız etkilenen katı yeniden çizer.
+### B3-A Kanvas sürüklemesi BIM komutuyla
+- Sürükleme boyunca önizleme (eski yol); bırakınca önizleme geri sarılır (`abort`) ve **tek** komut çalışır:
+  uç tutamacı → `moveWallEnd`, gövde → `offsetWall`. Açıklık sığma denetimi, bağlı uçlar ve mahal güncellemesi
+  sürüklemede de geçerlidir; sığmayan açıklık sürüklemeyi reddeder (model değişmez, kısa hata mesajı).
+- Esc / iptal önizlemeyi geri sarar. Dokunmatik tek parmak sürükleme ve iki parmak yakınlaştırma korunur.
 
-### B3.3 Tek işlem günlüğü (geri al / yinele)
-- Kat başına anlık görüntü yığını yerine proje (çizim) başına tek günlük: her kayıt bir yama (alan düzeyi) ya da
-  eski yol için kat anlık görüntüsü farkı (JSON diff → yama). Katlar arası geri alma tutarlı olur; kat silme günlüğü
-  sıfırlamaz (kat ekleme / silme de yama olur).
-- Kanvas sürüklemesi: hareket boyunca önizleme, bırakınca `moveWallEnd` / `offsetWall` komutu (açıklık sığma
-  denetimi ve mahal güncellemesi sürüklemede de geçerli).
+### B3-B Bağımlılık grafiği (`deps.js`)
+- Grafik BIM modelinden türetilir (ikinci kalıcı model yok). Düğümler: eleman, kat, `type:ID`, `comp:KEY`, `mat:KEY`,
+  `view:KAT`, `qty:KAT`. İki kenar türü: **etki** (birleşen duvarlar, duvar → açıklık / mahal, eleman → görünüş / metraj)
+  ve **kısıt** (kat → kata bağlı eleman ve üst kat, tür → eleman, kompozit → tür / eleman, malzeme → kompozit,
+  duvar → barındırılan açıklık).
+- `getAffectedElements(ids)`: kısıt kenarlarında sonuna kadar, etki kenarlarında iki adım; belirlenimci sıra
+  (aşama, sonra kimlik). `findCycles` (Tarjan), `constraintOrder` (topolojik; döngüde `{ ok: false, cycles }`).
+- API: `bim.deps()`, `bim.getAffectedElements()`, `bim.constraintCycles()`, `bim.constraintOrder()`.
 
-### B3.4 Genel kısıt çözücü (sıralı, döngü denetimli)
-- Kurallar: kat bağı → birleşen uçlar → barındırılan açıklıklar → mahal sınırı → döşeme dış hattı. Topolojik sıra;
-  döngü bulunursa işlem reddedilir ve döngü raporlanır.
-- Mahal sınırı: duvar grafiğinden kapalı döngü bulma (yüz izleme), birden çok çözümde kullanıcıya seçim.
+### B3-C Artımlı geometri
+- `levelWallGeometry`: plan nesnesi başına duvar imzası önbelleği. Değişen kümede (D) birleşim grafiği yerel olarak
+  güncellenir (`updateJoins`: eski / yeni konumun komşuluğunda alt analiz, dizinler yamanır) ve yalnız etkilenen
+  duvarların katman çokgenleri hesaplanır. Komşu duvarlar değişmemiş geometri nesnesini aynen paylaşır.
+- **Güvenli tam hesap** (sonuç her zaman tam hesapla aynı): ilk çağrı, kompozit / malzeme / varsayılan kalınlık değişimi,
+  tekrar eden kimlik, büyük değişiklik (> %25), yay duvar, etkilenen duvarlara dokunan katman çakışması ayrıştırması
+  ya da yeni çakışma (ayrıştırma küresel ve sıralıdır). Ham çakışma denetimi, ayrıştırmada kırpılan duvarların
+  ayrıştırma öncesi parçalarıyla yapılır (tam yoldaki ölçütle aynı).
+- `joinGraph(P)`: önbellekli birleşim grafiği; komut oturumunun kopyası `linkPlan` ile özgün plana bağlanır, kopyanın
+  ilk sorgusu özgünün grafiğinden ve geometrisinden başlar (komut başına iki tam analiz kalktı).
+- Duvar prizmaları (`wallPrisms`) duvar başına önbellekli; dizi kimliği "değişmedi" anlamına gelir (3D ve metraj).
 
-### B3.5 Yay duvar birleşimleri
-- Yay parçaları tek mantıksal eleman (`arc.id`) olarak ele alınır; uçta teğet doğrultusuyla L / T kuralları; katman
-  bantları yarıçap ötelemesiyle; kırpma eğri yaklaşık (parça çokgenleri) ama alan korunumlu.
+### B3-C 3D kısmi güncelleme (`plan3d.update`)
+- Sahne imzası (duvar, açıklık, mahal dışı her şey + görünüm seçenekleri) aynıysa yalnız değişen duvarların ağları
+  yenilenir: prizma dizisi ya da kayıt / açıklık imzası değişen duvarlar + yüz ayıklamasında bunlara değen duvarlar.
+  Eski `BufferGeometry`'ler bırakılır (`dispose`); kamera, hedef, güneş ve gezinme dokunulmaz. Mahal değişikliği
+  (kot 0) yalnız o mahalin nesnelerini, döşeme dış hattı değişirse yalnız döşemeyi yeniler. Kat yüksekliği, kot,
+  görünüm seçeneği, yay duvar ya da çukur döşeme değişiminde tam kurulum (güvenli).
+- Doğrulama: her senaryoda kısmi sahne, sıfırdan kurulan sahneyle nesne nesne (konum + köşe dizisi) karşılaştırılır.
 
-### B3.6 Testler ve kabul
-- Artımlı ↔ tam türetme eşitliği (rastgele düzenleme dizileri, 1000 adım): model, katman çokgenleri, prizma ve metraj aynı.
-- Performans bütçeleri `npm run bench` ile CI dışında ölçülür ve belgeye işlenir.
-- Tek günlükle çok katlı geri al / yinele birebir JSON; sürükleme komutlarının uçtan uca testi.
+### B3-D Sıralı kısıt çözücü (`solver.js`)
+- Aşamalar: kat kotu / yüksekliği → kata bağlı kolon, kiriş, duvar → duvar geometrisi → birleşimler → açıklıklar →
+  mahaller → döşemeler → metraj. `changed` verilirse yalnız etkilenen kapsam denetlenir.
+- **Saf**: kökü değiştirmez, hiçbir çakışmayı sessizce düzeltmez. Çakışma `{ stage, code, severity, ids, msg }`;
+  otomatik giderilebilenler için önerilen komut (`fixes`, ör. `syncLevelBindings`) ayrıca verilir ve yalnız kullanıcı
+  "Uygula" derse tek geri alınabilir komut olarak çalışır. Kısıt döngüsü bulunursa sıra kurulmaz, döngü raporlanır.
+- Kat bağı hedefi (`bindingTarget`) komutlar ve çözücüde ortaktır.
+
+### B3-D Yay duvar
+- Yay, parçalı düz duvar zinciri olarak saklanır (`arc: { id, i, off }`) — eski projeler aynen açılır.
+- **Parametrik**: `bim.getArcParameters(arcId)` → yarıçap, merkez, başlangıç / bitiş açısı, açı, yay boyu, kiriş,
+  ok yüksekliği, parça sayısı, tolerans. `setArcGeometry { arcId, radius | sagitta }`: uçlar (kiriş) sabit, parça sayısı
+  korunur, köşeler eşit açılı; açıklıklar yeniden yerleşir, sığmayan açıklık komutu reddeder; mahaller izler;
+  tek geri alınabilir işlem. Tolerans: istenen ↔ elde edilen yarıçap **0,5 cm** (aşılırsa reddedilir). Panelde
+  "Yarıçap" alanı bu komutu kullanır.
+- **Eski davranış korunur ve raporlanır**: yayın kompozit katman temizliği, teğet birleşimleri ve 3D / kesit gövdesi
+  B2B öncesi yaklaşımdadır (`ARC_LEGACY` bilgisi; artımlı yol yayda tam hesaba döner). Kalınlık / kompozit / yükseklik
+  yay parçalarına uygulanır; açıklık bir parçaya bağlıdır.
+
+### B3-D Model Sağlığı
+- Araçlar → **Model Sağlığı** (komut paleti: "Model Sağlığı"): eleman sayısı, kata bağlı eleman, birleşim sorunu,
+  çözülemeyen kısıt, geçersiz geometri; son model güncellemesi (eylem, değişen kimlik sayısı, geri al / yinele, saat),
+  duvar geometrisinin yolu (artımlı / tam ve nedeni), 3D güncelleme türü, kısıt denetimi süresi. Kısa mesajlar aşama
+  etiketiyle; ayrıntılar `console.info('[Model Sağlığı]', …)`.
+
+### Ölçümler (`npm run bench:b3`)
+Donanım: Intel Xeon @ 2,80 GHz, 4 çekirdek (paylaşımlı bulut kapsayıcısı), Node.js v22.22.0. Yöntem: ızgara plan
+(kompozit dış / iç duvarlar, her 5. duvarda kapı, her 4. düğümde kata bağlı kolon); her ölçüm ısınmadan sonra medyan
+(tek duvar 30, diğerleri 3–20 tekrar). "Tek duvar" = bir duvarın kalınlığı değişir → artımlı birleşim + katman
+geometrisi. Ölçümler arasında ±%15 oynama gözlendi (paylaşımlı makine).
+
+| Duvar (eleman) | İlk yükleme | Tam geometri | **Tek duvar (artımlı)** | Uç taşıma komutu | 3D güncelleme CPU (kısmi / tam) | Metraj | Kat yüksekliği komutu | BIM raporu | Geri al / yinele |
+|---|---|---|---|---|---|---|---|---|---|
+| 112 (149) | 114 ms | 32 ms | **3,3 ms** | 12 ms | 9 / 60 ms | 3,3 ms | 1,9 ms | 8,6 ms | 2,1 ms |
+| 480 (636) | 127 ms | 78 ms | **4,7 ms** | 18 ms | 6 / 214 ms | 7,8 ms | 8,0 ms | 13,5 ms | 3,2 ms |
+| 1984 (2629) | 506 ms | 350 ms | **8,3 ms** | 56 ms | 20 / 973 ms | 29 ms | 35 ms | 64 ms | 11 ms |
+| 5100 (6757) | 1432 ms | 936 ms | **28 ms** | 165 ms | 74 / 2353 ms | 88 ms | 110 ms | 267 ms | 23 ms |
+
+- Hedef "2000 duvarlı katta tek duvar artımlı geometri < 10 ms": **8,3 ms** (bu ölçüm; tekrar eden çalıştırmalarda
+  8,6–10,6 ms aralığı görüldü — sınırda). Doğruluktan ödün verilmedi: her artımlı sonuç testlerde tam hesapla birebir.
+- Tarayıcıda (Chromium, SwiftShader WebGL) 1984 duvar: 3D kısmi güncelleme **17,6 ms**, tam kurulum 322 ms.
+- Uç taşıma komutu B3 öncesi 2000 duvarda ~148 ms'ydi (komut kopyasında iki tam birleşim analizi); önbellekli
+  birleşim grafiğiyle ~47–56 ms. Kalan süre komutun kopyalama + doğrulama (iki model türetme) maliyetidir.
+
+### Artımlı ↔ tam eşitlik
+Karşılaştırılan: duvar başına katman çokgenleri (koordinat, 1e-6), katman / malzeme / öncelik, birleşim kimlikleri
+(sıralı), uç / duvar dizinleri, sorun kodları, ham çakışma sayısı, metraj alan / hacim, 3D prizma çokgenleri,
+eleman kimlikleri ve ilişkileri (önbellekli ↔ önbelleksiz model).
+- `tests/b3-incremental.test.mjs`: rastgele 120 düzenleme (uzun çaprazlar dahil), gerçekçi 80 düzenleme, temiz modelde
+  60 düzenleme (%100 artımlı), komut + geri al dizisi, 2D / 3D / metraj, güvenli tam hesap durumları, `joinGraph` kopya.
+- `tests/b3-stress.test.mjs`: **1000 adım** (≈570 komut, ≈25 reddedilen, ≈270 eski yol düzenlemesi, ≈120 geri al,
+  yinele) — her adımda eşitlik; sonunda tüm geri almalar başlangıç JSON'unu, tüm yinelemeler son JSON'u birebir verir.
+
+### Testler
+`npm test` (birim, 87 test): `b3-history`, `b3-deps`, `b3-incremental`, `b3-solver`, `b3-arc`, `b3-stress` + önceki
+aşamalar. Tarayıcı (isteğe bağlı, Playwright): `tests/e2e/b3.e2e.cjs` (sürükleme komutları, geri al / yinele, katlar
+arası, kat silme, dokunmatik), `b3-3d.e2e.cjs` (kalınlık, yükseklik, uç sürükleme, pencere taşıma, kompozit, geri al,
+kat yüksekliği: kısmi = tam, kamera korunur, bellek bırakılır), `b3-ui.e2e.cjs` (Model Sağlığı, önerilen düzeltme,
+parametrik yay, kayıt / yeniden yükleme, çevrimdışı).
+
+### Bilinen sınırlar (B3)
+- Yay duvarın katman temizliği, teğet birleşimi ve 3D / kesit gövdesi eski yaklaşımda (yukarıda). Yay parametreleri
+  komutla değişir; yay gövdesinin kompozit katman çokgenleri B4 sonrası.
+- Eğik dörtlü düğümde gerçek katman çakışması oluşursa ayrıştırma küreseldir → o bölgedeki düzenlemeler tam hesaba düşer
+  (doğru, ama yavaş). `GEO_STATS.fallback` nedenleri sayar; Model Sağlığı son yolu gösterir.
+- Kesit penceresi açıkken yeniden çizim kesit başına tamdır (duvar geometrisi ve prizmalar önbellekten gelir).
+- Komut önizlemesi (sürükleme) eski yoldur; komut bırakmada çalışır. İki parmak yakınlaştırmanın otomatik testi
+  sentetik işaretçilerle yapılır (başsız Chromium CDP çoklu dokunuş üretemiyor — B2B tabanında da aynı).

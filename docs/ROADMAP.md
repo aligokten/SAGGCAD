@@ -58,11 +58,29 @@ Sonraki aşama: [parametrik BIM çekirdeği](BIM-CEKIRDEK.md).
 - [x] B2B-3 duvar komutları, açıklık konum politikası, mahal sınırı, otomatik birleşimi kapatma
 - [x] B2B-4 3D mesh (`mesh.js`) ve kesit ortak geometriden; kata bağlı duvar / kolon / kiriş; kesit penceresi aboneliği; panelde birleşim ve kat bağı
 - [x] Testler: 4 yeni birim test dosyası, `tests/e2e/b2b.e2e.cjs`; örnek SVG'ler `docs/b2b/`
-- [ ] Yay duvar birleşimleri, kanvas sürüklemenin komut katmanına alınması → B3
+- [x] Kanvas sürüklemenin komut katmanına alınması → B3
+- [ ] Yay duvar birleşimleri → B3'te parametreler; katman / birleşim geometrisi sonrası
+
+## 0.5.0-b3 · B3 — Bağımlılık grafiği, merkezi işlem geçmişi, artımlı BIM modelleme (tamamlandı; yay katmanları kısmi)
+- [x] B3-A merkezi işlem günlüğü (`history.js`): tek günlük, katlar arası tek Ctrl+Z, kat ekle / sil geri alınır, atomik
+- [x] B3-A kanvas sürüklemesi bırakınca `moveWallEnd` / `offsetWall` komutu; sığmayan açıklık reddi; dokunmatik korunur
+- [x] B3-B bağımlılık grafiği (`deps.js`): `getAffectedElements`, döngü tespiti, kısıt sırası, değişiklik olayları
+- [x] B3-C artımlı birleşim / katman geometrisi, önbellekli birleşim grafiği, komut kopyası önbelleği, prizma önbelleği
+- [x] B3-C 3D kısmi güncelleme (değişen duvar ağları, eski geometri bırakılır, kamera korunur)
+- [x] B3-D sıralı kısıt çözücü (`solver.js`), Model Sağlığı paneli, 1000 adımlık stres testi
+- [x] B3-D parametrik yay parametreleri ve `setArcGeometry` (yarıçap / ok, tolerans 0,5 cm)
+- [ ] Yay duvar kompozit katman temizliği, teğet birleşimleri ve 3D / kesit gövdesi — eski yaklaşımda, raporlanıyor (`ARC_LEGACY`) → B4 sonrası
+- Ölçümler ve sınırlar: [BIM-CEKIRDEK.md › B3](BIM-CEKIRDEK.md#b3--bağımlılık-grafiği-merkezi-işlem-geçmişi-ve-artımlı-bim-modelleme)
+
+## B4 — Rölöve ↔ proje ve revizyon yönetimi (yol haritası)
+- [ ] Rölöve ve proje çizimlerinde elemanların kimlikle karşılaştırılması (eşleşen / yalnız rölövede / yalnız projede, değişen parametreler)
+- [ ] Eleman durum sınıfları: **mevcut**, **yıkılacak**, **yeni** (çizim stili, filtre, metraj ayrımı)
+- [ ] Otomatik revizyon planları (yıkım planı, yeni yapı planı; renk / tarama kuralları; pafta yerleşimi)
+- [ ] İlave ve azalan imalat metrajları (duvar hacmi, kompozit katman, açıklık, döşeme; malzeme bazlı fark tablosu)
+- [ ] Proje sürümleri ve geri yükleme (adlandırılmış sürümler, sürümler arası fark, seçili sürüme dönüş)
+- [ ] Akıllı mahal ve malzeme listeleri (mahal bazlı yüzey / kaplama, malzeme toplamları, dışa aktarma)
 
 ## Sıradaki aşamalar
-- [ ] **B3** — Bağımlılık grafiği ve artımlı model güncelleme, tek işlem günlüğü ([plan](BIM-CEKIRDEK.md#b3--bağımlılık-grafiği-ve-artımlı-model-güncelleme-teknik-plan))
-- [ ] Rölöve / proje revizyon karşılaştırması (eleman kimliğiyle fark: eklenen / kaldırılan / değişen; plan ve metraj farkı)
 - [ ] Akıllı metraj tabloları (tür, malzeme, kat ve mahal bazlı; birleşim temizliği sonrası hacim; dışa aktarma)
 - [ ] Gelişmiş pafta düzenleyici (çoklu görünüş yerleşimi, antet, ölçek, revizyon tablosu)
 - [ ] IFC4 dışa aktarma (IfcWall / IfcSlab / IfcColumn / IfcBeam / IfcOpeningElement, kompozit katmanlar `IfcMaterialLayerSet`)

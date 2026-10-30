@@ -50,7 +50,7 @@ sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMA
 - **Döşeme** (F): köşelerle ya da dış hattan otomatik; ara kat, zemine oturan, balkon / çıkma, teras; üst yüz kotu.
 - Kat döşemesine de kompozit yapı atanır (kat kotu yapının kalınlığından hesaplanır).
 
-### BIM çekirdeği (B1 + B2A — parametrik düzenleme)
+### BIM çekirdeği (B1 → B3 — parametrik düzenleme, artımlı model)
 - Tüm yapı elemanları (duvar, kolon, kiriş, döşeme, kapı, pencere, boşluk, mahal, çatı, merdiven, korkuluk) ortak bir
   BIM şemasıyla okunur: kalıcı kimlik, sınıf (IFC karşılığı), tür, kat, geometri ve özellikler ayrı, ilişkiler.
 - **Model → BIM Türleri ve Parametreler**: yerleşik türleri çoğaltıp projeye özel türler oluşturun (ör. `DIS-DUV-02`),
@@ -62,6 +62,12 @@ sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMA
   temizlenir (çekirdek sürer, kaplama sarar). 2D plan, 3D model, kesit ve duvar metrajı aynı geometriden üretilir —
   köşede boşluk ya da çift hacim yok. Panelde birleşimler, referans çizgisi, katman öncelikleri, uç başına otomatik
   birleşim ve kat bağı (duvar / kolon / kiriş üst kotu). Örnekler: [docs/b2b](docs/b2b).
+- **B3 — merkezi geçmiş ve artımlı model**: çizim başına tek geri al / yinele günlüğü (katlar arası, kat ekleme / silme
+  dahil, tek Ctrl+Z); kanvasta duvar sürüklemesi bırakınca BIM komutu olur (sığmayan açıklık reddedilir); bağımlılık
+  grafiği; yalnız etkilenen duvarlar yeniden hesaplanır ve 3D'de yalnız onların ağları yenilenir (kamera korunur);
+  sıralı kısıt çözücü çakışmaları raporlar, sessizce düzeltmez. **Araçlar → Model Sağlığı**: eleman, kata bağlı,
+  birleşim sorunu, çözülemeyen kısıt, geçersiz geometri, son güncelleme; önerilen düzeltmeyi "Uygula". Yay duvarda
+  yarıçap / ok yüksekliği parametrik (panelde "Yarıçap").
 - Eski projeler aynen açılır: kayıt biçimi değişmedi; türler `meta.bimTypes`, atama `bimType`, geçersiz kılma `bimOv`
   isteğe bağlı alanlarında. Ayrıntı: [docs/BIM-CEKIRDEK.md](docs/BIM-CEKIRDEK.md).
 
@@ -123,6 +129,7 @@ node tests/e2e/b2a.e2e.cjs http://localhost:8080/
 node tests/e2e/b2b.e2e.cjs http://localhost:8080/
 npm run svg      # L / T / X birleşim örnekleri → docs/b2b/*.svg
 npm run bench    # BIM servis katmanı ölçümü
+npm run bench:b3 # B3: 100 / 500 / 2000 / 5000 duvar — artımlı geometri, komut, 3D, metraj, geri al
 ```
 
 Herhangi bir statik sunucu da olur; dosyayı doğrudan `file://` ile açmak ES modülleri nedeniyle çalışmaz.
@@ -139,11 +146,12 @@ js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve öl
 js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
 css/ui.css        arayüz tasarım sistemi ve temalar
 js/bim/           BIM çekirdeği: schema, types, fields, adapter, relations, commands, wallcmds, api, ui, manager,
-                  joins, wallgeom, geom2d, mesh (duvar birleşimleri ve ortak geometri)
+                  joins, wallgeom, geom2d, mesh (duvar birleşimleri ve ortak geometri),
+                  history (merkezi işlem günlüğü), deps (bağımlılık grafiği), solver (kısıt çözücü)
 js/plan-geom.js   plan geometrisi ve metraj   js/importer.js, importui.js   DXF / PDF içe aktarma
 js/exporters.js   DXF, DAE, 3DS, STL, DXF 3D  js/cabinet.js, cabdesign.js   mutfak / dolap tasarlayıcı
 js/roof.js, stairs.js, tiles.js, openings.js, fixtures.js, joinery.js, floororder.js, labels.js, cnc.js, forms.js …
-tests/            node --test duman testleri
+tests/            node --test birim testleri; tests/e2e/ Playwright uçtan uca; tests/bench/ ölçümler
 ```
 
 ## Lisanslar
