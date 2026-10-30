@@ -14,10 +14,12 @@
  * paralel düşerse ya da sonuç ters döner / kendini keserse mahal değiştirilmez ve raporlanır. Mahal kimliği, adı,
  * kaplaması ve diğer alanları korunur (yalnız pts; dikdörtgen değilse `rect` bayrağı).
  */
-import { V, wallLen, wallDir, wallNormal, projSeg, polyArea, planLevels } from '../plan-geom.js';
+import { V, wallLen, wallDir, wallNormal, projSeg, polyArea, planLevels, arcStats, arcApex, arcThrough } from '../plan-geom.js';
 import { joinGraph } from './joins.js';
 
 const r2 = n => +(+n).toFixed(2);
+/* yay toleransı (cm): istenen ↔ elde edilen yarıçap; köşeler 0,01 cm'ye yuvarlanır */
+export const ARC_TOL = 0.5;
 const P2 = p => ({ x: r2(p.x), y: r2(p.y) });
 const tgt = (lv, coll, id) => ({ lv, coll, id });
 
@@ -184,6 +186,34 @@ export function wallCommands(fail) {
       if (!moves.some(m => m.w === rec.o && m.e === end)) moves.push({ w: rec.o, e: end });
       return { label: `Duvar ${id}: ${end === 'a' ? 'başlangıç' : 'bitiş'} ucu taşındı`, summary: applyMoves(S, rec, moves.map(m => ({ ...m, to: { x: +to.x, y: +to.y } })), { op: 'moveWallEnd', id, end, connected: moves.length - 1 }) };
     },
+    /* B3-D: parametrik yay — uç noktalar (kiriş) sabit; yarıçap ya da ok yüksekliği verilir, parça sayısı korunur.
+     * Parçalar eşit açılı köşelere taşınır (applyMoves: açıklıklar yeniden yerleşir / sığmayan reddedilir, mahaller izler). */
+    setArcGeometry(S, { arcId, radius, sagitta }) {
+      const any = [S.W, ...(S.W.levels || [])].flatMap(l => l?.walls || []).find(w => w?.arc?.id === arcId);
+      if (typeof arcId !== 'string' || !any) fail(`Yay bulunamadı: ${arcId}`);
+      const rec0 = S.find(any.id);
+      const P = rec0.P, ws = P.walls.filter(w => w?.arc?.id === arcId), st = arcStats(ws);
+      if (!st) fail(`Yay ${arcId}: parametreleri okunamadı`);
+      const v = st.v, p1 = v[0], p2 = v.at(-1), c = st.chord, n = ws.length;
+      let h;
+      if (radius !== undefined) {
+        if (!(Number.isFinite(+radius) && +radius > 0)) fail('Yarıçap geçersiz');
+        if (+radius < c / 2 - ARC_TOL) fail(`Yarıçap ${r2(radius)} cm kiriş yarısından (${r2(c / 2)} cm) küçük olamaz`);
+        const R = Math.max(+radius, c / 2); h = R - Math.sqrt(Math.max(0, R * R - c * c / 4));
+      } else if (sagitta !== undefined) {
+        if (!(Number.isFinite(+sagitta) && +sagitta >= 1 && +sagitta <= c / 2 + ARC_TOL)) fail(`Ok yüksekliği 1–${r2(c / 2)} cm olmalı`);
+        h = Math.min(+sagitta, c / 2);
+      } else fail('Yarıçap ya da ok yüksekliği verin');
+      const u = V.norm(V.sub(p2, p1)), side = Math.sign(V.dot(V.sub(st.mid, p1), { x: -u.y, y: u.x })) || 1;
+      const g = arcThrough(p1, p2, arcApex(p1, p2, h, side)); if (!g) fail('Yay kurulamadı (düz)');
+      const pts = Array.from({ length: n + 1 }, (_, i) => { const a = g.a1 + g.sweep * i / n; return i === 0 ? p1 : i === n ? p2 : { x: g.c.x + g.r * Math.cos(a), y: g.c.y + g.r * Math.sin(a) }; });
+      const moves = [];
+      ws.forEach((w, i) => { if (!V.eq(w.a, pts[i], 1e-6)) moves.push({ w, e: 'a', to: pts[i] }); if (!V.eq(w.b, pts[i + 1], 1e-6)) moves.push({ w, e: 'b', to: pts[i + 1] }); });
+      const summary = applyMoves(S, { ...rec0, o: ws[0] }, moves, { op: 'setArcGeometry', arcId, radius: r2(g.r), sagitta: r2(h) });
+      const got = arcStats(ws);
+      if (radius !== undefined && Math.abs(got.r - Math.max(+radius, c / 2)) > ARC_TOL) fail(`Yay yarıçapı tolerans dışında (${r2(got.r)} ≠ ${r2(radius)} cm, tolerans ${ARC_TOL} cm)`);
+      return { label: `Yay ${arcId}: R ${r2(got.r)} cm`, summary };
+    },
     setWallLength(S, { id, length, anchor = 'a' }) {
       const rec = wallRec(S, id), w = rec.o;
       if (!(Number.isFinite(+length) && +length >= 1)) fail('Uzunluk en az 1 cm olmalı');
@@ -248,4 +278,14 @@ export function bindingTarget(root, lv, cls, o, b) {
   if (cls === 'column') { const h = top - (+o.z || 0); if (h < 1) return { error: `Kolon ${o.id}: bağlı yükseklik ${r2(h)} cm (en az 1)` }; return { key: 'h', value: r2(h) }; }
   if (cls === 'beam') { const z = top - (+o.h || 0); if (z < 0) return { error: `Kiriş ${o.id}: alt kotu ${r2(z)} cm olur (döşemenin altına iner)` }; return { key: 'z', value: r2(z) }; }
   return { error: `${o.id}: kat bağı yalnız duvar, kolon ve kirişte` };
+}
+
+/* yay parametreleri (okuma): yarıçap, merkez, başlangıç / bitiş açısı, açı, yay boyu, kiriş, ok yüksekliği, parça sayısı */
+export function arcParameters(P, arcId) {
+  const ws = (P?.walls || []).filter(w => w?.arc?.id === arcId), st = arcStats(ws); if (!st) return null;
+  const deg = a => +(a * 180 / Math.PI).toFixed(2);
+  return { arcId, walls: [...ws].sort((a, b) => (a.arc.i || 0) - (b.arc.i || 0)).map(w => w.id), radius: r2(st.r), center: { x: r2(st.c.x), y: r2(st.c.y) },
+    startAngle: deg(st.a1), endAngle: deg(st.a1 + st.sweep), sweep: deg(st.sweep), arcLength: r2(Math.abs(st.sweep) * st.r), chordLength: r2(st.chord),
+    sagitta: r2(st.sag), segments: ws.length, segmentLength: r2(st.len), tolerance: ARC_TOL,
+    geometry: 'legacy' };   // katman / birleşim geometrisi henüz eski yaklaşım (ARC_LEGACY)
 }

@@ -22,6 +22,8 @@ import { planCommand, summaryText, COMMANDS } from './commands.js';
 import { levelWallGeometry, wallQuantities, PRIO_LABEL } from './wallgeom.js';
 import { wallJoinInfo } from './joins.js';
 import { buildDeps, getAffectedElements, findCycles, constraintOrder } from './deps.js';
+import { solve } from './solver.js';
+import { arcParameters } from './wallcmds.js';
 import { planLevels } from '../plan-geom.js';
 
 const freeze = o => { if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
@@ -97,6 +99,22 @@ export function createBim(getRoot, { getVersion = null } = {}) {
     getAffectedElements: (ids, opt) => getAffectedElements(api.deps(), Array.isArray(ids) ? ids : [ids], opt),
     constraintCycles: () => memo('cycles', () => findCycles(api.deps())),
     constraintOrder: ids => constraintOrder(api.deps(), ids),
+    /* B3-D: sıralı kısıt çözücü (saf; öneriler fixes içinde, uygulanmaz) */
+    solveConstraints: (changed = null) => changed ? solve(state().root, { changed, model: state().model }) : memo('solve', s => solve(s.root, { model: s.model })),
+    getArcParameters: arcId => { if (!str(arcId)) return null; for (const l of planLevels(state().root)) { const a = arcParameters(l.plan, arcId); if (a) return { ...a, levelId: l.idx === 0 ? 'L0' : l.plan.id }; } return null; },
+    /* Model Sağlığı özeti */
+    health: () => memo('health', s => {
+      const sol = api.solveConstraints(), iss = s.model.issues, G = api.deps();
+      const lvIds = new Set(s.model.levels.map(l => l.id)), bound = [...s.model.elements.values()].filter(e => [...lvIds].some(l => G.drives.get(l)?.has(e.id)) && (e.legacy?.bimTop || e.inherited?.height === 'level')).length;
+      const geoCodes = new Set(['WALL_INVALID', 'ROOM_INVALID', 'SLAB_INVALID', 'OPENING_FIT', 'OPENING_HOST', 'QTY_INVALID', 'QTY_FAILED']);
+      return {
+        elements: s.model.elements.size, bound,
+        joinIssues: iss.filter(i => String(i.code).startsWith('JOIN_') && i.severity !== 'info').length,
+        unsolved: sol.conflicts.length, errors: sol.conflicts.filter(c => c.severity === 'error').length,
+        invalidGeometry: sol.conflicts.filter(c => geoCodes.has(c.code)).length + iss.filter(i => i.code === 'GEOM_OVERLAP_RESOLVED').length,
+        cycles: api.constraintCycles().length, solve: sol,
+      };
+    }),
     getTopBinding: id => { const el = str(id) && state().model.elements.get(id); return el?.legacy ? (el.legacy.bimTop ? { ...el.legacy.bimTop } : null) : null; },
     /* B2B: duvar metrajı (birleşimlerde çift sayım yok): kat başına toplam ve malzeme hacimleri */
     wallQuantities: () => memo('wallQ', s => planLevels(s.root).filter(l => l.kind !== 'roof').map(l => {

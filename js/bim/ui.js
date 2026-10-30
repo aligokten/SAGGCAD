@@ -135,3 +135,31 @@ function reportHtml(bim) {
     <p class="muted small">Rapor yalnızca bilgi verir: hiçbir kayıt silinmez ya da düzeltilmez.</p>
   </div>`;
 }
+
+/* ── B3-D: Model Sağlığı ── kısa sayaçlar + çözülemeyen kısıtlar (aşama sırasıyla); ayrıntı konsolda.
+ * Öneriler yalnız kullanıcı "Uygula" deyince komutla (tek geri alınabilir işlem) çalışır. */
+const STAGE_T = { level: 'Kat', binding: 'Kat bağı', wall: 'Duvar', join: 'Birleşim', opening: 'Açıklık', room: 'Mahal', slab: 'Döşeme', derived: 'Metraj' };
+export function healthHtml(bim, { last = null, geo = null, view3d = null } = {}) {
+  return bim.withSnapshot(() => {
+    const H = bim.health(), S = H.solve, ok = !H.errors && !H.cycles;
+    const card = (t, v, cls = '') => `<div class="mh-card ${cls}"><b>${v}</b><span>${t}</span></div>`;
+    const when = last?.t ? new Date(last.t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null;
+    const geoT = geo ? ({ incremental: `artımlı (${geo.affected} / ${geo.walls} duvar)`, full: `tam hesap${geo.why && geo.why !== 'ilk' ? ` — ${esc(geo.why)}` : ''}`, reused: 'önbellekten' })[geo.mode] || esc(geo.mode) : '—';
+    const v3 = view3d ? (view3d.mode === 'partial' ? `kısmi (${view3d.walls.length} duvar ağı)` : 'tam kurulum') : 'açık değil';
+    const rows = S.conflicts.slice(0, 80).map(c => `<li class="s-${c.severity}"><i class="bim-src">${esc(STAGE_T[c.stage] || c.stage)}</i> ${esc(c.msg)}</li>`).join('');
+    return `<div class="model-health" data-ok="${ok ? 1 : 0}">
+      <div class="mh-grid">${card('Eleman', H.elements)}${card('Kata bağlı', H.bound)}${card('Birleşim sorunu', H.joinIssues, H.joinIssues ? 'warn' : '')}${card('Çözülemeyen kısıt', H.unsolved, H.errors ? 'err' : H.unsolved ? 'warn' : '')}${card('Geçersiz geometri', H.invalidGeometry, H.invalidGeometry ? 'err' : '')}</div>
+      <div class="mtable mh-last">
+        <div><span>Son model güncellemesi</span><b>${last ? `${esc(last.label || '—')}${last.dir && last.dir !== 'do' ? ` (${last.dir === 'undo' ? 'geri alındı' : 'yinelendi'})` : ''} · ${last.ids?.length || 0} kimlik${when ? ` · ${when}` : ''}` : '—'}</b></div>
+        <div><span>Duvar geometrisi</span><b>${geoT}</b></div>
+        <div><span>3D görünüm</span><b>${v3}</b></div>
+        <div><span>Kısıt denetimi</span><b>${S.stages.length} aşama · ${S.ms} ms${H.cycles ? ` · <span class="danger-t">${H.cycles} döngü</span>` : ''}</b></div>
+      </div>
+      ${S.fixes.length ? `<h5>Önerilen düzeltmeler</h5><div class="mh-fixes">${S.fixes.map((f, i) => `<div><span>${esc(f.why)}</span><button class="btn btn-xs btn-primary" data-mh-fix="${i}">Uygula</button></div>`).join('')}</div>` : ''}
+      <h5>Çözülemeyen kısıtlar <small class="muted">${H.errors} hata · ${H.unsolved - H.errors} uyarı</small></h5>
+      ${rows ? `<ul class="bim-iss">${rows}</ul>` : '<p class="muted small">Tüm kısıtlar sağlanıyor.</p>'}
+      <p class="muted small">Denetim yalnızca rapor eder: hiçbir değer kendiliğinden düzeltilmez. Ayrıntılar tarayıcı konsolunda.</p>
+    </div>`;
+  });
+}
+export function healthDetails(bim) { const H = bim.health(); console.info('[Model Sağlığı]', { ...H, solve: undefined }, H.solve.conflicts, H.solve.fixes); return H; }

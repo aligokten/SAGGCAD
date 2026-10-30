@@ -65,7 +65,7 @@ const sideSign = v => (v > 1e-9 ? 1 : v < -1e-9 ? -1 : 0);
  * ilk çağrı, kompozit / malzeme / varsayılan kalınlık değişimi, tekrar eden kimlik, büyük değişiklik, çakışma ayrıştırması
  * gereken durum ve `full: true`. Sonuç tam hesapla eşdeğerdir (tests/b3-incremental.test.mjs). */
 const CACHE = new WeakMap();
-export const GEO_STATS = { full: 0, incremental: 0, reused: 0, fallback: {} };
+export const GEO_STATS = { full: 0, incremental: 0, reused: 0, fallback: {}, last: null };   // last: son çağrının yolu (Model Sağlığı)
 const hash = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return `${s.length}:${h >>> 0}`; };
 function libSig(R, T) { try { return hash(JSON.stringify([R?.meta?.composites || null, R?.meta?.materials || null, T])); } catch { return Math.random(); } }
 function wallSigs(P) {
@@ -77,19 +77,19 @@ export function levelWallGeometry(R, P, { T, full = false } = {}) {
   const wallT = +(T ?? P?.meta?.wallT ?? R?.meta?.wallT) || 15;
   if (!P || typeof P !== 'object') return compute(R, P, wallT);
   const c = CACHE.get(P) || CACHE.get(originOf(P)), lib = libSig(R, wallT), sigs = wallSigs(P);   // komut kopyası: özgün planın önbelleğinden
-  const fullRun = why => { GEO_STATS.full++; if (why) GEO_STATS.fallback[why] = (GEO_STATS.fallback[why] || 0) + 1; const res = compute(R, P, wallT); CACHE.set(P, { lib, sigs: sigs.m, res }); return res; };
+  const fullRun = why => { GEO_STATS.full++; GEO_STATS.last = { mode: 'full', why: why || 'ilk', walls: sigs.m.size }; if (why) GEO_STATS.fallback[why] = (GEO_STATS.fallback[why] || 0) + 1; const res = compute(R, P, wallT); CACHE.set(P, { lib, sigs: sigs.m, res }); return res; };
   if (full || !c) return fullRun(full ? 'istek' : null);
   if (c.lib !== lib) return fullRun('kütüphane');
   if (sigs.dup) return fullRun('tekrar eden kimlik');
   const D = new Set();
   for (const [id, sg] of sigs.m) if (c.sigs.get(id) !== sg) D.add(id);
   for (const id of c.sigs.keys()) if (!sigs.m.has(id)) D.add(id);
-  if (!D.size) { GEO_STATS.reused++; if (CACHE.get(P) !== c) CACHE.set(P, c); return c.res; }
+  if (!D.size) { GEO_STATS.reused++; GEO_STATS.last = { mode: 'reused', walls: sigs.m.size }; if (CACHE.get(P) !== c) CACHE.set(P, c); return c.res; }
   if (D.size > Math.max(64, sigs.m.size * 0.25)) return fullRun('büyük değişiklik');
   if ([...D].some(id => c.res.walls.get(id)?.legacy || P.walls.find(w => w.id === id)?.arc)) return fullRun('yay');
   const res = incremental(R, P, wallT, c.res, D);
   if (!res) return fullRun('yerel çakışma');
-  GEO_STATS.incremental++;
+  GEO_STATS.incremental++; GEO_STATS.last = { mode: 'incremental', changed: D.size, affected: res.diag.incremental.affected.length, walls: sigs.m.size };
   CACHE.set(P, { lib, sigs: sigs.m, res });
   return res;
 }

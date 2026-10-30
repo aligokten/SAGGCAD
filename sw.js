@@ -1,6 +1,6 @@
 /* SAGGCAD — çevrimdışı kabuk önbelleği. Kendi dosyalarımız önce ağdan (yeni sürüm hemen gelsin),
  * çevrimdışıysa önbellekten; yazı tipleri önce önbellekten. Sürüm değişince CACHE adını artırın. */
-const CACHE = 'saggcad-v6';
+const CACHE = 'saggcad-v7';
 const CORE = [
   './',
   'index.html',
@@ -46,8 +46,10 @@ const CORE = [
   'js/bim/adapter.js',
   'js/bim/api.js',
   'js/bim/commands.js',
+  'js/bim/deps.js',
   'js/bim/fields.js',
   'js/bim/geom2d.js',
+  'js/bim/history.js',
   'js/bim/joins.js',
   'js/bim/mesh.js',
   'js/bim/wallcmds.js',
@@ -55,6 +57,7 @@ const CORE = [
   'js/bim/manager.js',
   'js/bim/relations.js',
   'js/bim/schema.js',
+  'js/bim/solver.js',
   'js/bim/types.js',
   'js/bim/ui.js',
   'vendor/three/three.module.js',

@@ -10,7 +10,8 @@ import { scaleOf, unitOf, kotM, UNITS, SCALES } from './units.js';
 import { levelName, planLevels } from './plan-geom.js';
 import { viewsOf } from './sections.js';
 import { createBim } from './bim/api.js';
-import { bimReportHtml } from './bim/ui.js';
+import { bimReportHtml, healthHtml, healthDetails, reportCmd } from './bim/ui.js';
+import { GEO_STATS } from './bim/wallgeom.js';
 import { mountMenubar, mountNavigator, mountStatusbar, openPalette, bindPaletteKey, WORKSPACES, getWorkspace, setWorkspaceKey, getTheme, toggleTheme, applyTheme } from './workbench.js';
 import { useName, modelName } from './openings.js';
 import { emptyPlan, planMetrics, roomMetrics } from './plan-geom.js';
@@ -473,6 +474,18 @@ function planScreen() {
     toast('Plan görseli proje görsellerine kaydedildi');
   };
   const render = async () => { if (mode === '2d') await setMode('3d'); renderDialog(); };
+  // B3-D: Model Sağlığı — sayaçlar, çözülemeyen kısıtlar; öneriler yalnız "Uygula" ile (tek geri alınabilir komut)
+  const openHealth = () => {
+    const body = () => healthHtml(S.bim, { last: S.editor.lastChange, geo: GEO_STATS.last, view3d: S.p3?.stats3d?.last });
+    healthDetails(S.bim);
+    modal({ title: 'Model Sağlığı', wide: true, body: body(), actions: [{ k: 'ok', t: 'Kapat', cls: 'btn-primary' }], onOpen: el => {
+      el.addEventListener('click', e => {
+        const b = e.target.closest('[data-mh-fix]'); if (!b) return;
+        const f = S.bim.health().solve.fixes[+b.dataset.mhFix]; if (!f) return;
+        reportCmd(S.editor.bimCommand(f.cmd)); el.innerHTML = body();
+      });
+    } });
+  };
 
   /* ── komutlar: menü çubuğu, komut paleti ve mobil menü ortak ── */
   const tool = t => () => { if (mode === '3d') setMode('2d'); E.setTool(t); };
@@ -529,6 +542,7 @@ function planScreen() {
     { id: 'tools.scale', cat: 'tools', t: 'Planı ölçekle (bilinen ölçüden)', ic: 'ruler', run: tool('scale') },
     { id: 'tools.render', cat: 'tools', t: 'Gerçekçi render…', ic: 'sparkle', sep: true, run: render },
     { id: 'tools.bim', cat: 'tools', t: 'BIM model raporu', ic: 'layers', kw: 'bim tür eleman doğrulama ilişki', sep: true, run: () => modal({ title: 'BIM model raporu', wide: true, body: bimReportHtml(S.bim), actions: [{ k: 'ok', t: 'Kapat', cls: 'btn-primary' }] }) },
+    { id: 'tools.health', cat: 'tools', t: 'Model Sağlığı', ic: 'layers', kw: 'bim kısıt çakışma birleşim geometri sağlık', run: openHealth },
     { id: 'tools.keys', cat: 'tools', t: 'Klavye kısayolları', ic: 'list', sep: true, run: () => keysDialog() },
   ];
   S.cmds = commands;

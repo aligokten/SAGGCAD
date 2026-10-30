@@ -22,7 +22,7 @@ import { wallCommands } from './wallcmds.js';
 import { linkPlan } from './joins.js';
 
 export const COMMANDS = ['createType', 'duplicateType', 'updateType', 'deleteType', 'assignType', 'setInstanceParam', 'resetInstanceParam', 'setElementLevelBinding',
-  'moveWallEnd', 'offsetWall', 'setWallLength', 'setWallReference', 'setJoinEnabled',   // B2B: duvar geometrisi (wallcmds.js)
+  'moveWallEnd', 'offsetWall', 'setWallLength', 'setWallReference', 'setJoinEnabled', 'setArcGeometry',   // B2B: duvar geometrisi (wallcmds.js)
   'setTopBinding', 'setLevelHeight', 'setLevelSlab', 'syncLevelBindings'];                   // B2B: kata bağlı geometri
 
 class CmdError extends Error {}

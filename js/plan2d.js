@@ -1033,13 +1033,19 @@ export class PlanEditor {
     this.insp.innerHTML = `<h4>Yay duvar</h4>
       <div class="row wrap arc-acts"><button class="btn btn-xs btn-ghost" data-ac="flip" title="Yayı kirişin diğer tarafına yansıt">${icon('rotate')}Ters yöne çevir</button><button class="btn btn-xs btn-ghost" data-ac="copy">${icon('copy')}Kopyala</button><button class="btn btn-xs btn-danger" data-ac="del">${icon('trash')}Yayı sil</button></div>
       ${st ? `<div class="mtable"><div><span>Yarıçap (eksen)</span><b>${fmtNum(st.r, 1)} cm</b></div><div><span>Yay açısı</span><b>${fmtNum(st.deg, 1)}°</b></div><div><span>Yay uzunluğu</span><b>${fmtNum(st.len, 1)} cm</b></div><div><span>Kiriş</span><b>${fmtNum(st.chord, 1)} cm</b></div><div><span>Duvar parçası</span><b>${ws.length}</b></div></div>
-      <label>Ok yüksekliği<div class="inp-unit sm"><input type="number" inputmode="decimal" step="1" min="1" data-ak="sag" value="${+Math.abs(this.arcPts(ws)?.h ?? st.sag).toFixed(1)}"><span>cm</span></div></label>` : ''}
+      <label>Ok yüksekliği<div class="inp-unit sm"><input type="number" inputmode="decimal" step="1" min="1" data-ak="sag" value="${+Math.abs(this.arcPts(ws)?.h ?? st.sag).toFixed(1)}"><span>cm</span></div></label>
+      <label>Yarıçap<div class="inp-unit sm"><input type="number" inputmode="decimal" step="1" min="${Math.ceil(st.chord / 2)}" data-ak="r" value="${+st.r.toFixed(1)}"><span>cm</span></div></label>` : ''}
       <label>Kalınlık<div class="inp-unit sm"><input type="number" inputmode="decimal" step="1" data-ak="t" value="${t}"><span>cm</span></div></label>
       <label>Yükseklik<div class="inp-unit sm"><input type="number" inputmode="decimal" step="1" data-ak="h" value="${hh}"><span>cm</span></div></label>
       <p class="muted small">Yay, düz duvar parçalarının zinciri olarak çizilir; kapı ve pencereyi parçaların üzerine ekleyebilirsiniz${ops ? ` (${ops} açıklık var)` : ''}. Yayı tutup sürükleyerek taşıyın. Şeklini değiştirmek için uçlardaki ve ortadaki tutamaçları sürükleyin ya da ok yüksekliğini yazın; ters yöne çevirebilir, silebilirsiniz.</p>`;
     this.insp.onchange = e => {
       const k = e.target.dataset?.ak; if (!k) return;
       const v = parseFloat(e.target.value); if (!(v > 0)) return;
+      if (k === 'r') {   // B3-D: parametrik yay komutu (uçlar sabit, açıklıklar yeniden yerleşir; sığmayan reddedilir)
+        const r = this.bimCommand({ op: 'setArcGeometry', arcId: ws[0].arc.id, radius: v });
+        if (!r.ok) toast(r.errors[0], 'err'); else if (r.warnings?.length) toast(r.warnings[0]);
+        this.renderInsp(); return;
+      }
       if (k === 'sag') {
         const A = this.arcPts(ws); if (!A) return;
         this.snap(); if (!this.reshapeArc(ws, A.p1, A.p2, (A.h < 0 ? -1 : 1) * v, A.off)) { this.hist.abort(); this.render(); toast('Bu ok yüksekliği ile yay oluşmuyor', 'err'); return; }

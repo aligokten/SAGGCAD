@@ -366,3 +366,15 @@ select.mini { height: 30px; padding: 0 22px 0 8px; border: 1px solid var(--ui-li
 .bim-iss li.s-warning { border-left-color: #F59E0B; }
 .bim-iss li.s-info { border-left-color: var(--accent); }
 .bim-report h4 { margin: 10px 0 6px; font-size: 13.5px; }
+
+/* ── B3: Model Sağlığı ── */
+.model-health h5 { margin: 14px 0 6px; }
+.mh-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.mh-card { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--ui-line); border-radius: 8px; background: var(--ui-panel-2); }
+.mh-card b { font-size: 20px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.mh-card span { font-size: 11.5px; color: var(--ui-muted); }
+.mh-card.warn { border-color: #F59E0B; }
+.mh-card.err { border-color: #D33A4A; }
+.mh-card.err b { color: #D33A4A; }
+.mh-fixes { display: flex; flex-direction: column; gap: 6px; }
+.mh-fixes div { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
