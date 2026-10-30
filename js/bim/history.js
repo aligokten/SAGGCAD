@@ -118,8 +118,8 @@ export function applyOps(root, ops, dir = 'redo') {
 
 /* ── günlük ── */
 export class History {
-  constructor(getRoot, { limit = 200 } = {}) {
-    this.getRoot = getRoot; this.limit = limit;
+  constructor(getRoot, { limit = 200, onRecord = null } = {}) {
+    this.getRoot = getRoot; this.limit = limit; this.onRecord = onRecord;   // onRecord(entry, 'do' | 'undo' | 'redo'): değişiklik olayı
     this.undo = []; this.redo = []; this.base = null; this.baseLabel = ''; this.rev = 0;
   }
   /* eski yol eylemi başlıyor: açık eylem varsa kapanır; yeni temel kopya alınır */
@@ -140,7 +140,7 @@ export class History {
   }
   /* BIM komut yaması (commands.js) */
   record(patch, label) { this.close(); if (Array.isArray(patch) && patch.length) return this.push({ kind: 'cmd', patch, label }); return null; }
-  push(e) { e.t = Date.now(); this.undo.push(e); if (this.undo.length > this.limit) this.undo.shift(); this.redo = []; this.rev++; return e; }
+  push(e) { e.t = Date.now(); this.undo.push(e); if (this.undo.length > this.limit) this.undo.shift(); this.redo = []; this.rev++; this.onRecord?.(e, 'do'); return e; }
   canUndo() { return this.undo.length > 0 || (!!this.base && diffState(this.base, this.getRoot()).length > 0); }
   canRedo() { return this.redo.length > 0; }
   step(dir) {
@@ -149,7 +149,7 @@ export class History {
     const e = from.at(-1); if (!e) return null;
     const root = this.getRoot();
     if (e.kind === 'cmd') applyPatch(root, e.patch, dir); else applyOps(root, e.ops, dir);   // hata: fırlatır, kök değişmez
-    from.pop(); to.push(e); this.rev++;
+    from.pop(); to.push(e); this.rev++; this.onRecord?.(e, dir);
     return e;
   }
   clear() { this.undo = []; this.redo = []; this.base = null; this.rev++; }

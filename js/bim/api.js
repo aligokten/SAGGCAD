@@ -21,6 +21,7 @@ import { validateRelations, inverseIndex, relationsOf } from './relations.js';
 import { planCommand, summaryText, COMMANDS } from './commands.js';
 import { levelWallGeometry, wallQuantities, PRIO_LABEL } from './wallgeom.js';
 import { wallJoinInfo } from './joins.js';
+import { buildDeps, getAffectedElements, findCycles, constraintOrder } from './deps.js';
 import { planLevels } from '../plan-geom.js';
 
 const freeze = o => { if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
@@ -91,6 +92,11 @@ export function createBim(getRoot, { getVersion = null } = {}) {
         joinOff: Array.isArray(o.joinOff) ? o.joinOff : [], top: o.bimTop || null,
         layers: (S?.layers || []).map(l => ({ idx: l.idx, mat: l.mat, name: l.m.t, prio: l.prio, prioLabel: PRIO_LABEL[l.prio] || '', core: l.core, thickness: +(l.hi - l.lo).toFixed(2) })) })));
     },
+    /* B3-B: bağımlılık grafiği (modelden türetilir, önbellekli) */
+    deps: () => memo('deps', s => buildDeps(s.model, s.root)),
+    getAffectedElements: (ids, opt) => getAffectedElements(api.deps(), Array.isArray(ids) ? ids : [ids], opt),
+    constraintCycles: () => memo('cycles', () => findCycles(api.deps())),
+    constraintOrder: ids => constraintOrder(api.deps(), ids),
     getTopBinding: id => { const el = str(id) && state().model.elements.get(id); return el?.legacy ? (el.legacy.bimTop ? { ...el.legacy.bimTop } : null) : null; },
     /* B2B: duvar metrajı (birleşimlerde çift sayım yok): kat başına toplam ve malzeme hacimleri */
     wallQuantities: () => memo('wallQ', s => planLevels(s.root).filter(l => l.kind !== 'roof').map(l => {

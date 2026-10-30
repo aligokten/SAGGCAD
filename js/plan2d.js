@@ -16,6 +16,7 @@ import { bimInspHtml, bindBimInsp, reportCmd } from './bim/ui.js';
 import { runCommand, applyPatch, noteLegacyEdit } from './bim/commands.js';
 import { openTypeManager } from './bim/manager.js';
 import { History } from './bim/history.js';
+import { changedIdsOf } from './bim/deps.js';
 import { clsOfLegacy } from './bim/fields.js';
 import { newCabinet, autoFill, itemDims, planSymbol, runLength, FRONTS, pick as cabPick, MT as CAB_MT } from './cabinet.js';
 
@@ -142,7 +143,8 @@ export class PlanEditor {
     this.snapInd = null;
     this.ptrs = new Map();
     this.g = null;                // aktif hareket
-    this.hist = new History(() => this._root);   // B3: çizim başına tek işlem günlüğü (katlar arası)
+    // B3: çizim başına tek işlem günlüğü (katlar arası); her kayıt / geri al / yinele bir değişiklik olayı yayınlar
+    this.hist = new History(() => this._root, { onRecord: (e, dir) => { this.lastChange = { ids: changedIdsOf(e, this._root), dir, label: e.label, t: Date.now() }; this.emit('model-change', this.lastChange); } });
     this.opt = JSON.parse(localStorage.getItem('tb-plan-opt') || '{"snap":true,"ortho":true,"dims":true,"step":5}');
     this.itemType = 'kanepe';
     this.railPick = { kind: 'dikey', h: 110 };   // çizilecek korkuluk
