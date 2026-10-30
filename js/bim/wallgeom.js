@@ -19,7 +19,7 @@
  *   I  uçlar düğümde dik kesilir · STAR açıortaylarla bölünür · serbest uç işaretlenen noktada biter
  *   LEGACY (yay duvar içeren düğüm) eski yarım kalınlık uzatması korunur ve sorun olarak raporlanır (B3)
  */
-import { analyzeJoins } from './joins.js';
+import { analyzeJoins, updateJoins } from './joins.js';
 import { sub, add, mul, dot, cross, len, norm, perp, hp, hpThrough, hpFlip, clipAll, diffAll, bigQuad, area, absArea, interArea, lineX, edgeCoverage, centroid, bbox, bbHit } from './geom2d.js';
 import { compOf, compThickness, matOf, wallKind } from '../materials.js';
 import { V, wallExt } from '../plan-geom.js';
@@ -59,22 +59,88 @@ export function wallLayers(R, w, T) {
 const bandHP = (ax, lo, hi) => [hp(ax.n, dot(ax.n, ax.a) + lo), hp(mul(ax.n, -1), -(dot(ax.n, ax.a) + hi))];
 const sideSign = v => (v > 1e-9 ? 1 : v < -1e-9 ? -1 : 0);
 
-/* ── ana hesap: bir katın duvar geometrisi ── */
+/* ── ana hesap: bir katın duvar geometrisi ──
+ * B3-C: artımlı. Önbellek duvar başına kayıt imzası tutar; değişen duvar kümesi (D) için birleşim grafiği yerel
+ * güncellenir (joins.updateJoins) ve yalnız etkilenen duvarların katman çokgenleri yeniden hesaplanır. Güvenli tam hesap:
+ * ilk çağrı, kompozit / malzeme / varsayılan kalınlık değişimi, tekrar eden kimlik, büyük değişiklik, çakışma ayrıştırması
+ * gereken durum ve `full: true`. Sonuç tam hesapla eşdeğerdir (tests/b3-incremental.test.mjs). */
 const CACHE = new WeakMap();
-function sigOf(R, P, T) {
-  let s; try { s = JSON.stringify([P.walls, R?.meta?.composites || null, R?.meta?.materials || null, T]); } catch { return Math.random(); }
-  let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
-  return `${s.length}:${h >>> 0}`;
+export const GEO_STATS = { full: 0, incremental: 0, reused: 0, fallback: {} };
+const hash = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return `${s.length}:${h >>> 0}`; };
+function libSig(R, T) { try { return hash(JSON.stringify([R?.meta?.composites || null, R?.meta?.materials || null, T])); } catch { return Math.random(); } }
+function wallSigs(P) {
+  const m = new Map(); let dup = false;
+  for (const w of Array.isArray(P.walls) ? P.walls : []) { if (!w || typeof w.id !== 'string') continue; if (m.has(w.id)) dup = true; m.set(w.id, JSON.stringify(w)); }
+  return { m, dup };
 }
-export function levelWallGeometry(R, P, { T } = {}) {
+export function levelWallGeometry(R, P, { T, full = false } = {}) {
   const wallT = +(T ?? P?.meta?.wallT ?? R?.meta?.wallT) || 15;
-  if (P && typeof P === 'object') { const c = CACHE.get(P), sg = sigOf(R, P, wallT); if (c && c.sig === sg) return c.res; const res = compute(R, P, wallT); CACHE.set(P, { sig: sg, res }); return res; }
-  return compute(R, P, wallT);
+  if (!P || typeof P !== 'object') return compute(R, P, wallT);
+  const c = CACHE.get(P), lib = libSig(R, wallT), sigs = wallSigs(P);
+  const fullRun = why => { GEO_STATS.full++; if (why) GEO_STATS.fallback[why] = (GEO_STATS.fallback[why] || 0) + 1; const res = compute(R, P, wallT); CACHE.set(P, { lib, sigs: sigs.m, res }); return res; };
+  if (full || !c) return fullRun(full ? 'istek' : null);
+  if (c.lib !== lib) return fullRun('kütüphane');
+  if (sigs.dup) return fullRun('tekrar eden kimlik');
+  const D = new Set();
+  for (const [id, sg] of sigs.m) if (c.sigs.get(id) !== sg) D.add(id);
+  for (const id of c.sigs.keys()) if (!sigs.m.has(id)) D.add(id);
+  if (!D.size) { GEO_STATS.reused++; return c.res; }
+  if (D.size > Math.max(64, sigs.m.size * 0.25)) return fullRun('büyük değişiklik');
+  if ([...D].some(id => c.res.walls.get(id)?.legacy || P.walls.find(w => w.id === id)?.arc)) return fullRun('yay');
+  const res = incremental(R, P, wallT, c.res, D);
+  if (!res) return fullRun('yerel çakışma');
+  GEO_STATS.incremental++;
+  CACHE.set(P, { lib, sigs: sigs.m, res });
+  return res;
+}
+function incremental(R, P, wallT, prev, D) {
+  const { G, affected } = updateJoins(prev.joins, P, D, { T: wallT });
+  // önceki ayrıştırmalar etkilenen duvarlara dokunuyorsa sıra küresel: tam hesap
+  if (prev.diag.resolved.some(r => affected.has(r.keep) || affected.has(r.lose) || D.has(r.keep) || D.has(r.lose))) return null;
+  // eksenleri güncel kayıt nesnelerine bağla (önizleme / geri al kayıt nesnelerini yenileyebilir)
+  const cur = new Map(P.walls.filter(w => w && typeof w.id === 'string').map(w => [w.id, w]));
+  for (const [id, ax] of G.axes) { const w = cur.get(id); if (w && ax.w !== w) G.axes.set(id, { ...ax, w }); }
+  const sub = compute(R, P, wallT, { Gj: G, scope: affected });
+  const W = new Map();
+  for (const id of G.axes.keys()) { const S = sub.walls.get(id) || prev.walls.get(id); if (S) W.set(id, S); }   // kayıt sırası
+  // yeni çakışma (etkilenen duvar parçaları ↔ diğerleri) varsa tam hesap (ayrıştırma küresel ve sıralı)
+  const items = [];
+  // ayrıştırmada kırpılan (kaybeden) duvarlar: tam yolun ham çakışma denetimi gibi ayrıştırma ÖNCESİ parçalarla
+  const pre = prev.diag.prePieces || new Map();
+  for (const S of W.values()) {
+    const hot = affected.has(S.id), raw = !hot && pre.get(S.id);
+    S.layers.forEach((l, k) => { for (const p of raw ? raw[k] : l.pieces) items.push({ wid: S.id, layer: l.idx, p, bb: bbox(p), hot }); });
+  }
+  let bad = false;
+  const hotRaw = [];   // ham çakışma raporu aynı duvarın katmanlarını da sayar (tam yoldaki overlapReport ile aynı ölçüt)
+  piecePairs(items, (A, B) => {
+    if (bad || !(A.hot || B.hot)) return;
+    const a = interArea(A.p, B.p); if (!(a > 0.01)) return;
+    if (A.wid !== B.wid) bad = true; else hotRaw.push({ a: `${A.wid}#${A.layer}`, b: `${B.wid}#${B.layer}`, area: a });
+  });
+  if (bad) return null;
+  const resolved = prev.diag.resolved, hotOf = x => affected.has(x.split('#')[0]);
+  const issues = [...G.issues, ...joinIssues(G), ...prev.issues.filter(i => i.code === 'GEOM_OVERLAP_RESOLVED')];
+  return { joins: G, walls: W, issues, diag: { rawOverlaps: [...prev.diag.rawOverlaps.filter(o => !hotOf(o.a) && !hotOf(o.b)), ...hotRaw].sort((x, y) => (x.a + x.b < y.a + y.b ? -1 : 1)), resolved, prePieces: pre, incremental: { changed: [...D].sort(), affected: [...affected].sort() } } };
+}
+/* yay / çok uçlu düğüm bilgileri (tam ve artımlı yolda aynı) */
+function joinIssues(Gj) {
+  const out = [];
+  for (const j of Gj.joins) {
+    const ids = j.members.map(m => m.id);
+    if (j.kind === 'LEGACY') out.push({ severity: 'info', code: 'ARC_LEGACY', ids, id: ids[0], msg: `Yay duvar birleşimi (${ids.join(', ')}): eski uzatma kuralı kullanıldı; katman temizliği B3'te` });
+    if (j.kind === 'STAR') out.push({ severity: 'info', code: 'STAR_JOIN', ids, id: ids[0], msg: `${ids.length} duvarlık düğüm (${ids.join(', ')}): açıortay birleşimi; katman önceliği uygulanmadı` });
+  }
+  return out;
 }
 
-function compute(R, P, wallT) {
-  const Gj = analyzeJoins(P, { T: wallT }), issues = Gj.issues.slice(), W = new Map();
+function compute(R, P, wallT, { Gj = analyzeJoins(P, { T: wallT }), scope = null } = {}) {
+  const issues = scope ? [] : Gj.issues.slice(), W = new Map();
+  // kapsam: yalnız etkilenen duvarlar ve birleşim ortakları (ortakların sonucu atılır)
+  const joinsIn = scope ? Gj.joins.filter(j => j.members.some(m => scope.has(m.id))) : Gj.joins;
+  const need = scope ? new Set(joinsIn.flatMap(j => j.members.map(m => m.id)).concat([...scope])) : null;
   for (const ax of Gj.axes.values()) {
+    if (need && !need.has(ax.id)) continue;
     const layers = wallLayers(R, ax.w, wallT).map(l => ({ ...l, band: bandHP(ax, l.lo, l.hi), add: [], cut: [] }));
     const free = { a: [[hp(ax.u, dot(ax.u, ax.a))]], b: [[hp(mul(ax.u, -1), -dot(ax.u, ax.b))]] };
     W.set(ax.id, { id: ax.id, ax, layers, ends: { ...free }, legacy: ax.arc, joins: { a: null, b: null, body: [] } });
@@ -85,7 +151,7 @@ function compute(R, P, wallT) {
   const nearFace = (H, d) => { const s = sideSign(dot(d, H.n)) || 1, n = mul(H.n, s); return hp(n, dot(n, H.a) + H.t / 2); };
   const sideOf = (at, d) => hpThrough(at, d);
 
-  for (const j of Gj.joins) {
+  for (const j of joinsIn) {
     const ms = j.members.map(m => ({ ...m, S: W.get(m.id) })).filter(m => m.S);
     for (const m of ms) { if (m.end) m.S.joins[m.end] = j; else m.S.joins.body.push(j); }
     if (j.kind === 'LEGACY') {
@@ -93,7 +159,6 @@ function compute(R, P, wallT) {
         const e = wallExt(P, m.S.ax.w)[m.end] || 0, ax = m.S.ax;
         m.S.ends[m.end] = [[m.end === 'a' ? hp(ax.u, dot(ax.u, ax.a) - e) : hp(mul(ax.u, -1), -(dot(ax.u, ax.b) + e))]];
       }
-      issues.push({ severity: 'info', code: 'ARC_LEGACY', ids: ms.map(m => m.id), id: ms[0]?.id, msg: `Yay duvar birleşimi (${ms.map(m => m.id).join(', ')}): eski uzatma kuralı kullanıldı; katman temizliği B3'te` });
       continue;
     }
     if (j.kind === 'I') { for (const m of ms) m.S.ends[m.end] = [[sideOf(j.at, m.d)]]; continue; }
@@ -110,7 +175,6 @@ function compute(R, P, wallT) {
         }
         m.S.ends[m.end] = [hs];
       });
-      issues.push({ severity: 'info', code: 'STAR_JOIN', ids: ms.map(m => m.id), id: ms[0]?.id, msg: `${ms.length} duvarlık düğüm (${ms.map(m => m.id).join(', ')}): açıortay birleşimi; katman önceliği uygulanmadı` });
       continue;
     }
     if (j.kind === 'L') {
@@ -197,8 +261,9 @@ function compute(R, P, wallT) {
     }
   }
 
-  // gövde çokgenleri + eklenen hücreler − kesilen hücreler
+  // gövde çokgenleri + eklenen hücreler − kesilen hücreler (kapsamda yalnız etkilenen duvarlar)
   for (const S of W.values()) {
+    if (scope && !scope.has(S.id)) { W.delete(S.id); continue; }
     const ax = S.ax, base = R0(ax, V.lerp(ax.a, ax.b, 0.5));
     for (const l of S.layers) {
       let pieces = [];
@@ -209,11 +274,14 @@ function compute(R, P, wallT) {
       delete l.add; delete l.cut;
     }
   }
+  if (scope) return { walls: W };
+  issues.push(...joinIssues(Gj));
   const raw = overlapReport({ walls: W });   // birleşim kurallarından sonra kalan çakışma (temiz birleşimlerde 0 olmalı)
-  const resolved = resolveOverlaps(W);
+  const snap = new Map([...W.values()].map(S => [S.id, S.layers.map(l => l.pieces)]));   // parçalar yerinde değişmez, diziler yenilenir
+  const resolved = resolveOverlaps(W), prePieces = new Map([...new Set(resolved.map(r => r.lose))].map(id => [id, snap.get(id)]));
   if (resolved.length) issues.push({ severity: 'warning', code: 'GEOM_OVERLAP_RESOLVED', ids: [...new Set(resolved.flatMap(r => [r.keep, r.lose]))].sort(), id: resolved[0].lose,
     msg: `Üst üste binen duvar katmanları ayrıştırıldı (${[...new Set(resolved.map(r => `${r.keep}↔${r.lose}`))].join(', ')}); çift hacim metraja girmez — çizimde tekrar eden duvarları kontrol edin` });
-  return { joins: Gj, walls: W, issues, diag: { rawOverlaps: raw, resolved } };
+  return { joins: Gj, walls: W, issues, diag: { rawOverlaps: raw, resolved, prePieces } };
 }
 
 /* son güvence: hâlâ çakışan katman parçaları (ör. aynı doğruda tekrar çizilmiş duvarlar) önceliğe göre ayrıştırılır —

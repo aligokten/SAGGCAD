@@ -158,3 +158,45 @@ export function wallJoinInfo(G, id) {
   return { a: endOf('a'), b: endOf('b'), body: body.map(j => ({ id: j.id, kind: j.kind, walls: j.members.filter(m => m.id !== id).map(m => m.id) })),
     issues: G.issues.filter(i => i.ids.includes(id)) };
 }
+
+/* ── B3-C: birleşim grafiğinin yerel güncellemesi ──
+ * D: değişen / eklenen / silinen duvar kimlikleri. D'nin eski ve yeni geometrisi çevresindeki duvarlarla alt analiz yapılır;
+ * D'ye dokunan ya da uçlarından birini yeni D birleşimleriyle paylaşan eski birleşimler bırakılır, alt analizden D'ye
+ * dokunan ya da bırakılan uçları kullanan birleşimler eklenir. Sonuç tam analizle aynı birleşim kümesidir (testle
+ * karşılaştırılır). Dönüş: { G (yeni grafik), affected (geometrisi yeniden hesaplanacak duvarlar) } */
+export function updateJoins(prev, P, D, { T } = {}) {
+  const wallT = T ?? +P?.meta?.wallT ?? 15, walls = (Array.isArray(P?.walls) ? P.walls : []).filter(w => w && typeof w.id === 'string');
+  const boxes = [], grow = (a, b, m) => boxes.push({ x0: Math.min(a.x, b.x) - m, y0: Math.min(a.y, b.y) - m, x1: Math.max(a.x, b.x) + m, y1: Math.max(a.y, b.y) + m });
+  let maxT = 0; for (const ax of prev.axes.values()) maxT = Math.max(maxT, ax.t); for (const w of walls) maxT = Math.max(maxT, +w.t || wallT);
+  const M = maxT + JOIN_TOL.contact + JOIN_TOL.axis + 2;
+  for (const id of D) {
+    const o = prev.axes.get(id); if (o) grow(o.a, o.b, M);
+    const w = walls.find(x => x.id === id); if (w?.a && w?.b) grow(w.a, w.b, M);
+  }
+  const hit = w => w?.a && w?.b && boxes.some(b => Math.max(w.a.x, w.b.x) >= b.x0 && Math.min(w.a.x, w.b.x) <= b.x1 && Math.max(w.a.y, w.b.y) >= b.y0 && Math.min(w.a.y, w.b.y) <= b.y1);
+  const C = walls.filter(hit);
+  // alt analizdeki aday duvarların eski birleşim ortakları da dahil (uç birleşimleri bölgede tam görünsün)
+  const cIds = new Set(C.map(w => w.id));
+  const sub = analyzeJoins({ ...P, walls: C }, { T: wallT });
+  const touchesD = j => j.members.some(m => D.has(m.id));
+  const endKeys = js => new Set(js.flatMap(j => j.members.filter(m => m.end).map(m => `${m.id}.${m.end}`)));
+  const subD = sub.joins.filter(touchesD), subDEnds = endKeys(subD);
+  const dropped = prev.joins.filter(j => touchesD(j) || j.members.some(m => m.end && subDEnds.has(`${m.id}.${m.end}`)));
+  const droppedEnds = endKeys(dropped), dropSet = new Set(dropped.map(j => j.id));
+  const added = sub.joins.filter(j => touchesD(j) || j.members.some(m => m.end && droppedEnds.has(`${m.id}.${m.end}`)));
+  const byId = new Map(prev.joins.filter(j => !dropSet.has(j.id)).map(j => [j.id, j]));
+  for (const j of added) byId.set(j.id, j);
+  const joins = [...byId.values()].sort((p, q) => p.id < q.id ? -1 : p.id > q.id ? 1 : 0);
+  // eksenler
+  // eksenler kayıt sırasıyla (tam analizle aynı sıra): bölgedekiler alt analizden, diğerleri önceki grafikten
+  const axes = new Map();
+  for (const w of walls) { const ax = cIds.has(w.id) ? sub.axes.get(w.id) : prev.axes.get(w.id); if (ax && !axes.has(w.id)) axes.set(w.id, ax); }
+  const endJoin = new Map(), byWall = new Map();
+  for (const j of joins) for (const m of j.members) { if (m.end) endJoin.set(`${m.id}.${m.end}`, j.id); (byWall.get(m.id) || byWall.set(m.id, []).get(m.id)).push(j.id); }
+  const affected = new Set([...D].filter(id => axes.has(id)));
+  for (const j of [...dropped, ...added]) for (const m of j.members) if (axes.has(m.id)) affected.add(m.id);
+  // sorunlar: etkilenen duvarlara ait olanlar alt analizden, diğerleri önceki grafikten
+  const touch = i => (i.ids || []).some(id => affected.has(id) || D.has(id));
+  const issues = [...prev.issues.filter(i => !touch(i)), ...sub.issues.filter(i => touch(i) && (i.ids || []).every(id => cIds.has(id)))];
+  return { G: { axes, joins, endJoin, byWall, issues }, affected, candidates: C.length };
+}
