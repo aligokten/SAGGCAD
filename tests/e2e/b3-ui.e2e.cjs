@@ -81,7 +81,8 @@ const ok = (c, m) => { if (!c) throw new Error('B3-UI HATA: ' + m); console.log(
   await p.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 20000 });
   const cached = await E(async () => { const c = await caches.open((await caches.keys()).find(k => k.startsWith('saggcad-'))); return Promise.all(['js/bim/history.js', 'js/bim/deps.js', 'js/bim/solver.js', 'js/plan3d.js'].map(async u => [u, !!(await c.match(new URL(u, location.href).href))])); });
   ok(cached.every(([, v]) => v), `yeni modüller çevrimdışı önbellekte: ${cached.map(([u]) => u.split('/').pop()).join(', ')}`);
-  ok(await E(async () => (await caches.keys()).includes('saggcad-v8')), 'önbellek sürümü saggcad-v8');
+  const CV = require('fs').readFileSync(path.join(__dirname, '..', '..', 'sw.js'), 'utf8').match(/CACHE = '([^']+)'/)[1];
+  ok(await E(async cv => (await caches.keys()).includes(cv), CV), `önbellek sürümü ${CV}`);
   await ctx.setOffline(true);
   await p.reload(); await p.waitForSelector('#ps2d svg.pe-svg', { timeout: 15000 }); await p.waitForTimeout(500);
   ok(await E(() => JSON.stringify(window.SAGGCAD.editor.root)) === jBefore, 'çevrimdışı yeniden yükleme: uygulama ve çizim açıldı');

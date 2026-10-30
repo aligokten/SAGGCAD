@@ -12,6 +12,8 @@ import { viewsOf } from './sections.js';
 import { createBim } from './bim/api.js';
 import { bimReportHtml, healthHtml, healthDetails, reportCmd } from './bim/ui.js';
 import { GEO_STATS } from './bim/wallgeom.js';
+import { openRevision } from './revui.js';
+import { legendItems, REV_STYLE, SHEET_KINDS } from './revview.js';
 import { mountMenubar, mountNavigator, mountStatusbar, openPalette, bindPaletteKey, WORKSPACES, getWorkspace, setWorkspaceKey, getTheme, toggleTheme, applyTheme } from './workbench.js';
 import { useName, modelName } from './openings.js';
 import { emptyPlan, planMetrics, roomMetrics } from './plan-geom.js';
@@ -41,6 +43,9 @@ const drawingOf = (p, id) => p.drawings.find(d => d.id === id) || mainOf(p);
 const anyLv = (p, k) => !!p && [p, ...(p.levels || []).filter(l => l.kind !== 'roof')].some(x => x[k]?.length);
 const hasContent = p => !!(p?.walls?.length || p?.rooms?.length || p?.items?.length || p?.rails?.length);
 const clonePlan = p => p ? JSON.parse(JSON.stringify(p)) : emptyPlan();
+/* B4: çizim kökeni — kopyadan oluşan çizim kaynağını (aynı proje içinde) isteğe bağlı meta veriyle bilir; kimlikler korunur */
+const originOf = (src, n = 1) => ({ sourceDrawingId: src.id, sourceCreatedAt: Date.now(), revisionLabel: `R${n}` });
+const nextRev = (p, src) => p.drawings.filter(x => x.sourceDrawingId === src.id).length + 1;
 const slug = s => String(s || 'cizim').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'cizim';
 const planUrl = (p, d, extra = '') => `#/p/${p.id}/plan?d=${d.id}${extra}`;
 
@@ -250,7 +255,7 @@ function projectScreen() {
     if (a === 'tpl') { d.plan = samplePlan(); save(); location.hash = planUrl(p, d); return; }
     if (a === 'del') { if (!await confirmDlg(`"${d.name}" çizimi silinecek.`)) return; p.drawings = p.drawings.filter(x => x.id !== id); }
     if (a === 'ren') { const n = await promptDlg('Çizimin adı', d.name); if (!n?.trim()) return; d.name = n.trim(); d.updatedAt = Date.now(); }
-    if (a === 'copy') p.drawings.push({ id: uid('dw'), name: `${d.name} (kopya)`, kind: d.main ? 'proje' : d.kind, plan: clonePlan(d.plan), createdAt: Date.now(), updatedAt: Date.now() });
+    if (a === 'copy') p.drawings.push({ id: uid('dw'), name: `${d.name} (kopya)`, kind: d.main ? 'proje' : d.kind, plan: clonePlan(d.plan), ...originOf(d, nextRev(p, d)), createdAt: Date.now(), updatedAt: Date.now() });
     save(); projectScreen();
   });
   $('[data-up]').onchange = async e => { await addPhotos(e.target.files, { tag: 'rolove' }); projectScreen(); };
@@ -278,7 +283,8 @@ async function newDrawingDialog(p, then) {
     actions: [{ k: 'no', t: 'Vazgeç' }, { k: 'ok', t: 'Oluştur', cls: 'btn-primary' }] });
   if (r?.k !== 'ok') return;
   const src = $('#dws', r.el).value;
-  const d = { id: uid('dw'), name: $('#dwn', r.el).value.trim() || `Proje ${n}`, kind: $('#dwk', r.el).value, plan: src ? clonePlan(drawingOf(p, src).plan) : emptyPlan(), createdAt: Date.now(), updatedAt: Date.now() };
+  const sd = src ? drawingOf(p, src) : null;
+  const d = { id: uid('dw'), name: $('#dwn', r.el).value.trim() || `Proje ${n}`, kind: $('#dwk', r.el).value, plan: sd ? clonePlan(sd.plan) : emptyPlan(), ...(sd ? originOf(sd, nextRev(p, sd)) : {}), createdAt: Date.now(), updatedAt: Date.now() };
   if (d.plan.meta && !src) d.plan.meta.bg = null;
   p.drawings.push(d); save();
   then ? then(d) : (location.hash = planUrl(p, d));
@@ -479,6 +485,22 @@ function planScreen() {
     toast('Plan görseli proje görsellerine kaydedildi');
   };
   const render = async () => { if (mode === '2d') await setMode('3d'); renderDialog(); };
+  // B4: tadilat / revizyon görünümü — editörde katman + üstte şerit (lejant, kapat); kaynak çizimler değişmez
+  const setRevView = (fn, info) => {
+    $('#ps2d .rev-banner')?.remove();
+    if (!fn) { E.setRevision(null); return; }
+    let memo = { k: null, svg: '' };
+    E.setRevision(lv => { const k = `${E.rev}|${lv}|${p.drawings.map(d => d.updatedAt).join(',')}`; if (memo.k !== k) memo = { k, svg: fn(lv) }; return memo.svg; });
+    const bar = document.createElement('div'); bar.className = 'rev-banner'; bar.setAttribute('role', 'status');
+    bar.innerHTML = `<b>${esc(SHEET_KINDS[info.mode]?.t || 'Revizyon')}</b>${legendItems(info.mode).map(it => { const st = REV_STYLE[it.k]; return `<span class="rv-lg"><i style="border-color:${st.stroke};background:${st.fill || 'transparent'};border-style:${st.dash ? (it.k === 'before' ? 'dotted' : 'dashed') : 'solid'}"></i>${esc(it.t)}</span>`; }).join('')}<button class="btn btn-xs btn-ghost" data-rv-open>Karşılaştırma…</button><button class="icon-btn" data-rv-close aria-label="Revizyon görünümünü kapat" title="Kapat">${icon('x')}</button>`;
+    bar.onclick = e => { if (e.target.closest('[data-rv-close]')) setRevView(null); else if (e.target.closest('[data-rv-open]')) openRev(); };
+    $('#ps2d').append(bar);
+  };
+  const openRev = () => openRevision({
+    project: p, drawing: dw, editor: E, settings: S.settings, onShow: setRevView,
+    goLevel: lv => { const i = planLevels(E.root).findIndex(l => (l.idx === 0 ? 'L0' : l.plan.id) === lv); if (i >= 0 && i !== E.lv) E.setLevel(i); },
+    openDrawing: id => { location.hash = planUrl(p, drawingOf(p, id)); },
+  });
   // B3-D: Model Sağlığı — sayaçlar, çözülemeyen kısıtlar; öneriler yalnız "Uygula" ile (tek geri alınabilir komut)
   const openHealth = () => {
     const body = () => healthHtml(S.bim, { last: S.editor.lastChange, geo: GEO_STATS.last, view3d: S.p3?.stats3d?.last });
@@ -520,6 +542,8 @@ function planScreen() {
     ...toolCmds('model', ['model']),
     { id: 'model.slab', cat: 'model', t: 'Dış hattan otomatik döşeme', ic: 'floor', sep: true, run: () => E.autoSlab() },
     { id: 'model.roof', cat: 'model', t: 'Dış hattan otomatik çatı', ic: 'roof', run: () => E.autoRoof() },
+    { id: 'model.revision', cat: 'model', t: 'Revizyon karşılaştırması (tadilat)…', ic: 'layers', kw: 'rölöve proje fark yıkım yeni safha tadilat revizyon karşılaştır', sep: true, run: openRev },
+    { id: 'model.revoff', cat: 'model', t: 'Revizyon görünümünü kapat', ic: 'eye', when: () => !!E.revLayer, run: () => setRevView(null) },
     { id: 'model.level', cat: 'model', t: 'Kat ekle…', ic: 'layers', sep: true, run: () => E.addLevelDialog() },
     { id: 'model.rooflv', cat: 'model', t: 'Çatı planı ekle', ic: 'roof', run: () => E.addRoofLevel() },
     ...planLevels(E.root).map((l, i) => ({ id: 'lv.' + l.idx, cat: 'model', t: `Kata geç: ${l.name}`, sep: i === 0, run: () => E.setLevel(l.idx), on: () => E.lv === l.idx })),

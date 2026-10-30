@@ -23,7 +23,8 @@ import { linkPlan } from './joins.js';
 
 export const COMMANDS = ['createType', 'duplicateType', 'updateType', 'deleteType', 'assignType', 'setInstanceParam', 'resetInstanceParam', 'setElementLevelBinding',
   'moveWallEnd', 'offsetWall', 'setWallLength', 'setWallReference', 'setJoinEnabled', 'setArcGeometry',   // B2B: duvar geometrisi (wallcmds.js)
-  'setTopBinding', 'setLevelHeight', 'setLevelSlab', 'syncLevelBindings'];                   // B2B: kata bağlı geometri
+  'setTopBinding', 'setLevelHeight', 'setLevelSlab', 'syncLevelBindings',
+  'setRevisionPhase', 'matchElements', 'unmatchElements', 'setRevisionCode'];   // B4: tadilat / revizyon kararları (meta.revision)                   // B2B: kata bağlı geometri
 
 class CmdError extends Error {}
 const fail = m => { throw new CmdError(m); };
@@ -331,6 +332,39 @@ const C = {
     return { label: `${CLASSES[rec.cls].t} ${id}: yükseklik ${bound ? 'kata bağlandı' : 'kattan ayrıldı'}`, summary: { op: 'level', id, key, bound } };
   },
   ...wallCommands(fail),
+  /* ── B4: tadilat / revizyon kararları — hedef çizimin meta.revision alanında (isteğe bağlı, geriye uyumlu).
+   * Karşılaştırma sonucu saklanmaz; yalnız kullanıcı kararları: safha (key = 'KAT/kimlik'), elle eşleştirme, revizyon kodu. */
+  setRevisionPhase(S, { keys, phase }) {
+    const list = Array.isArray(keys) ? keys : [keys];
+    if (!list.length || list.some(k => typeof k !== 'string' || !/^[^/]+\/[^/]+$/.test(k))) fail('Geçersiz eleman anahtarı (KAT/kimlik)');
+    if (phase !== null && !REV_PHASES.includes(phase)) fail(`Geçersiz safha: ${phase}`);
+    const rev = revOf(S), phases = { ...(rev.phases || {}) };
+    for (const k of list) { if (phase === null) delete phases[k]; else phases[k] = phase; }
+    putRev(S, { ...rev, phases: sortObj(phases) });
+    return { label: `${list.length} eleman: ${phase === null ? 'safha önerisine döndü' : `safha "${REV_PHASE_T[phase]}"`}`, summary: { op: 'setRevisionPhase', count: list.length, phase } };
+  },
+  matchElements(S, { level = 'L0', src, dst }) {
+    if (typeof src !== 'string' || typeof dst !== 'string' || !src || !dst) fail('Eşleştirme için kaynak ve hedef kimlik gerekli');
+    if (src === dst) fail('Aynı kimlik zaten otomatik eşleşir');
+    const P = level === 'L0' ? S.W : (S.W.levels || []).find(l => l?.id === level); if (!P) fail(`Kat bulunamadı: ${level}`);
+    if (!LEGACY_COLLS.some(c => (P[c] || []).some(o => o?.id === dst))) fail(`Hedef eleman bu katta yok: ${dst}`);
+    const rev = revOf(S), m = (rev.matches || []).filter(x => x && !(x.level === level && (x.dst === dst || x.src === src)));
+    m.push({ level, src, dst });
+    putRev(S, { ...rev, matches: m.sort((a, b) => `${a.level}/${a.dst}`.localeCompare(`${b.level}/${b.dst}`)) });
+    return { label: `Eşleştirme: ${src} → ${dst}`, summary: { op: 'matchElements', level, src, dst } };
+  },
+  unmatchElements(S, { level = 'L0', dst }) {
+    const rev = revOf(S), m = (rev.matches || []).filter(x => !(x && x.level === level && x.dst === dst));
+    if (m.length === (rev.matches || []).length) fail(`Eşleştirme bulunamadı: ${dst}`);
+    putRev(S, { ...rev, matches: m });
+    return { label: `Eşleştirme kaldırıldı: ${dst}`, summary: { op: 'unmatchElements', level, dst } };
+  },
+  setRevisionCode(S, { code }) {
+    const c = String(code ?? '').trim();
+    if (c.length > 24) fail('Revizyon kodu en fazla 24 karakter');
+    putRev(S, { ...revOf(S), code: c || undefined });
+    return { label: `Revizyon kodu: ${c || '—'}`, summary: { op: 'setRevisionCode', code: c } };
+  },
 };
 
 /* etkilenen elemanlarda yeni doğrulama hatası var mı */
@@ -345,6 +379,14 @@ function newErrors(root, W, ids) {
   return out;
 }
 
+export const REV_PHASES = ['existing', 'demolish', 'new', 'modify'];
+const REV_PHASE_T = { existing: 'Mevcut', demolish: 'Yıkılacak', new: 'Yeni', modify: 'Değiştirilecek' };
+const sortObj = o => Object.fromEntries(Object.keys(o).sort().map(k => [k, o[k]]));
+const revOf = S => (S.W.meta?.revision && typeof S.W.meta.revision === 'object' ? clone(S.W.meta.revision) : {});
+function putRev(S, rev) {
+  const r = Object.fromEntries(Object.entries(rev).filter(([, v]) => v !== undefined && !(Array.isArray(v) && !v.length) && !(v && typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length)));
+  S.set(META, S.W.meta, 'revision', Object.keys(r).length ? r : undefined);
+}
 /* U1: açıklık duvara sığmalı — önceden sığan açıklık komut sonrası sığmıyorsa hata (önceden bozuk olanlar engellenmez) */
 function openingFitErrors(root, W, ids) {
   const out = [], fits = (P, o) => { const w = (P.walls || []).find(x => x && x.id === o.wallId); if (!w?.a || !w?.b) return null; const L = wallLen(w); return o.pos - o.w / 2 >= -0.01 && o.pos + o.w / 2 <= L + 0.01 ? true : L; };

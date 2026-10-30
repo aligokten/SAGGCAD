@@ -68,6 +68,13 @@ sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMA
   sıralı kısıt çözücü çakışmaları raporlar, sessizce düzeltmez. **Araçlar → Model Sağlığı**: eleman, kata bağlı,
   birleşim sorunu, çözülemeyen kısıt, geçersiz geometri, son güncelleme; önerilen düzeltmeyi "Uygula". Yay duvarda
   yarıçap / ok yüksekliği parametrik (panelde "Yarıçap").
+- **Rölöve–proje karşılaştırması ve tadilat (B4)**: Model → *Revizyon karşılaştırması (tadilat)…* iki çizimi eleman
+  kimliğiyle karşılaştırır (değişmeyen / geometrisi değişen / parametreleri değişen / yalnız kaynakta / yalnız hedefte /
+  güvenle eşleştirilemeyen); kalınlığı değişen duvar yeni duvar sayılmaz, farklı kimlikle yeniden çizilen eleman yalnız
+  öneriyle ve onayla eşleşir. Safhalar (Mevcut, Yıkılacak, Yeni, Değiştirilecek) önce öneri, onayla karar; tek Ctrl+Z.
+  Revizyon görünümü (yıkım kırmızı kesik + tarama, yeni yeşil çapraz tarama, değişen turuncu + eski konum), Mevcut Durum /
+  Yıkım / Yeni İmalat / Karşılaştırma paftaları (vektörel PDF, SVG, DXF), fark raporu (CSV, PDF). Ayrıntı:
+  [docs/REVIZYON.md](docs/REVIZYON.md), örnekler: [docs/b4](docs/b4).
 - **UniCAD esinli iş akışı (U1)**: işlem **zaman çizelgesi** (bir adıma tıklayıp modeli o ana sar), **seçim filtresi**,
   **Akıllı Bas-Çek** (`Q`: seçime göre ötele / kalınlık / yükseklik / yarıçap…), imleçte **komut paleti** (`S`) ve
   sabitlenen komutlar, 3D **gezinme çubuğu** (Üst / Ön / Arka / Sol / Sağ / izometrik) ve **görünüm stilleri**
@@ -149,10 +156,12 @@ js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı e
 js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek
 js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
 js/timeline.js    işlem zaman çizelgesi      js/presspull.js   Akıllı Bas-Çek (Q) kipleri
+js/revview.js     revizyon katmanı / paftaları (SVG, DXF, PDF)   js/revui.js   Revizyon Karşılaştırması penceresi
 css/ui.css        arayüz tasarım sistemi ve temalar
 js/bim/           BIM çekirdeği: schema, types, fields, adapter, relations, commands, wallcmds, api, ui, manager,
                   joins, wallgeom, geom2d, mesh (duvar birleşimleri ve ortak geometri),
-                  history (merkezi işlem günlüğü), deps (bağımlılık grafiği), solver (kısıt çözücü)
+                  history (merkezi işlem günlüğü), deps (bağımlılık grafiği), solver (kısıt çözücü),
+                  diff (rölöve ↔ proje karşılaştırması)
 js/plan-geom.js   plan geometrisi ve metraj   js/importer.js, importui.js   DXF / PDF içe aktarma
 js/exporters.js   DXF, DAE, 3DS, STL, DXF 3D  js/cabinet.js, cabdesign.js   mutfak / dolap tasarlayıcı
 js/roof.js, stairs.js, tiles.js, openings.js, fixtures.js, joinery.js, floororder.js, labels.js, cnc.js, forms.js …

@@ -1778,12 +1778,18 @@ export class PlanEditor {
   render() {
     const r = this.svg.getBoundingClientRect();
     this.gW.setAttribute('transform', `matrix(${this.s} 0 0 ${this.s} ${this.ox} ${this.oy})`);
-    this.gW.innerHTML = this.grid(r) + this.lowerSvg() + this.drawPlan(this.plan, this.s, true) + this.ghostSvg();
+    this.gW.innerHTML = this.grid(r) + this.lowerSvg() + this.drawPlan(this.plan, this.s, true) + (this.revLayer ? this.revisionSvg() : this.ghostSvg());
     this.renderUI();
     const z = $('.pe-zoom', this.el);
     if (z) z.innerHTML = this.scaleBar();
   }
   /* rölöve altlığı: mevcut duvarların dış hatları kesik çizgiyle (yıkılan / korunan duvarlar görünsün) */
+  /* B4: tadilat / revizyon katmanı — dışarıdan verilen üretici (kat kimliği → SVG); çizim verisine dokunmaz */
+  get levelId() { return this.lv === 0 ? 'L0' : this._root.levels?.[this.lv - 1]?.id; }
+  setRevision(fn) { this.revLayer = fn || null; this.el?.classList.toggle('rev-on', !!this.revLayer); this.render(); }
+  revisionSvg() {
+    try { return `<g class="rev-layer">${this.revLayer(this.levelId) || ''}</g>`; } catch (e) { console.error('Revizyon katmanı', e); return ''; }
+  }
   ghostSvg() {
     const G = this.ghost; if (!G || this.opt.ghost === false || this.lv) return '';
     return this.ghostOf(G, '#7B5CC4', 0.55, true);

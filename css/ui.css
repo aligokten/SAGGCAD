@@ -430,3 +430,41 @@ select.mini { height: 30px; padding: 0 22px 0 8px; border: 1px solid var(--ui-li
 .p3-nav button .ic { width: 15px; height: 15px; }
 .p3-nav .sep { width: 1px; height: 18px; background: var(--ui-line); margin: 0 3px; }
 .p3-nav select { height: 28px; font-size: 12px; }
+
+/* ── B4: revizyon katmanı (yalnız revizyon gösterimi; marka renkleri değişmez) ── */
+.pe.rev-on .pe-svg g.w > :not(.rev-layer):not(.grid) { opacity: .18; }
+.rev-layer { pointer-events: none; }
+.rev-layer .rev-hl { animation: revhl 1.2s ease-in-out 2; }
+@keyframes revhl { 50% { stroke-opacity: .25; } }
+
+/* ── B4: Revizyon Karşılaştırması ── */
+.rv { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.rv-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.rv-top label { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--ui-muted); min-width: 0; }
+.rv-top .inp { width: 100%; min-width: 0; }
+.rv-prov { margin: 0; }
+.rv-warn { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; margin: 0; padding: 7px 10px; border-radius: 6px; font-size: 12px; background: rgba(245, 158, 11, .1); border: 1px solid rgba(245, 158, 11, .45); color: var(--ui-text); }
+.rv-warn .ic { width: 15px; height: 15px; color: #D97706; flex: none; }
+.rv-warn ul { margin: 2px 0 0 18px; padding: 0; width: 100%; }
+.mh-card.ok { border-color: #16A34A; }
+.rv-sug .mtable div, .rv-rooms .mtable div { align-items: center; gap: 8px; }
+.rv-sug summary, .rv-rooms summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.rv-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.rv-list { max-height: 42vh; overflow: auto; border: 1px solid var(--ui-line); border-radius: 6px; }
+.rv-list table { width: 100%; margin: 0; }
+.rv-list th { position: sticky; top: 0; background: var(--ui-panel); z-index: 1; }
+.rv-list td { vertical-align: top; font-size: 12px; }
+.rv-list .inp.mini { max-width: 170px; }
+.rv-st, .rv-ph { display: inline-block; font-style: normal; font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--ui-line); background: var(--ui-panel-2); white-space: nowrap; }
+.rv-st.st-g { border-color: #D97706; } .rv-st.st-p { border-color: #1786FF; } .rv-st.st-r { border-color: #D33A4A; border-style: dashed; }
+.rv-st.st-a { border-color: #15803D; border-width: 2px; } .rv-st.st-x { border-color: #D33A4A; background: rgba(211, 58, 74, .08); } .rv-st.st-m { border-color: #1786FF; color: #1786FF; }
+.rv-ph:empty { width: 10px; height: 10px; padding: 0; margin-right: 4px; vertical-align: -1px; }
+.rv-ph.ph-e { border-color: #6B7280; background: #D9DCE1; } .rv-ph.ph-d { border: 1.5px dashed #D33A4A; background: transparent; }
+.rv-ph.ph-n { border: 2px solid #15803D; background: #D5F0DC; } .rv-ph.ph-m { border: 1.5px dashed #D97706; background: #FDE7C8; }
+.ok-t { color: #15803D; }
+.rv-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.rv-g { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
+.rev-banner { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); z-index: 7; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; max-width: calc(100% - 24px); padding: 6px 8px 6px 12px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 8px; box-shadow: 0 2px 12px rgba(15, 27, 45, .14); font-size: 12px; }
+.rv-lg { display: inline-flex; align-items: center; gap: 4px; color: var(--ui-text-2); white-space: nowrap; }
+.rv-lg i { width: 14px; height: 9px; border-width: 1.5px; border-radius: 2px; }
+@media (max-width: 860px) { .rev-banner { top: 8px; } .rv-list { max-height: 36vh; } .rv-list td:nth-child(5) small { display: none; } }

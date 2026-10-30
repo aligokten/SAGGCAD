@@ -78,12 +78,16 @@ Referans: [UniCAD](https://github.com/UNITRONIX/UniCAD) (FreeCAD çatalı, Fusio
 - [x] İmleçte komut paleti (S) ve sabitleme · [x] 3D gezinme çubuğu ve görünüm stilleri
 - [ ] Sonraki adaylar: 2D kayan bağlamsal araç paleti (FusionSketchPalette), render ışık ön ayarları (TaskRenderStudio)
 
-## B4 — Rölöve ↔ proje ve revizyon yönetimi (yol haritası)
-- [ ] Rölöve ve proje çizimlerinde elemanların kimlikle karşılaştırılması (eşleşen / yalnız rölövede / yalnız projede, değişen parametreler)
-- [ ] Eleman durum sınıfları: **mevcut**, **yıkılacak**, **yeni** (çizim stili, filtre, metraj ayrımı)
-- [ ] Otomatik revizyon planları (yıkım planı, yeni yapı planı; renk / tarama kuralları; pafta yerleşimi)
-- [ ] İlave ve azalan imalat metrajları (duvar hacmi, kompozit katman, açıklık, döşeme; malzeme bazlı fark tablosu)
-- [ ] Proje sürümleri ve geri yükleme (adlandırılmış sürümler, sürümler arası fark, seçili sürüme dönüş)
+## 0.6.0-b4 · B4A + B4B — Rölöve–proje karşılaştırması ve akıllı tadilat yönetimi (tamamlandı)
+Ayrıntı: [REVIZYON.md](REVIZYON.md) · örnek çıktılar: [b4/](b4/)
+- [x] Karşılaştırma motoru (`js/bim/diff.js`): kimlikle eşleştirme, 6 durum, toleranslar, anlamsız fark yok sayma, kat kotları, öneriler, doğrulanan elle eşleştirme
+- [x] Çizim kökeni (`sourceDrawingId`, `sourceCreatedAt`, `revisionLabel`); kaynak sonradan değişince uyarı
+- [x] Tadilat safhaları (Mevcut / Yıkılacak / Yeni / Değiştirilecek): öneri ↔ karar ayrımı, toplu sınıflandırma, tek Ctrl+Z
+- [x] Revizyon görünümü (katman, lejant, görünürlük filtreleri, Göster → kat + vurgu)
+- [x] Paftalar: Mevcut Durum, Yıkım / Söküm, Yeni Yapılacak İmalat, Revizyon Karşılaştırma — vektörel PDF, SVG, DXF
+- [x] Fark raporu: kat başına + toplam, CSV (Excel) ve PDF
+- [ ] **B4C** — İlave ve azalan imalat metrajı ([plan](REVIZYON.md#b4c--ilave-ve-azalan-imalat-metrajı-teknik-plan))
+- [ ] **B4D** — Adlandırılmış proje sürümleri ve güvenli geri yükleme ([plan](REVIZYON.md#b4d--adlandırılmış-proje-sürümleri-ve-güvenli-geri-yükleme-teknik-plan))
 - [ ] Akıllı mahal ve malzeme listeleri (mahal bazlı yüzey / kaplama, malzeme toplamları, dışa aktarma)
 
 ## Sıradaki aşamalar
