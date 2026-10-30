@@ -1,0 +1,61 @@
+﻿Örnek villa — Rölöve (mevcut durum) → Tadilat projesi — metraj farkı
+Kategori;İmalat;Birim;Mevcut;Yeni;Net fark;Söküm (kesin);Yeni imalat (kesin);Söküm (onay bekleyen);Yeni imalat (onay bekleyen);İmalat birim fiyatı (TRY);Söküm birim fiyatı (TRY);Tutar (TRY, KDV hariç);Not
+Betonarme;Betonarme — katman hacmi;m³;20,337;20,337;0,000;0,000;0,000;0,000;0,000;;;;1 uyarı
+Döşeme;Balkon / çıkma (brüt alan);m²;10,020;10,020;0,000;0,000;0,000;0,000;0,000;;;;
+Döşeme;Balkon / çıkma (net alan);m²;10,020;10,020;0,000;0,000;0,000;0,000;0,000;;;;
+Döşeme;Döşeme hacmi;m³;21,039;21,039;0,000;0,000;0,000;0,000;0,000;;;;1 uyarı
+Döşeme;Kat döşemesi (brüt alan);m²;125,563;125,563;0,000;0,000;0,000;0,000;0,000;;;;1 uyarı
+Döşeme;Kat döşemesi (net alan);m²;125,563;125,563;0,000;0,000;0,000;0,000;0,000;;;;1 uyarı
+Döşeme TOPLAM;Toplam brüt döşeme alanı;m²;135,583;135,583;0,000;0,000;0,000;;;;;;
+Döşeme TOPLAM;Toplam net döşeme alanı;m²;135,583;135,583;0,000;0,000;0,000;;;;;;
+Duvar;Duvar hacmi (net, tüm katmanlar);m³;75,050;72,661;-2,389;4,251;2,608;0,000;0,000;;;fiyat girilmedi;
+Duvar;Gazbeton G4/06 duvar (brüt yüzey);m²;0,000;22,400;+22,400;0,000;22,400;0,000;0,000;;;fiyat girilmedi;
+Duvar;Gazbeton G4/06 duvar (net yüzey);m²;0,000;20,720;+20,720;0,000;20,720;0,000;0,000;950,000;;19684,000;
+Duvar;Gazbeton G4/06 duvar boyu;m;0,000;8,000;+8,000;0,000;8,000;0,000;0,000;;;fiyat girilmedi;
+Duvar;Yatay delikli tuğla duvar (brüt yüzey);m²;352,800;318,000;-34,800;34,800;0,000;0,000;0,000;;200,000;6960,000;
+Duvar;Yatay delikli tuğla duvar (net yüzey);m²;330,820;296,755;-34,065;31,230;0,000;0,000;0,000;;180,000;5621,400;
+Duvar;Yatay delikli tuğla duvar boyu;m;126,000;114,000;-12,000;12,000;0,000;0,000;0,000;;;fiyat girilmedi;
+Duvar TOPLAM;Toplam brüt duvar yüzeyi;m²;352,800;340,400;-12,400;34,800;22,400;;;;;;
+Duvar TOPLAM;Toplam net duvar yüzeyi;m²;330,820;317,475;-13,345;31,230;20,720;;;;;;
+Duvar TOPLAM;Toplam duvar boyu;m;126,000;122,000;-4,000;12,000;8,000;;;;;;
+Duvar TUTAR;;;;;;;;;;;;32265,400 (eksik fiyat var);
+Isı yalıtımı;EPS ısı yalıtım levhası — katman hacmi;m³;11,334;11,192;-0,142;0,000;0,000;0,000;0,000;;;;
+Kapı / pencere;Kapı 100×215 cm;adet;1,000;1,000;0,000;0,000;0,000;0,000;0,000;;;;
+Kapı / pencere;Kapı 80×210 cm;adet;2,000;2,000;0,000;0,000;0,000;0,000;0,000;;;;
+Kapı / pencere;Kapı 90×210 cm;adet;3,000;2,000;-1,000;1,000;0,000;0,000;0,000;;900,000;900,000;
+Kapı / pencere;Kapı 90×215 cm;adet;0,000;1,000;+1,000;0,000;1,000;0,000;0,000;14500,000;;14500,000;
+Kapı / pencere;Kapı alanı;m²;11,180;11,225;+0,045;1,890;1,935;0,000;0,000;;;fiyat girilmedi;
+Kapı / pencere;Pencere 120×120 cm;adet;1,000;1,000;0,000;0,000;0,000;0,000;0,000;;;;
+Kapı / pencere;Pencere 150×140 cm;adet;3,000;3,000;0,000;0,000;0,000;0,000;0,000;;;;
+Kapı / pencere;Pencere 180×150 cm;adet;1,000;0,000;-1,000;1,000;0,000;0,000;0,000;;;fiyat girilmedi;
+Kapı / pencere;Pencere 240×150 cm;adet;0,000;1,000;+1,000;0,000;1,000;0,000;0,000;;;fiyat girilmedi;
+Kapı / pencere;Pencere 60×60 cm;adet;1,000;1,000;0,000;0,000;0,000;0,000;0,000;;;;
+Kapı / pencere;Pencere alanı;m²;10,800;11,700;+0,900;2,700;3,600;0,000;0,000;;;fiyat girilmedi;
+Kapı / pencere TOPLAM;Toplam kapı adedi;adet;6,000;6,000;0,000;1,000;1,000;;;;;;
+Kapı / pencere TOPLAM;Toplam pencere adedi;adet;6,000;6,000;0,000;1,000;1,000;;;;;;
+Kapı / pencere TUTAR;;;;;;;;;;;;15400,000 (eksik fiyat var);
+Kaplama / levha;Seramik / porselen karo — katman hacmi;m³;1,356;1,356;0,000;0,000;0,000;0,000;0,000;;;;1 uyarı
+Mahal kaplaması;Duvar kaplaması (mahal içi);m²;411,964;375,627;-36,337;0,000;0,000;52,642;18,240;;;;2 onay bekliyor
+Mahal kaplaması;Mahal çevresi;m;158,205;144,890;-13,315;0,000;0,000;21,190;7,875;;;;2 onay bekliyor
+Mahal kaplaması;Net zemin alanı;m²;223,320;224,271;+0,952;0,000;0,000;25,814;26,765;;;;2 onay bekliyor
+Mahal kaplaması;Süpürgelik;m;148,605;136,190;-12,415;0,000;0,000;20,290;8,775;;;;2 onay bekliyor
+Mahal kaplaması;Tavan kaplaması;m²;223,320;224,271;+0,952;0,000;0,000;25,814;26,765;;;;2 onay bekliyor
+Mahal kaplaması;Zemin kaplaması (parke);m²;149,474;150,426;+0,952;0,000;0,000;25,814;26,765;;;;2 onay bekliyor
+Mahal kaplaması;Zemin kaplaması (seramik);m²;73,846;73,846;0,000;0,000;0,000;0,000;0,000;;;;
+Mahal kaplaması TOPLAM;Toplam zemin kaplaması;m²;223,320;224,271;+0,952;0,000;0,000;;;;;;
+Sıva;Alçı sıva — katman hacmi;m³;9,785;9,125;-0,660;1,202;0,593;0,000;0,000;;;fiyat girilmedi;1 uyarı
+Sıva;Alçı sıva — yüzey;m²;428,190;404,335;-23,855;62,460;41,440;0,000;0,000;260,000;;fiyat girilmedi;
+Sıva;Çimento esaslı sıva / şap — katman hacmi;m³;6,679;6,679;0,000;0,000;0,000;0,000;0,000;;;;1 uyarı
+Sıva;Kireç-çimento sıva / ince dış sıva — katman hacmi;m³;1,290;1,276;-0,014;0,000;0,000;0,000;0,000;;;;
+Sıva;Kireç-çimento sıva / ince dış sıva — yüzey;m²;233,450;230,615;-2,835;0,000;0,000;0,000;0,000;;;;
+Sıva TOPLAM;Toplam katman hacmi;m³;17,754;17,080;-0,674;1,202;0,593;;;;;;
+Sıva TOPLAM;Toplam katman yüzeyi;m²;661,640;634,950;-26,690;62,460;41,440;;;;;;
+Sıva TUTAR;;;;;;;;;;;;10774,400 (eksik fiyat var);
+Su / buhar yalıtımı;Bitümlü su yalıtım membranı — katman hacmi;m³;0,050;0,050;0,000;0,000;0,000;0,000;0,000;;;;
+Tuğla / gazbeton / kâgir;Gazbeton G4/06 — katman hacmi;m³;0,000;2,015;+2,015;0,000;2,015;0,000;0,000;;;fiyat girilmedi;
+Tuğla / gazbeton / kâgir;Yatay delikli tuğla — katman hacmi;m³;54,048;50,460;-3,588;3,049;0,000;0,000;0,000;;;fiyat girilmedi;
+Tuğla / gazbeton / kâgir TOPLAM;Toplam katman hacmi;m³;54,048;52,474;-1,573;3,049;2,015;;;;;;
+Tuğla / gazbeton / kâgir TUTAR;;;;;;;;;;;;0,000 (eksik fiyat var);
+GENEL TOPLAM TUTAR;;;;;;;;;;;;58439,800 (eksik fiyat var);
+
+"Not: miktarlar BIM modelinden hesaplanmıştır; fiyatlar kullanıcı girişidir. Kesin söküm / imalat yalnız onaylı safha ve müdahale kararlarını içerir."

@@ -13,6 +13,8 @@ import { joinGraph } from './joins.js';
 import { bindingTarget } from './wallcmds.js';
 import { wallQuantities } from './wallgeom.js';
 import { planLevels, wallLen, polyArea } from '../plan-geom.js';
+import { compOf, compThickness } from '../materials.js';
+import { outlineOf } from '../roof.js';
 
 const fin = v => typeof v === 'number' && Number.isFinite(v);
 const pt = p => !!p && fin(p.x) && fin(p.y);
@@ -106,7 +108,41 @@ export function solve(root, { changed = null, model = null } = {}) {
       } catch (e) { add('derived', 'QTY_FAILED', 'error', [lid], `${l.name}: metraj hesaplanamadı (${e.message})`); }
     }
   });
+  // MAX: kullanıcının tasarım sınırları (meta.limits) — yalnız rapor, değer değiştirilmez
+  for (const v of checkLimits(root)) if (!scope || v.ids.some(inScope) || !v.ids.length) add('derived', v.code, 'warning', v.ids, v.msg);
   return report(conflicts, fixes, stagesRun, scope, t0, ord.order);
+}
+
+/* ── tasarım sınırları (maksimum) ── meta.limits: { maxWallHeight, maxWallLength, maxWallThickness (cm), maxOpeningWidth (cm),
+ * maxRoomArea (m²), maxLevels, maxBuildingHeight (cm, en üst katın üstü), maxFootprint (m², zemin kat dış hattı),
+ * maxFloorArea (m², katların dış hat alanları toplamı) } → aşan her değer için { code, ids, msg, value, limit } */
+export const LIMITS = Object.freeze({
+  maxWallHeight: { t: 'En büyük duvar yüksekliği', unit: 'cm' }, maxWallLength: { t: 'En büyük duvar boyu', unit: 'cm' },
+  maxWallThickness: { t: 'En büyük duvar kalınlığı', unit: 'cm' }, maxOpeningWidth: { t: 'En büyük açıklık genişliği', unit: 'cm' },
+  maxRoomArea: { t: 'En büyük mahal alanı', unit: 'm²' }, maxLevels: { t: 'En fazla kat sayısı', unit: 'kat' },
+  maxBuildingHeight: { t: 'En büyük bina yüksekliği', unit: 'cm' }, maxFootprint: { t: 'En büyük taban alanı (zemin kat dış hattı)', unit: 'm²' },
+  maxFloorArea: { t: 'En büyük toplam kat alanı (dış hatlar)', unit: 'm²' },
+});
+export function checkLimits(root) {
+  const lim = root?.meta?.limits; if (!lim || typeof lim !== 'object') return [];
+  const out = [], f = v => (+v).toLocaleString('tr-TR', { maximumFractionDigits: 2 }), L = planLevels(root).filter(l => l.kind !== 'roof');
+  const over = (key, value, ids, what) => { const m = +lim[key]; if (Number.isFinite(m) && value > m + 1e-9) out.push({ code: 'LIMIT_' + key.replace(/^max/, '').toUpperCase(), ids, value, limit: m, msg: `${what}: ${f(value)} ${LIMITS[key].unit} > sınır ${f(m)} ${LIMITS[key].unit}` }); };
+  for (const l of L) {
+    const meta = { ...root.meta, ...(l.plan.meta || {}) };
+    for (const w of l.plan.walls || []) {
+      if (!w?.a || !w?.b) continue;
+      const comp = w.comp ? compOf(root, w.comp) : null, t = comp ? compThickness(comp) : (+w.t || +meta.wallT || 15);
+      over('maxWallHeight', +w.h || l.h, [w.id], `Duvar ${w.id} yüksekliği`); over('maxWallLength', wallLen(w), [w.id], `Duvar ${w.id} boyu`); over('maxWallThickness', t, [w.id], `Duvar ${w.id} kalınlığı`);
+    }
+    for (const o of l.plan.openings || []) if (o?.id) over('maxOpeningWidth', +o.w || 0, [o.id], `${o.type === 'window' ? 'Pencere' : o.type === 'door' ? 'Kapı' : 'Açıklık'} ${o.id} genişliği`);
+    for (const r of l.plan.rooms || []) if (Array.isArray(r?.pts) && r.pts.length > 2) over('maxRoomArea', Math.abs(polyArea(r.pts)) / 1e4, [r.id], `Mahal ${r.name || r.id} alanı`);
+  }
+  over('maxLevels', L.length, [], 'Kat sayısı');
+  const top = L.length ? Math.max(...L.map(l => l.z + l.h)) : 0; over('maxBuildingHeight', top, [], 'Bina yüksekliği (en üst kat üstü)');
+  const area = l => { const p = outlineOf({ ...l.plan, meta: { ...root.meta, ...(l.plan.meta || {}) } }); return p ? Math.abs(polyArea(p)) / 1e4 : 0; };
+  if (L[0]) over('maxFootprint', area(L[0]), [], 'Taban alanı (zemin kat dış hattı)');
+  over('maxFloorArea', L.reduce((s, l) => s + area(l), 0), [], 'Toplam kat alanı (dış hatlar)');
+  return out;
 }
 function report(conflicts, fixes, stages, scope, t0, order = []) {
   const rank = s => STAGES.indexOf(s);

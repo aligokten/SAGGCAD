@@ -71,8 +71,7 @@ Sayılar eleman adedidir — imalat metrajı ya da maliyet değildir (B4C).
   revizyon paftasında uygulanmaz); yay duvar parçalı. Merdiven, korkuluk, çatı ve mobilya revizyon çizimine girmez
   (karşılaştırma listesinde ve raporda vardır).
 - Pafta başına bir kat; çok katlı PDF birden çok sayfa olarak üretilir. Pafta düzeni (konum, ölçek) elle düzenlenemez.
-- Vektörel PDF standart yazı tipini (Helvetica) kullanır; Türkçe özel harfler PDF'te ASCII karşılıklarıyla yazılır
-  (ı → i, ş → s, ğ → g). SVG ve DXF'te Türkçe karakterler korunur.
+- (B4C'de giderildi) PDF'lerde DejaVu Sans gömülür; Türkçe karakterler korunur. Gömme başarısız olursa kullanıcıya bildirilir.
 - Kat eşleştirmesi kat kimliğiyle yapılır; kimliği değişmiş bir kat (sil + yeniden ekle) eşleşmez.
 - Elle eşleştirme yalnız aynı kat içinde ve bire bir; bölünen / birleştirilen duvar (1 ↔ 2) eşlemesi yoktur — B4C'de
   metraj farkı bu durumu alanla değerlendirecektir.
@@ -80,32 +79,103 @@ Sayılar eleman adedidir — imalat metrajı ya da maliyet değildir (B4C).
 
 ---
 
-## B4C — İlave ve azalan imalat metrajı (teknik plan)
-Amaç: iki çizim arasındaki **miktar** farkı (adet değil); B4A eşleştirmesi ve safhaları üzerinde.
-1. **Kaynaklar** (yeniden yazılmaz): `wallQuantities` (B2B, birleşim temizliği sonrası katman hacimleri, duvar başına),
-   `wallgeom.wallPrisms`, açıklık listesi, `roomMetrics`, döşeme çokgenleri, malzeme / kompozit kütüphanesi.
-2. **Model**: `js/bim/qtydiff.js` → `quantityDiff(src, dst, compareResult)` → satırlar `{ level, element, phase, item,
-   unit, before, after, delta, sign: 'ilave'|'azalan' }`. Kalemler:
-   - Duvar **brüt alan** (boy × yükseklik) ve **net alan** (açıklıklar düşülmüş), iki yüz ayrı (iç / dış kaplama için).
-   - **Katman bazlı malzeme hacmi** (m³) — kompozit katmanı başına; birleşimde çift sayım yok (B2B prizmaları).
-   - Kapı / pencere **adet** ve ölçü sınıfı (genişlik × yükseklik), söküm ve yeni montaj ayrı.
-   - Döşeme **alanı** ve kompozit katman hacmi; mahal **zemin / duvar / tavan kaplaması** alanı (`floor`, `wallColor`, tavan).
-3. **Kural**: miktar farkı safhaya göre: Yıkılacak → azalan (söküm), Yeni → ilave, Değiştirilecek → hem söküm hem ilave
-   (önce / sonra geometri), Mevcut → fark yok. Bölünen / birleştirilen duvarlar alan dengesiyle (eşleştirme gerekmeden).
-4. **Arayüz**: Revizyon penceresine "Metraj farkı" sekmesi; kat / malzeme / kalem gruplaması; CSV / PDF; birim fiyat
-   alanı yalnız kullanıcı girerse (varsayılan fiyat yok).
-5. **Test**: elle hesaplanmış fikstür (L köşe, T birleşim, açıklıklı duvar), çift sayım yok, safha değişince işaret
-   değişimi, `wallQuantities` toplamıyla tutarlılık, yuvarlama (m², m³: 3 basamak).
+## B4C — İlave ve azalan imalat metrajı (0.6.1-b4c, uygulandı)
 
-## B4D — Adlandırılmış proje sürümleri ve güvenli geri yükleme (teknik plan)
-1. **Depo**: IndexedDB'de ayrı `versions` deposu `{ id, projectId, name, note, createdAt, appVersion, hash, snapshot }`;
-   anlık görüntü = proje JSON'u (görseller hariç, kimlikle başvuru). Proje dosyasına isteğe bağlı `versions` dizisi
-   (dışa aktarmada kullanıcı seçer).
-2. **Oluşturma**: "Sürüm kaydet…" (ad + not); otomatik sürüm yalnız kullanıcı açarsa (ör. her paftalama öncesi).
-   İçerik özeti (FNV) aynıysa yeni sürüm yazılmaz.
-3. **Karşılaştırma**: sürüm ↔ güncel ya da sürüm ↔ sürüm — B4A motoru çizim başına aynen kullanılır.
-4. **Geri yükleme** (yıkıcı olmayan): seçilen sürüm **yeni bir çizim / proje kopyası** olarak açılır; güncel proje
-   üzerine yazma yalnız açık onayla ve önce otomatik "geri yükleme öncesi" sürümü alınarak yapılır. Kimlikler korunur.
-5. **Bütünlük**: anlık görüntü şema doğrulaması, eksik görsel başvurularının raporu, uygulama sürümü uyumsuzluğunda uyarı.
-6. **Test**: kaydet → değiştir → karşılaştır → geri yükle (kopya) JSON eşitliği; üzerine yazmada ön-sürüm; IndexedDB
-   kotası dolu senaryosu; çevrimdışı.
+### Modüller
+| Dosya | Görev |
+|---|---|
+| `js/bim/quantities.js` | Tek çizimin metrajı (saf, belirlenimci, artımlı): duvar, katman, açıklık / doğrama, döşeme, mahal |
+| `js/bim/qtydiff.js` | İki çizimin metraj farkı: B4 eşleştirmesi + safha + müdahale yöntemi → mevcut / yeni / net / söküm / yeni imalat; filtre, gruplama, toplam, fiyat, CSV |
+| `js/bim/commands.js` | `setInterventionMethod`, `setQtyPrice`, `setQtySettings`, `setDesignLimits` (tek geri alınabilir işlem) |
+| `js/revui.js` | Revizyon penceresinde **Metraj Farkı** sekmesi, müdahale yöntemi seçimi, fiyat girişi, CSV / PDF metraj raporu |
+| `js/pdffont.js` | PDF'e DejaVu Sans gömme (Türkçe karakterler); başarısızlık açıkça bildirilir |
+| `js/bim/solver.js` | **Tasarım sınırları (MAX)** denetimi (`checkLimits`) |
+
+### Metraj satırı
+Her satır: eleman (`KAT/kimlik`), kat, mahal ilişkisi (mahalin duvar bağı), eleman sınıfı, BIM türü, malzeme / kompozit, imalat
+kategorisi, birim, miktar, hesaplama yöntemi, doğrulama durumu (`ok` / `warning` / `unknown`). Fark satırında ayrıca kaynak ve
+hedef kimlik, mevcut, yeni, net fark, söküm, yeni imalat, onay bekleyen söküm / imalat, dayanak (karar). Tam hassasiyetle
+hesaplanır; yuvarlama yalnız gösterimde; proje toplamı kat toplamlarının aynı sırada toplamıdır (fark yok).
+
+### Ölçüm yöntemleri ve varsayımlar
+- **Duvar**: boy = eksen boyu; yükseklik = duvar ya da kat yüksekliği (alt kot dahil); brüt alan = boy × yükseklik (tek yüz);
+  net alan = açıklık bölgeleri (`wallZones`) çıkarılmış; açıklık yalnız duvar gövdesi içindeki kısmıyla düşülür (duvar üstünü
+  aşan pencere kırpılır). Hacim ve katman hacimleri = B2B katman prizmaları (birleşim temizliği sonrası, açıklıklar düşülmüş) —
+  L / T birleşimlerinde çift hacim yok; çapraz denetim: eleman toplamı = `wallQuantities` (fark 1e-6'dan büyükse `QTY_RECONCILE`)
+  ve brüt hacim − analitik açıklık boşluğu − net hacim ≤ %0,5 (aşarsa uyarı).
+- **Katman**: kategori malzeme grubundan (betonarme, kâgir, ısı / ses yalıtımı — taş / cam yünü iç bölmede ses, su yalıtımı,
+  sıva, kaplama, diğer). Yüz katmanlarının (sıva, kaplama) alanı = net duvar alanı × o malzemenin yüz sayısı.
+- **Döşeme**: brüt alan = çokgen; net = brüt − tamamen içerdeki alt kat merdiven boşlukları; boşluk sınırı kesiyorsa net
+  kesin sayılmaz (uyarı). Hacim = net × kalınlık (kompozit varsa kompozit kalınlığı); balkon / teras ayrı kalem; kat döşemesi
+  (üst katlar, dış hattan) ayrı; kat kalınlığı ile kompozit kalınlığı farklıysa uyarı.
+- **Mahal**: net zemin = mahal çokgeni; zemin kaplaması (malzemesine göre) ve tavan = net zemin (düz tavan); duvar kaplaması =
+  çevre × mahal yüksekliği − açıklıklar (**politika**: tümü / eşikten büyükler / hiçbiri; eşik varsayılan 0,5 m²; mahal sınırına
+  yakınlık kuralı `roomMetrics` ile aynı); süpürgelik = çevre − kapı genişlikleri; çevre.
+- **Doğrama**: kimlik, tür, genişlik, yükseklik, adet, alan, bağlı duvar, kat, tadilat durumu; ölçü sınıfına göre gruplanır
+  (`Kapı 90×210 cm`); söküm ve montaj ayrı sütunlarda.
+
+### Tadilat farkı kuralları
+- **Net fark** = yeni − mevcut, geometrik ve kalem toplamı üzerinden (eleman adedinden bağımsız → bölünen / birleşen duvarlar
+  dengelenir). **Söküm** ve **yeni imalat** ayrı kavramlardır ve kesin toplamlara yalnız kullanıcı kararıyla girer:
+  yıkılacak / yeni → safha onaylı; değiştirilecek → müdahale yöntemi seçilmiş: *tamamen yeniden* (söküm = mevcut, imalat = yeni),
+  *kısmi* (fark kadar), *yalnız yüzey* (sıva / kaplama / mahal kaplaması kalemleri tam; yapı kalemlerine dokunulmaz).
+  Kararsız / onaysız → kesin 0, **onay bekleyen** sütununda kısmi senaryo tahmini. Güvenle eşleştirilemeyen → kesin 0, manuel kontrol.
+- Kimliksiz türetilmiş satırlar (kat döşemesi) iki tarafta aynı anahtarla eşleşir; miktar değişmişse "değiştirilecek, karar bekliyor".
+- **Grup toplamları** yalnız toplanabilir kalem aileleri için verilir (ör. *net duvar yüzeyi* tüm malzemeler; *katman hacmi*;
+  *kapı adedi*). Brüt + net, zemin + tavan gibi alternatif / farklı yüzeyler birbirine eklenmez.
+- **Fiyat**: yalnız kullanıcı girer (imalat ve söküm birim fiyatı ayrı); para birimi varsayılan TRY; KDV dahil / hariç açıkça
+  yazılır; fiyatı girilmemiş kalem "fiyat girilmedi" (0 değil), grup / genel tutarda "eksik fiyat var". Otomatik fiyat yok.
+- Kararlar ve fiyatlar hedef çizimin `meta.revision` alanında (`methods`, `qty: { prices, currency, vat, openings, threshold }`);
+  metraj sonucu saklanmaz, her seferinde türetilir.
+
+### Artımlı hesap
+Duvar metrajı, B3 prizma önbelleğinin dizi kimliği + duvar / açıklık / kat yüksekliği imzasıyla önbelleklenir: değişmeyen duvarın
+sonucu yeniden kullanılır, bir duvar değişince yalnız etkilenen duvarlar (B3 artımlı geometri: komşular dahil) yeniden hesaplanır;
+kompozit / tür değişimi imzayı değiştirir. `{ full: true }` güvenli tam yol; testte her adımda artımlı = tam.
+
+### Örnek: villa
+[`docs/b4c/villa-metraj.md`](b4c/villa-metraj.md) — duvar, döşeme, mahal, malzeme tabloları ve tadilat farkı;
+[`metraj-farki.csv`](b4c/metraj-farki.csv), [`metraj-raporu.pdf`](b4c/metraj-raporu.pdf), arayüz görüntüsü. Fikstür:
+`tests/fixtures/villa-ornek.saggcad.json` (üretici `make-villa.mjs`, tablolar `villa-report.mjs`).
+
+### Doğruluk
+Analitik beklenenlerle doğrulanan (birim testleri, 1e-6 tolerans): tek duvar alan / hacim, kapı ve pencere düşümü (duvar
+üstünü aşan pencere dahil), farklı kalınlıklar, **L birleşimi 5,04 m³** (510×20 + 20×390 cm² × 2,80), **T birleşimi 5,544 m³**,
+kompozit katmanlar (iç tuğla: tuğla 1,40 m³, alçı sıva 0,56 m³ / 28 m²), yükseklik, döşeme ve balkon, mahal kaplaması ve
+üç politika, tamamen kaldırma, yeni duvar, kısmi / tamamen / yüzey kararları, farklı malzemeyle yenileme (tuğla 10 m² söküm,
+gazbeton 12 m² imalat, net +2), bölünen / birleşen duvar (net 0), doğrama söküm / montaj, kat ve proje toplamı.
+
+### Desteklenmeyen / kesin sayılmayan
+- **Yay duvarlar** (ARC_LEGACY): metraj "hesaplanamadı — manuel kontrol" (miktar boş, 0 değil).
+- Merdiven, korkuluk, çatı, kolon / kiriş hacmi, mobilya / donatı, tesisat: B4C metrajında yok.
+- Eğimli / kırık tavan, mahal içi farklı yükseklikler, çok katmanlı zemin kaplaması (şap + kaplama ayrı) yok — düz tavan ve
+  tek kaplama varsayılır. Döşeme boşluğu yalnız alt kat merdiveni; kısmi boşluk uyarı verir.
+- Duvar alanı eksen boyuyla (iç / dış yüz boy farkı yok); köşe kesişim payı katman hacminde doğru, yüzey alanında eksen kadar.
+- Çakışan (üst üste çizilmiş) duvarlarda hacim tek sayılır (B2B ayrıştırması) ama alan / boy her duvar için sayılır — uyarı verilir.
+
+## Tasarım sınırları (MAX)
+Model → **Tasarım sınırları (maksimum)…**: duvar yüksekliği, boyu, kalınlığı; açıklık genişliği; mahal alanı; kat sayısı; bina
+yüksekliği (en üst kat üstü); taban alanı (zemin kat dış hattı); toplam kat alanı (dış hatlar). Hedef çizimin `meta.limits`
+alanında (isteğe bağlı; tek Ctrl+Z). Aşımlar kısıt çözücüde (`LIMIT_*`) **uyarı** olarak Model Sağlığı'nda listelenir;
+çizim kendiliğinden değiştirilmez.
+
+---
+
+## B4D — Adlandırılmış proje sürümleri ve güvenli geri yükleme (uygulama planı)
+1. **Depo** (`js/store.js`): IndexedDB sürüm 2 → yeni `versions` deposu `{ id, projectId, name, note, createdAt, appVersion,
+   schema, hash, size, snapshot }`, `projectId + createdAt` dizini. Anlık görüntü = proje JSON'u (çizimler + meta); görseller
+   kimlikle başvurulur (kopyalanmaz). Yükseltme mevcut `projects` deposuna dokunmaz.
+2. **Modül** `js/versions.js` (saf çekirdek + depo bağlantısı): `snapshotOf(project)` (belirlenimci JSON + FNV özeti),
+   `saveVersion(project, { name, note })` (aynı özet → yeni kayıt yok), `listVersions`, `loadVersion`, `deleteVersion`
+   (onaylı), `diffVersions(a, b)` → çizim başına B4 `compareDrawings` + B4C `quantityDiff`.
+3. **Geri yükleme (yıkıcı olmayan)**: varsayılan "kopya olarak aç" — sürüm yeni proje ya da yeni çizim(ler) olarak eklenir,
+   kimlikler korunur, `sourceDrawingId` + `restoredFrom: versionId` yazılır. "Üzerine yaz" yalnız açık onayla ve önce
+   otomatik "geri yükleme öncesi" sürümü alınarak; işlem tek adım ve B3 günlüğünde geri alınabilir (proje düzeyi kayıt).
+4. **Bütünlük**: şema / `appVersion` denetimi, eksik görsel başvuruları raporu, özet doğrulaması (bozuk anlık görüntü açılmaz),
+   IndexedDB kota hatasında kullanıcıya açık mesaj (kısmi yazım yok — tek işlem).
+5. **Arayüz**: Dosya → *Sürüm kaydet…* (ad + not), *Sürümler…* (liste: ad, tarih, boyut, not; Karşılaştır → Revizyon penceresi
+   sürüm ↔ güncel; Kopya olarak aç; Üzerine yaz; Sil). Zaman çizelgesiyle (U1) karışmaz: günlük oturum içidir, sürüm kalıcıdır.
+6. **Dışa aktarma**: `.saggcad.json`'a isteğe bağlı `versions` dizisi (kullanıcı seçerse); içe aktarmada kimlik çakışması raporu.
+7. **Testler**: kaydet → değiştir → karşılaştır → kopya olarak geri yükle (JSON birebir), üzerine yazmada ön-sürüm ve geri
+   alma, aynı özette tekrar kayıt yok, bozuk anlık görüntü reddi, kota dolu (sahte), eski veritabanı (v1) yükseltmesi,
+   çevrimdışı, mobil, B1–B4C regresyonları.

@@ -86,8 +86,19 @@ Ayrıntı: [REVIZYON.md](REVIZYON.md) · örnek çıktılar: [b4/](b4/)
 - [x] Revizyon görünümü (katman, lejant, görünürlük filtreleri, Göster → kat + vurgu)
 - [x] Paftalar: Mevcut Durum, Yıkım / Söküm, Yeni Yapılacak İmalat, Revizyon Karşılaştırma — vektörel PDF, SVG, DXF
 - [x] Fark raporu: kat başına + toplam, CSV (Excel) ve PDF
-- [ ] **B4C** — İlave ve azalan imalat metrajı ([plan](REVIZYON.md#b4c--ilave-ve-azalan-imalat-metrajı-teknik-plan))
-- [ ] **B4D** — Adlandırılmış proje sürümleri ve güvenli geri yükleme ([plan](REVIZYON.md#b4d--adlandırılmış-proje-sürümleri-ve-güvenli-geri-yükleme-teknik-plan))
+
+## 0.6.1-b4c · B4C — Akıllı imalat metrajı ve tadilat metraj farkı (tamamlandı)
+Ayrıntı: [REVIZYON.md › B4C](REVIZYON.md#b4c--ilave-ve-azalan-imalat-metrajı-061-b4c-uygulandı) · örnek: [b4c/villa-metraj.md](b4c/villa-metraj.md)
+- [x] Metraj motoru (`quantities.js`): duvar brüt / net alan, boy, hacim, katman hacim / yüzey; doğrama; döşeme + balkon; mahal kaplamaları; açıklık düşüm politikası
+- [x] Metraj farkı (`qtydiff.js`): mevcut / yeni / net / söküm / yeni imalat; müdahale yöntemi (tamamen / kısmi / yüzey / karar yok); onay bekleyen ayrı
+- [x] Metraj Farkı sekmesi: filtreler (kat, mahal, malzeme, eleman, safha, kategori), gruplama, aile toplamları, satır → çizimde vurgu
+- [x] Kullanıcı birim fiyatı (imalat / söküm), TRY, KDV dahil / hariç; fiyatsız kalem açıkça işaretli
+- [x] CSV (Excel TR) ve PDF metraj raporu — PDF'te gömülü yazı tipiyle Türkçe karakterler (B4 PDF'leri de)
+- [x] Artımlı metraj (B3 önbelleği) ve tam yol eşitliği
+- [x] **Tasarım sınırları (MAX)**: duvar / açıklık / mahal / kat / bina yüksekliği / taban ve kat alanı üst sınırları → Model Sağlığı
+- [ ] Yay duvar metrajı (ARC_LEGACY), merdiven / çatı / kolon-kiriş / tesisat metrajı
+- [ ] **B4D** — Adlandırılmış proje sürümleri ve güvenli geri yükleme ([uygulama planı](REVIZYON.md#b4d--adlandırılmış-proje-sürümleri-ve-güvenli-geri-yükleme-uygulama-planı))
+
 - [ ] Akıllı mahal ve malzeme listeleri (mahal bazlı yüzey / kaplama, malzeme toplamları, dışa aktarma)
 
 ## Sıradaki aşamalar

@@ -13,6 +13,7 @@ import { createBim } from './bim/api.js';
 import { bimReportHtml, healthHtml, healthDetails, reportCmd } from './bim/ui.js';
 import { GEO_STATS } from './bim/wallgeom.js';
 import { openRevision } from './revui.js';
+import { LIMITS, checkLimits } from './bim/solver.js';
 import { legendItems, REV_STYLE, SHEET_KINDS } from './revview.js';
 import { mountMenubar, mountNavigator, mountStatusbar, openPalette, bindPaletteKey, WORKSPACES, getWorkspace, setWorkspaceKey, getTheme, toggleTheme, applyTheme } from './workbench.js';
 import { useName, modelName } from './openings.js';
@@ -496,6 +497,20 @@ function planScreen() {
     bar.onclick = e => { if (e.target.closest('[data-rv-close]')) setRevView(null); else if (e.target.closest('[data-rv-open]')) openRev(); };
     $('#ps2d').append(bar);
   };
+  // MAX: tasarım sınırları — meta.limits (isteğe bağlı); aşımlar kısıt çözücüde (Model Sağlığı) raporlanır, değer değiştirilmez
+  const openLimits = () => {
+    const cur = E.root.meta?.limits || {};
+    modal({ title: 'Tasarım sınırları (maksimum)', body: `<div class="lim-grid">${Object.entries(LIMITS).map(([k, d]) => `<label>${esc(d.t)}<div class="inp-unit sm"><input type="number" min="0" step="any" inputmode="decimal" data-lim="${k}" value="${cur[k] ?? ''}" placeholder="sınır yok"><span>${esc(d.unit)}</span></div></label>`).join('')}</div>
+      <p class="muted small">Boş bırakılan sınır denetlenmez. Aşan değerler Model Sağlığı'nda uyarı olarak listelenir; çizim kendiliğinden değiştirilmez. Sınırlar bu çizimde saklanır ve tek Ctrl+Z ile geri alınır.</p>`,
+      actions: [{ k: 'no', t: 'Vazgeç' }, { k: 'ok', t: 'Kaydet', cls: 'btn-primary' }] }).then(r => {
+      if (r?.k !== 'ok') return;
+      const limits = Object.fromEntries([...r.el.querySelectorAll('[data-lim]')].map(i => [i.dataset.lim, i.value.trim() === '' ? null : +i.value.replace(',', '.')]));
+      const res = E.bimCommand({ op: 'setDesignLimits', limits });
+      if (!res.ok) return toast(res.errors[0], 'err');
+      const v = checkLimits(E.root);
+      toast(v.length ? `${v.length} sınır aşımı — ayrıntı Model Sağlığı'nda` : 'Tasarım sınırları kaydedildi; aşım yok', v.length ? 'err' : undefined);
+    });
+  };
   const openRev = () => openRevision({
     project: p, drawing: dw, editor: E, settings: S.settings, onShow: setRevView,
     goLevel: lv => { const i = planLevels(E.root).findIndex(l => (l.idx === 0 ? 'L0' : l.plan.id) === lv); if (i >= 0 && i !== E.lv) E.setLevel(i); },
@@ -543,6 +558,7 @@ function planScreen() {
     { id: 'model.slab', cat: 'model', t: 'Dış hattan otomatik döşeme', ic: 'floor', sep: true, run: () => E.autoSlab() },
     { id: 'model.roof', cat: 'model', t: 'Dış hattan otomatik çatı', ic: 'roof', run: () => E.autoRoof() },
     { id: 'model.revision', cat: 'model', t: 'Revizyon karşılaştırması (tadilat)…', ic: 'layers', kw: 'rölöve proje fark yıkım yeni safha tadilat revizyon karşılaştır', sep: true, run: openRev },
+    { id: 'model.limits', cat: 'model', t: 'Tasarım sınırları (maksimum)…', ic: 'ruler', kw: 'max maksimum sınır üst sınır limit yükseklik alan kat imar', run: openLimits },
     { id: 'model.revoff', cat: 'model', t: 'Revizyon görünümünü kapat', ic: 'eye', when: () => !!E.revLayer, run: () => setRevView(null) },
     { id: 'model.level', cat: 'model', t: 'Kat ekle…', ic: 'layers', sep: true, run: () => E.addLevelDialog() },
     { id: 'model.rooflv', cat: 'model', t: 'Çatı planı ekle', ic: 'roof', run: () => E.addRoofLevel() },
