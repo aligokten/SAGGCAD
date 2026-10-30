@@ -192,6 +192,7 @@ export function openRevision(ctx) {
       if ('csv' in d) { const { S, D, LN } = ctxNames(); downloadBlob(new Blob([diffCsv(R, { levelNames: LN })], { type: 'text/csv;charset=utf-8' }), `${slug(p.name)}-revizyon-${slug(S.name)}-${slug(D.name)}.csv`); return; }
       if ('rpdf' in d) { try { const blob = await reportPdf(R, ctxNames(), p, UI.level); downloadBlob(blob, `${slug(p.name)}-revizyon-raporu.pdf`); } catch (er) { console.error(er); toast('PDF oluşturulamadı', 'err'); } return; }
       if ('sheetdl' in d) {
+        await ctx.beforeSheetExport?.();   // B4D: isteğe bağlı otomatik sürüm
         const sheets = sheetsFor(UI.sheet), base = `${slug(p.name)}-${slug(SHEET_KINDS[UI.sheet].t)}`;
         try {
           if (UI.fmt === 'pdf') { const pdf = await revisionPdf(sheets); downloadBlob(pdf.output('blob'), `${base}.pdf`); }

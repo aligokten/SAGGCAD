@@ -183,6 +183,7 @@ export function bindFields(root, obj, onChange) {
 export function debounce(fn, ms) {
   let t; const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
   d.flush = (...a) => { clearTimeout(t); return fn(...a); };
+  d.cancel = () => clearTimeout(t);
   return d;
 }
 

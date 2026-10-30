@@ -1,6 +1,6 @@
 {
   "name": "saggcad",
-  "version": "0.6.1-b4c",
+  "version": "0.6.2-b4d",
   "private": true,
   "description": "SAGGCAD — bağımsız rölöve ve mimari çizim programı",
   "type": "module",

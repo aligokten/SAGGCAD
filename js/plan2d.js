@@ -204,7 +204,7 @@ export class PlanEditor {
           <button class="icon-btn" data-a="paste" title="Yapıştır (Ctrl+V)">${icon('paste')}</button>
           <button class="btn btn-xs btn-ghost danger-t" data-a="clear" title="Tüm çizimi temizle">${icon('trash')}Tümünü temizle</button>
         </div>
-        <div class="pe-tl" role="toolbar" aria-label="İşlem zaman çizelgesi" hidden></div>
+        <div class="pe-tl" role="toolbar" aria-label="İşlem Geçmişi — mevcut düzenleme oturumu" hidden></div>
         <div class="pe-canvas">
           <svg class="pe-svg" tabindex="0"><g class="w"></g><g class="ui"></g></svg>
           <div class="pe-hud"></div>
@@ -481,7 +481,8 @@ export class PlanEditor {
     const box = this.el && $('.pe-tl', this.el); if (!box || box.hidden) return;
     const { items, pos } = timelineItems(this.hist), fmtT = t => t ? new Date(t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
     const chip = it => `<button class="tl-chip ${it.done ? 'done' : 'undone'} ${it.kind === 'cmd' ? 'bim' : ''}" data-tl="${it.n}" title="${esc(it.label)}${it.t ? ' · ' + fmtT(it.t) : ''}${it.done ? '' : ' (geri alındı — tıklayınca yinelenir)'}"><i>${it.n}</i><span>${esc(it.label)}</span></button>`;
-    box.innerHTML = `<button class="tl-chip start ${pos === 0 ? 'cur' : ''}" data-tl="0" title="Günlüğün başı (açılış durumu)">${icon('home')}</button>`
+    // B4D: bu şerit yalnız açık oturumun geri al / yinele günlüğüdür; kalıcı kayıt noktaları "Proje Sürümleri"ndedir
+    box.innerHTML = `<span class="tl-title" title="Bellekte tutulur; sekme kapanınca silinir. Kalıcı kayıt noktaları için Dosya → Proje Sürümleri">İşlem Geçmişi <small>mevcut düzenleme oturumu</small></span><button class="tl-chip start ${pos === 0 ? 'cur' : ''}" data-tl="0" title="Günlüğün başı (açılış durumu)">${icon('home')}</button>`
       + items.map((it, i) => (i === pos && pos > 0 ? '<span class="tl-mark" title="Şu anki konum"></span>' : '') + chip(it)).join('')
       + (pos === items.length && pos > 0 ? '<span class="tl-mark" title="Şu anki konum"></span>' : '')
       + (items.length ? '' : '<span class="tl-empty">Henüz işlem yok — yaptığınız her işlem burada bir adım olarak görünür</span>');

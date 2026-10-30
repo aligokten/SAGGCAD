@@ -97,13 +97,50 @@ Ayrıntı: [REVIZYON.md › B4C](REVIZYON.md#b4c--ilave-ve-azalan-imalat-metraj�
 - [x] Artımlı metraj (B3 önbelleği) ve tam yol eşitliği
 - [x] **Tasarım sınırları (MAX)**: duvar / açıklık / mahal / kat / bina yüksekliği / taban ve kat alanı üst sınırları → Model Sağlığı
 - [ ] Yay duvar metrajı (ARC_LEGACY), merdiven / çatı / kolon-kiriş / tesisat metrajı
-- [ ] **B4D** — Adlandırılmış proje sürümleri ve güvenli geri yükleme ([uygulama planı](REVIZYON.md#b4d--adlandırılmış-proje-sürümleri-ve-güvenli-geri-yükleme-uygulama-planı))
+## 0.6.2-b4d · B4D — Kalıcı proje sürümleri, akıllı karşılaştırma ve güvenli geri yükleme (tamamlandı)
+- [x] IndexedDB v1 → v2 (yalnız ekleme): `versions` (meta), `snapshots` (içerik), `versionAssets` (içerik karmalı görseller)
+- [x] `js/versions.js`: belirlenimci JSON + SHA-256, aynı içerik tekrar kaydedilmez, atomik yazım, bütünlük denetimi
+- [x] Dosya → *Sürüm Kaydet…* (Ctrl+Alt+S) ve *Proje Sürümleri…*: önizleme, güncel / başka sürümle karşılaştırma (B4 + B4C),
+  kopya olarak ve (zorunlu kurtarma sürümüyle) üzerine geri yükleme, yedek, ad / not, silme
+- [x] Görsel bütünlüğü (tekilleştirme, başvuru sayımı), otomatik sürümler (günlük / pafta öncesi / revizyon kodu, sınırlar)
+- [x] Sürümlerle dışa / içe aktarma (biçim aynı, kimlik çakışması yok), hata durumları, 100 / 500 / 1000 sürüm ölçümü
+- Ayrıntı: [REVIZYON.md — B4D](REVIZYON.md#b4d--kalıcı-proje-sürümleri-akıllı-karşılaştırma-ve-güvenli-geri-yükleme-062-b4d-uygulandı)
+
+## B5 — Profesyonel Pafta Editörü (teknik yol haritası)
+Amaç: tek paftada birden çok plan / kesit / görünüş / metraj tablosu, antet tasarımı, ölçek denetimi, revizyon tablosu ve
+vektörel PDF. Mevcut parçalar yeniden kullanılır: `planSheetView` (plan görünümü), `sections.js` (`sheetSvg`, `sheetPdf`,
+kesit / görünüş üretimi), `revview.js` (`revisionSheet`, `newPdf`, gömülü DejaVu yazı tipi), B4C `aggregate` / `qtyCsv`,
+B4D sürümleri (revizyon tablosu kaynağı).
+1. **Veri modeli** (`project.sheets[]`, proje kaydında; eski projelerde yok → boş): `{ id, name, number, paper: 'A3'|'A1'|…,
+   orientation, titleBlock: { templateId, fields }, viewports: [{ id, kind: 'plan'|'section'|'elevation'|'qty'|'legend'|
+   'revtable'|'image', source: { drawingId, levelId, viewId, versionId? }, scale, x, y, w, h, crop, layers, rotation }],
+   revisions: [{ code, date, note, versionId }] }`. Kimlikler kalıcı; görünüm kaynakları kimlikle başvurulur, kopyalanmaz.
+2. **Görünüm çerçevesi motoru** (`js/sheets/layout.js`, saf): kâğıt mm ↔ model cm dönüşümü (`scale`), kırpma, çakışma ve
+   kâğıt dışı uyarısı, ızgaraya / diğer çerçevelere yaslama; her çerçeve kendi ölçeğinde vektörel ilkel listesi üretir
+   (mevcut `revisionPrims` / `primsSvg` biçimi) → SVG ve PDF aynı ilkellerden.
+3. **Ölçek denetimi**: çerçeve ölçeği ile çizim `meta.scale` farkı uyarısı; yazı yüksekliği / çizgi kalınlığı kâğıt mm
+   cinsinden sabit (ölçekten bağımsız); grafik ölçek çubuğu ve kuzey oku çerçeveye bağlı; ölçek listesi `units.js SCALES`.
+4. **Antet tasarımcısı**: şablon = SVG yerleşimi + alan tanımları (`{proje}`, `{müşteri}`, `{pafta no}`, `{ölçek}`,
+   `{tarih}`, `{revizyon}`, `{çizen}`, firma logosu = proje görseli); Ayarlar'da firma şablonları (`kv`), pafta başına alan
+   değerleri. Türkçe karakterler gömülü yazı tipiyle.
+5. **Revizyon tablosu**: B4 `meta.revision.code` + B4D sürümleri (ad, tarih, not, karma kısaltması); satır seçimi kullanıcıda.
+   "Bu paftayı sürümden üret" → `versionId`'li çerçeveler, eski durumun paftası güncel projeyi değiştirmeden.
+6. **Metraj tablosu çerçevesi**: B4C `aggregate` sonucu (filtre: kat, mahal, kategori) tablo ilkeline; sayfaya sığmazsa
+   devam paftası. Onay bekleyen satırlar ayrı işaretlenir (kesin gibi gösterilmez).
+7. **Editör arayüzü**: Paftalar gezgin grubu → pafta sekmesi; sürükle-bırak çerçeve, özellik paneli (ölçek, kaynak, kırpma,
+   katmanlar), çerçeve içinde model gezinme kilidi; B3 komut yapısıyla (`addViewport`, `moveViewport`, `setViewportScale`…)
+   tek Ctrl+Z; mobilde salt görüntüleme + yayınlama.
+8. **Çıktı**: çok sayfalı vektörel PDF (her pafta bir sayfa, gerçek kâğıt boyutu, %100 yazdırma), SVG, DXF (pafta düzeni
+   model + kâğıt uzayı yerine tek katmanlı ölçekli kâğıt). Dışa aktarma öncesi B4D otomatik sürüm kancası.
+9. **Testler**: düzen motoru birim testleri (ölçek dönüşümü, kırpma, çakışma), PDF içerik testleri (pdf.js ile metin ve yol
+   sayısı, sayfa boyutu mm), antet alan doldurma, eski projelerin `sheets` olmadan açılması, mobil görüntüleme, regresyon.
+10. **Sınırlar / sonraki**: harici referans (xref) yok; DWG yok; çok kullanıcılı düzenleme yok.
 
 - [ ] Akıllı mahal ve malzeme listeleri (mahal bazlı yüzey / kaplama, malzeme toplamları, dışa aktarma)
 
 ## Sıradaki aşamalar
 - [ ] Akıllı metraj tabloları (tür, malzeme, kat ve mahal bazlı; birleşim temizliği sonrası hacim; dışa aktarma)
-- [ ] Gelişmiş pafta düzenleyici (çoklu görünüş yerleşimi, antet, ölçek, revizyon tablosu)
+- [ ] Gelişmiş pafta düzenleyici → **B5** (yukarıdaki teknik yol haritası)
 - [ ] IFC4 dışa aktarma (IfcWall / IfcSlab / IfcColumn / IfcBeam / IfcOpeningElement, kompozit katmanlar `IfcMaterialLayerSet`)
 - [ ] Parametrik merdiven ve çatı araçları (tür sistemi ve kat bağlarıyla)
 - [ ] Proje genelinde ortak BIM tür kütüphanesi (rölöve ve proje çizimlerinin türleri paylaşması; içe / dışa aktarma)

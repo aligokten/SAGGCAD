@@ -1,6 +1,6 @@
 /* SAGGCAD — çevrimdışı kabuk önbelleği. Kendi dosyalarımız önce ağdan (yeni sürüm hemen gelsin),
  * çevrimdışıysa önbellekten; yazı tipleri önce önbellekten. Sürüm değişince CACHE adını artırın. */
-const CACHE = 'saggcad-v10';
+const CACHE = 'saggcad-v11';
 const CORE = [
   './',
   'index.html',
@@ -46,6 +46,8 @@ const CORE = [
   'js/timeline.js',
   'js/revview.js',
   'js/revui.js',
+  'js/versions.js',
+  'js/verui.js',
   'js/pdffont.js',
   'js/presspull.js',
   'js/bim/adapter.js',

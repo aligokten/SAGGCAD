@@ -79,6 +79,12 @@ sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMA
   katman hacimleri), doğrama, döşeme, mahal kaplamaları; mevcut / yeni / net fark / söküm / yeni imalat ayrı; söküm ve imalat
   yalnız onaylı safha ve müdahale yöntemiyle kesinleşir. İsteğe bağlı birim fiyat (kullanıcı girer), CSV ve Türkçe karakterli
   PDF rapor. **Tasarım sınırları (maksimum)**: Model menüsü; aşımlar Model Sağlığı'nda. Örnek: [docs/b4c](docs/b4c).
+- **Proje Sürümleri (B4D)**: Dosya → *Sürüm Kaydet…* (Ctrl+Alt+S, ad + not) ve *Proje Sürümleri…*: kalıcı kayıt noktaları
+  (tüm çizimler, katlar, BIM elemanları, revizyon kararları, fiyatlar ve görseller; SHA-256 ile doğrulanır, aynı içerik iki kez
+  kaydedilmez). Önizleme, güncel proje ya da başka sürümle karşılaştırma (eleman ve metraj farkı), **kopya olarak** ya da
+  önce otomatik kurtarma sürümü alınarak **üzerine** geri yükleme, sürümlerle birlikte dışa / içe aktarma, isteğe bağlı
+  otomatik sürümler (Ayarlar). *İşlem Geçmişi* (Ctrl+Z, zaman çizelgesi) yalnız açık oturumdur; sürümler kalıcıdır.
+  Ayrıntı: [docs/REVIZYON.md](docs/REVIZYON.md#b4d--kalıcı-proje-sürümleri-akıllı-karşılaştırma-ve-güvenli-geri-yükleme-062-b4d-uygulandı).
 - **UniCAD esinli iş akışı (U1)**: işlem **zaman çizelgesi** (bir adıma tıklayıp modeli o ana sar), **seçim filtresi**,
   **Akıllı Bas-Çek** (`Q`: seçime göre ötele / kalınlık / yükseklik / yarıçap…), imleçte **komut paleti** (`S`) ve
   sabitlenen komutlar, 3D **gezinme çubuğu** (Üst / Ön / Arka / Sol / Sağ / izometrik) ve **görünüm stilleri**
@@ -128,6 +134,7 @@ sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMA
 | Listeler | **Doğrama listesi** (PDF), **zemin sipariş listesi** (PDF / metin), parça **etiketleri** (QR kodlu PDF) |
 | İmalat | **CNC kesim şablonu** (DXF, levhalara yerleşik) |
 | Kağıt | Izgaralı **A4 rölöve çizim altlığı** |
+| Proje | **.saggcad.json** (görsellerle; isteğe bağlı seçilmiş proje sürümleriyle) |
 
 Belge başlıklarındaki firma bilgisi **Ayarlar**'dan girilir.
 
@@ -142,6 +149,8 @@ npm test         # sözdizimi denetimi + çizim motoru, yapı fiziği ve BIM tes
 node tests/e2e/b1.e2e.cjs http://localhost:8080/    # isteğe bağlı tarayıcı testleri (Playwright gerekir)
 node tests/e2e/b2a.e2e.cjs http://localhost:8080/
 node tests/e2e/b2b.e2e.cjs http://localhost:8080/
+node tests/e2e/b4d.e2e.cjs http://localhost:8080/       # B4D: proje sürümleri, gerçek IndexedDB
+node tests/e2e/b4d-perf.e2e.cjs http://localhost:8080/  # B4D: 100 / 500 / 1000 sürüm ölçümü
 npm run svg      # L / T / X birleşim örnekleri → docs/b2b/*.svg
 npm run bench    # BIM servis katmanı ölçümü
 npm run bench:b3 # B3: 100 / 500 / 2000 / 5000 duvar — artımlı geometri, komut, 3D, metraj, geri al
@@ -154,7 +163,9 @@ Herhangi bir statik sunucu da olur; dosyayı doğrudan `file://` ile açmak ES m
 ```
 index.html, manifest.webmanifest, sw.js   giriş sayfası, PWA bildirimi, çevrimdışı önbellek
 js/main.js        SAGGCAD kabuğu: projeler, proje ekranı, çizim ekranı (2D / 3D / yan yana), dışa aktarma, listeler
-js/store.js       yerel depo (IndexedDB): projeler, görseller, ayarlar, proje dosyası içe / dışa aktarma
+js/store.js       yerel depo (IndexedDB v2): projeler, görseller, ayarlar, proje dosyası içe / dışa aktarma
+js/versions.js    B4D proje sürümleri: anlık görüntü + SHA-256, kaydet / listele / karşılaştır / geri yükle
+js/verui.js       B4D arayüzü: Sürüm Kaydet, Proje Sürümleri yöneticisi, karşılaştırma, geri yükleme
 js/plan2d.js      2D rölöve editörü          js/plan3d.js      3D görünüm ve render
 js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı elemanları (çizim, panel, kütüphane)
 js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek

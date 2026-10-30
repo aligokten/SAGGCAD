@@ -1,0 +1,73 @@
+{
+ "snapshotBytes": 8464,
+ "imageBytes": 308695,
+ "hashSnapshotMs": 0.08,
+ "hashImageMs": 3.2099999999976716,
+ "canonicalMs": 0.6660000000009313,
+ "checkpoints": [
+  {
+   "n": 100,
+   "saveAvgMs": 8.566999999997206,
+   "saveP95Ms": 14,
+   "listMs": 6,
+   "previewMs": 1.3999999999068677,
+   "verifyMs": 5,
+   "compareMs": 180.30000000004657,
+   "restoreCopyMs": 7.900000000139698,
+   "compareRows": 5,
+   "storage": {
+    "count": 100,
+    "autoCount": 0,
+    "snapshots": 852788,
+    "assetsReferenced": 30869500,
+    "assetsStored": 308695,
+    "uniqueAssets": 1
+   },
+   "usageBytes": 1183744
+  },
+  {
+   "n": 500,
+   "saveAvgMs": 8.371999999999534,
+   "saveP95Ms": 10.900000000139698,
+   "listMs": 31.700000000186265,
+   "previewMs": 1.6999999999534339,
+   "verifyMs": 11.399999999906868,
+   "compareMs": 127.19999999995343,
+   "restoreCopyMs": 11.100000000093132,
+   "compareRows": 5,
+   "storage": {
+    "count": 500,
+    "autoCount": 0,
+    "snapshots": 4264252,
+    "assetsReferenced": 154347500,
+    "assetsStored": 308695,
+    "uniqueAssets": 1
+   },
+   "usageBytes": 3121152
+  },
+  {
+   "n": 1000,
+   "saveAvgMs": 7.7579999999981375,
+   "saveP95Ms": 13,
+   "listMs": 63.60000000009313,
+   "previewMs": 1.5,
+   "verifyMs": 5,
+   "compareMs": 111.19999999995343,
+   "restoreCopyMs": 13.100000000093132,
+   "compareRows": 5,
+   "storage": {
+    "count": 1000,
+    "autoCount": 0,
+    "snapshots": 8529128,
+    "assetsReferenced": 308695000,
+    "assetsStored": 308695,
+    "uniqueAssets": 1
+   },
+   "usageBytes": 5582848
+  }
+ ],
+ "dedup": {
+  "referencedIfCopied": 308695000,
+  "stored": 308695
+ }
+}
