@@ -333,17 +333,26 @@ export function clipS(poly, ax, s0, s1) {
 }
 
 /* ── katın duvar prizmaları (3D, kesit, metraj): { wid, poly, z0, z1, m, core, prio, layer } ── */
+/* duvar başına prizma önbelleği (B3-C): geometri nesnesi (S) aynı ve açıklık bölgeleri aynıysa önceki dizi aynen döner —
+ * dizi kimliği "değişmedi" anlamına gelir (3D kısmi güncelleme ve metraj bunu kullanır) */
+const PRISMS = new WeakMap();
 export function wallPrisms(R, P, meta) {
-  const geo = levelWallGeometry(R, P, { T: meta.wallT }), out = [];
+  const geo = levelWallGeometry(R, P, { T: meta.wallT }), out = [], byWall = new Map(), rec = new Map((P.walls || []).map(w => [w?.id, w]));
   for (const S of geo.walls.values()) {
     if (S.legacy) continue;
-    const { zones } = wallZones(P, S.ax.w, meta);
-    for (const l of S.layers) for (const piece of l.pieces) for (const z of zones) {
-      const p = clipS(piece, S.ax, z.s0, z.s1); if (!p) continue;
-      out.push({ wid: S.id, poly: p, z0: z.z0, z1: z.z1, m: l.m, mat: l.mat, core: l.core, prio: l.prio, layer: l.idx, generic: !!l.generic });
+    const { zones } = wallZones(P, rec.get(S.id) || S.ax.w, meta), key = JSON.stringify(zones.map(z => [z.s0, z.s1, z.z0, z.z1]));
+    let c = PRISMS.get(S);
+    if (!c || c.key !== key) {
+      const list = [];
+      for (const l of S.layers) for (const piece of l.pieces) for (const z of zones) {
+        const p = clipS(piece, S.ax, z.s0, z.s1); if (!p) continue;
+        list.push({ wid: S.id, poly: p, z0: z.z0, z1: z.z1, m: l.m, mat: l.mat, core: l.core, prio: l.prio, layer: l.idx, generic: !!l.generic });
+      }
+      c = { key, list }; PRISMS.set(S, c);
     }
+    byWall.set(S.id, c.list); out.push(...c.list);
   }
-  return { prisms: out, geo };
+  return { prisms: out, geo, byWall };
 }
 
 /* ── metraj: duvar başına taban alanı, hacim, malzeme hacimleri (birleşimde çift sayım yok) ── */
