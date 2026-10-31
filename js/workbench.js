@@ -63,15 +63,23 @@ export function mountMenubar(host, commands) {
 }
 
 /* ───────────── komut paleti (Ctrl+K) ───────────── */
-const RECENT_KEY = 'sg-cmd-recent';
-export function openPalette(commands, { placeholder = 'Komut ya da araç arayın…' } = {}) {
+const RECENT_KEY = 'sg-cmd-recent', PIN_KEY = 'sg-cmd-pins';   // U1: sabitlenen komutlar (UniCAD FusionCommandPalette esinli)
+let lastPtr = null;   // S ile imleçte açmak için son işaretçi konumu
+if (typeof document !== 'undefined') document.addEventListener('pointermove', e => { lastPtr = { x: e.clientX, y: e.clientY }; }, { passive: true });
+export function openPalette(commands, { placeholder = 'Komut ya da araç arayın…', at = null } = {}) {
   if ($('.cmdk-back')) return;
   let recent = []; try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { /* yok */ }
+  let pins = []; try { pins = JSON.parse(localStorage.getItem(PIN_KEY) || '[]'); } catch { /* yok */ }
   const all = commands().filter(c => !c.when || c.when());
   const back = document.createElement('div'); back.className = 'cmdk-back';
   back.innerHTML = `<div class="cmdk" role="dialog" aria-label="Komut paleti"><div class="cmdk-in">${icon('search')}<input type="text" placeholder="${esc(placeholder)}" aria-label="Komut ara" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div><div class="cmdk-list" role="listbox"></div>
     <div class="cmdk-foot"><span><kbd>↑</kbd><kbd>↓</kbd> seç</span><span><kbd>Enter</kbd> çalıştır</span><span><kbd>Ctrl</kbd><kbd>K</kbd> aç / kapat</span></div></div>`;
   document.body.append(back);
+  if (at) {   // imleçte (S): pencere içinde kalacak biçimde
+    const box = $('.cmdk', back); back.classList.add('at-cursor');
+    const w = Math.min(560, innerWidth - 16), x = Math.max(8, Math.min(innerWidth - w - 8, at.x - 40)), y = Math.max(8, Math.min(innerHeight - 380, at.y - 20));
+    Object.assign(box.style, { position: 'absolute', left: x + 'px', top: y + 'px', width: w + 'px', margin: 0 });
+  }
   const inp = $('input', back), list = $('.cmdk-list', back);
   let items = [], cur = 0;
   const draw = () => {
@@ -80,14 +88,16 @@ export function openPalette(commands, { placeholder = 'Komut ya da araç arayın
       items = all.map(c => ({ c, hay: norm(`${c.t} ${catName(c.cat)} ${c.kw || ''}`) })).filter(x => q.every(w => x.hay.includes(w)))
         .sort((a, b) => (norm(b.c.t).startsWith(q[0]) - norm(a.c.t).startsWith(q[0])) || a.c.t.localeCompare(b.c.t, 'tr')).map(x => x.c);
     } else {
-      const rc = recent.map(id => all.find(c => c.id === id)).filter(Boolean);
-      items = [...rc.map(c => ({ ...c, _recent: true })), ...all.filter(c => !recent.includes(c.id))];
+      const pc = pins.map(id => all.find(c => c.id === id)).filter(Boolean);
+      const rc = recent.filter(id => !pins.includes(id)).map(id => all.find(c => c.id === id)).filter(Boolean);
+      items = [...pc.map(c => ({ ...c, _pin: true })), ...rc.map(c => ({ ...c, _recent: true })), ...all.filter(c => !recent.includes(c.id) && !pins.includes(c.id))];
     }
     cur = Math.min(cur, Math.max(0, items.length - 1));
     let lastCat = null;
     list.innerHTML = items.map((c, i) => {
-      const head = q.length ? '' : (c._recent ? (lastCat !== '_r' ? (lastCat = '_r', '<div class="cmdk-h">Son kullanılanlar</div>') : '') : (lastCat !== c.cat ? (lastCat = c.cat, `<div class="cmdk-h">${esc(catName(c.cat))}</div>`) : ''));
-      return `${head}<button type="button" role="option" class="${i === cur ? 'on' : ''}" data-i="${i}"><i>${c.on?.() ? icon('check') : c.ic ? icon(c.ic) : ''}</i><span>${esc(c.t)}</span>${q.length ? `<small>${esc(catName(c.cat))}</small>` : ''}${c.k ? `<kbd>${esc(c.k)}</kbd>` : ''}</button>`;
+      const head = q.length ? '' : c._pin ? (lastCat !== '_p' ? (lastCat = '_p', '<div class="cmdk-h">Sabitlenenler</div>') : '') : (c._recent ? (lastCat !== '_r' ? (lastCat = '_r', '<div class="cmdk-h">Son kullanılanlar</div>') : '') : (lastCat !== c.cat ? (lastCat = c.cat, `<div class="cmdk-h">${esc(catName(c.cat))}</div>`) : ''));
+      const pinned = pins.includes(c.id);
+      return `${head}<button type="button" role="option" class="${i === cur ? 'on' : ''}" data-i="${i}"><i>${c.on?.() ? icon('check') : c.ic ? icon(c.ic) : ''}</i><span>${esc(c.t)}</span>${q.length ? `<small>${esc(catName(c.cat))}</small>` : ''}${c.k ? `<kbd>${esc(c.k)}</kbd>` : ''}<em class="cmdk-pin ${pinned ? 'on' : ''}" data-pin="${esc(c.id)}" role="button" aria-label="${pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}" title="${pinned ? 'Sabitlemeyi kaldır' : 'Paletin başına sabitle'}">${icon('star')}</em></button>`;
     }).join('') || '<p class="cmdk-none">Eşleşen komut yok</p>';
     $('button.on', list)?.scrollIntoView({ block: 'nearest' });
   };
@@ -109,14 +119,23 @@ export function openPalette(commands, { placeholder = 'Komut ya da araç arayın
   document.addEventListener('keydown', onKey, true);
   inp.addEventListener('input', () => { cur = 0; draw(); });
   back.addEventListener('pointerdown', e => { if (e.target === back) close(); });
-  list.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) run(+b.dataset.i); });
+  list.addEventListener('click', e => {
+    const pn = e.target.closest('[data-pin]');
+    if (pn) { e.stopPropagation(); const id = pn.dataset.pin; pins = pins.includes(id) ? pins.filter(x => x !== id) : [...pins, id].slice(-12); try { localStorage.setItem(PIN_KEY, JSON.stringify(pins)); } catch { /* yok */ } draw(); inp.focus(); return; }
+    const b = e.target.closest('[data-i]'); if (b) run(+b.dataset.i);
+  });
   list.addEventListener('pointermove', e => { const b = e.target.closest('[data-i]'); if (b && +b.dataset.i !== cur) { cur = +b.dataset.i; $$('button', list).forEach(x => x.classList.toggle('on', +x.dataset.i === cur)); } });
   draw(); inp.focus();
 }
 /* Ctrl+K kısayolu (ekran başına bir kez bağlanır, ekran değişince kaldırılır) */
 export function bindPaletteKey(commands) {
   const onKey = e => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(commands); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(commands); return; }
+    // U1: S — imleçte komut paleti (yazı alanında, açık pencerede ya da değiştirici tuşla değil)
+    const tag = e.target?.tagName;
+    if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) && !e.target?.isContentEditable && !document.querySelector('.modal-back, .cmdk-back')) {
+      e.preventDefault(); openPalette(commands, { at: lastPtr || { x: innerWidth / 2, y: innerHeight / 3 } });
+    }
   };
   document.addEventListener('keydown', onKey);
   return () => document.removeEventListener('keydown', onKey);

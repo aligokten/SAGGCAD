@@ -3,14 +3,20 @@
  * Çizim motoru (plan2d / plan3d / içe-dışa aktarma / mutfak-dolap / çatı / merdiven) TadilatBodrum Saha
  * uygulamasının "Rölöve & 3D" modülünden alınmıştır; burada iş takibinden bağımsız çalışır.
  */
-import { uid, newProject, listProjects, getProject, saveProject, deleteProject, putBlob, blobUrl, compressImage, loadSettings, saveSettings, exportProject, importProject } from './store.js';
+import { uid, newProject, listProjects, getProject, saveProject, deleteProject, putBlob, blobUrl, compressImage, loadSettings, saveSettings, retireProject, unretireProject } from './store.js';
+import { saveVersionDialog, versionsDialog, exportProjectDialog, importFileFlow, autoSettingsHtml, readAutoSettings } from './verui.js';
+import { autoVersion, dailyDue, versionSettings, listVersions, deleteProjectVersions } from './versions.js';
 import { icon, esc, h, $, $$, toast, modal, confirmDlg, promptDlg, fmtNum, fmtDate, debounce, downloadBlob } from './ui.js';
 import { PlanEditor, planThumbSvg, planImageUrl, planSheetView, TOOLS } from './plan2d.js';
 import { scaleOf, unitOf, kotM, UNITS, SCALES } from './units.js';
 import { levelName, planLevels } from './plan-geom.js';
 import { viewsOf } from './sections.js';
 import { createBim } from './bim/api.js';
-import { bimReportHtml } from './bim/ui.js';
+import { bimReportHtml, healthHtml, healthDetails, reportCmd } from './bim/ui.js';
+import { GEO_STATS } from './bim/wallgeom.js';
+import { openRevision } from './revui.js';
+import { LIMITS, checkLimits } from './bim/solver.js';
+import { legendItems, REV_STYLE, SHEET_KINDS } from './revview.js';
 import { mountMenubar, mountNavigator, mountStatusbar, openPalette, bindPaletteKey, WORKSPACES, getWorkspace, setWorkspaceKey, getTheme, toggleTheme, applyTheme } from './workbench.js';
 import { useName, modelName } from './openings.js';
 import { emptyPlan, planMetrics, roomMetrics } from './plan-geom.js';
@@ -25,8 +31,50 @@ const view = () => $('#view');
 let saveUI = null;      // durum çubuğundaki otomatik kayıt göstergesi (çizim ekranında)
 let unbindKeys = null;  // ekrana özel klavye kısayolları
 const hhmm = () => new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-const persist = debounce(p => saveProject(p).then(() => saveUI?.('ok', hhmm())).catch(e => { saveUI?.('err'); toast('Kaydedilemedi: ' + e.message, 'err'); }), 400);
+// "emekli" nesne (üzerine geri yükleme sonrası eski proje) sessizce atlanır: geri yüklenen veriyi ezmez
+const persist = debounce(p => saveProject(p).then(() => saveUI?.('ok', hhmm())).catch(e => { if (e.code === 'retired') return; saveUI?.('err'); toast('Kaydedilemedi: ' + e.message, 'err'); }), 400);
 const save = () => { if (!S.project) return; saveUI?.('busy'); persist(S.project); };
+/* B4D: sürüm / geri yükleme öncesi — açık alan düzenlemesini bitir (blur → change), bekleyen otomatik kaydı iptal edip
+ * güncel nesneyi hemen yaz. Hata olursa sürüm işlemi yapılmaz (çağıran hatayı gösterir). */
+async function flushSave() {
+  document.activeElement?.blur?.();
+  await new Promise(r => setTimeout(r, 0));
+  persist.cancel();
+  if (!S.project) return;
+  await saveProject(S.project);
+  saveUI?.('ok', hhmm());
+}
+/* aynı projeyi açık tutan diğer sekmeler: üzerine geri yükleme sonrası eski nesnelerini kaydetmesinler */
+const bc = 'BroadcastChannel' in self ? new BroadcastChannel('saggcad') : null;
+if (bc) bc.onmessage = e => {
+  if (e.data?.type !== 'restored' || S.project?.id !== e.data.projectId) return;
+  retireProject(S.project); persist.cancel(); S.project = null;
+  toast('Bu proje başka bir sekmede geri yüklendi — güncel hâli açıldı'); route();
+};
+const verCtx = () => ({
+  project: () => S.project, flush: flushSave, slug,
+  retire: retireProject, unretire: unretireProject,
+  onRestored: async res => {
+    document.querySelectorAll('.modal-back').forEach(m => m.remove());   // açık sürüm pencereleri yeni ekranın üstünde kalmasın
+    if (res.mode === 'copy') { location.hash = `#/p/${res.project.id}`; return; }
+    // üzerine: editör eski nesneyi tutmaz — ekran yeniden kurulur, işlem geçmişi sıfırlanır
+    persist.cancel(); retireProject(S.project);
+    S.project = null; bc?.postMessage({ type: 'restored', projectId: res.project.id });
+    await route();
+  },
+});
+S.verCtx = verCtx;   // otomasyon / testler: arayüzle aynı boşaltma + emekliye ayırma yolu
+/* otomatik proje sürümü (ayarlarda açıksa) — otomatik kayıttan ayrı; hata sessiz değil ama işi durdurmaz */
+async function autoV(reason, o = {}) {
+  if (!S.project || !versionSettings(S.settings).auto) return null;
+  try {
+    if (reason === 'daily' && !await dailyDue(S.project.id)) return null;
+    await flushSave();
+    const r = await autoVersion(S.project.id, reason, S.settings, o);
+    if (r.ok) toast(`Otomatik sürüm kaydedildi: ${r.version.name}`);
+    return r;
+  } catch (e) { console.error(e); toast('Otomatik sürüm kaydedilemedi: ' + e.message, 'err'); return null; }
+}
 const saveSet = () => saveSettings(S.settings).catch(() => {});
 
 /* belge / etiket modülleri "iş" nesnesi bekler: projeyi o biçime çevir */
@@ -40,6 +88,9 @@ const drawingOf = (p, id) => p.drawings.find(d => d.id === id) || mainOf(p);
 const anyLv = (p, k) => !!p && [p, ...(p.levels || []).filter(l => l.kind !== 'roof')].some(x => x[k]?.length);
 const hasContent = p => !!(p?.walls?.length || p?.rooms?.length || p?.items?.length || p?.rails?.length);
 const clonePlan = p => p ? JSON.parse(JSON.stringify(p)) : emptyPlan();
+/* B4: çizim kökeni — kopyadan oluşan çizim kaynağını (aynı proje içinde) isteğe bağlı meta veriyle bilir; kimlikler korunur */
+const originOf = (src, n = 1) => ({ sourceDrawingId: src.id, sourceCreatedAt: Date.now(), revisionLabel: `R${n}` });
+const nextRev = (p, src) => p.drawings.filter(x => x.sourceDrawingId === src.id).length + 1;
 const slug = s => String(s || 'cizim').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'cizim';
 const planUrl = (p, d, extra = '') => `#/p/${p.id}/plan?d=${d.id}${extra}`;
 
@@ -110,7 +161,9 @@ function bindTop() {
     ...(S.project ? [
       { id: 'proj.draw', cat: 'file', t: 'Rölöve çizimini aç', ic: 'edit', run: () => { location.hash = planUrl(S.project, mainOf(S.project)); } },
       { id: 'proj.newdw', cat: 'file', t: 'Yeni çizim…', ic: 'plus', run: () => newDrawingDialog(S.project) },
-      { id: 'proj.exp', cat: 'file', t: 'Proje dosyasını indir', ic: 'download', run: async () => downloadBlob(await exportProject(S.project), `${slug(S.project.name)}.saggcad.json`) },
+      { id: 'proj.exp', cat: 'file', t: 'Proje dosyasını indir', ic: 'download', run: () => exportProjectDialog(verCtx()) },
+      { id: 'proj.vsave', cat: 'file', t: 'Sürüm Kaydet…', ic: 'clock', kw: 'sürüm versiyon kayıt noktası snapshot', run: () => saveVersionDialog(verCtx()) },
+      { id: 'proj.versions', cat: 'file', t: 'Proje Sürümleri…', ic: 'clock', kw: 'sürüm geçmiş geri yükle karşılaştır', run: () => versionsDialog(verCtx()) },
     ] : []),
     { id: 'home.list', cat: 'file', t: 'Tüm projeler', ic: 'home', run: () => { location.hash = '#/'; } },
     { id: 'home.settings', cat: 'tools', t: 'Ayarlar…', ic: 'settings', run: settingsDialog },
@@ -150,14 +203,15 @@ async function homeScreen() {
   $$('[data-new]').forEach(b => b.onclick = newProjectDialog);
   $('[data-imp]').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
-    try { const p = await importProject(await f.text()); toast(`"${p.name}" açıldı`); location.hash = `#/p/${p.id}`; }
+    try { const r = await importFileFlow(await f.text()); if (r) location.hash = `#/p/${r.project.id}`; }
     catch (err) { toast('Dosya açılamadı: ' + err.message, 'err'); }
   };
   $$('[data-pa]').forEach(b => b.onclick = async () => {
     const p = list.find(x => x.id === b.closest('[data-p]').dataset.p);
-    if (b.dataset.pa === 'exp') return downloadBlob(await exportProject(p), `${slug(p.name)}.saggcad.json`);
-    if (!await confirmDlg(`"${p.name}" projesi ve tüm çizimleri silinecek.`)) return;
-    await deleteProject(p); toast('Proje silindi'); homeScreen();
+    if (b.dataset.pa === 'exp') return exportProjectDialog({ project: () => p, slug }, p);
+    const nv = (await listVersions(p.id)).length;
+    if (!await confirmDlg(`"${p.name}" projesi ve tüm çizimleri silinecek.${nv ? ` Projenin ${nv} kalıcı sürümü de silinir — saklamak istiyorsanız önce "Proje dosyasını indir → güncel proje + sürümler" ile yedek alın.` : ''}`)) return;
+    await deleteProject(p); if (nv) await deleteProjectVersions(p.id); toast('Proje silindi'); homeScreen();
   });
 }
 
@@ -182,10 +236,12 @@ async function settingsDialog() {
   const r = await modal({ title: 'Ayarlar', body: `
     <p class="muted small">Firma bilgileri PDF belgelerin (doğrama listesi, zemin sipariş listesi, dolap çizimleri) ve parça etiketlerinin başlığında görünür.</p>
     <div class="grid2">${f('name', 'Firma / ofis adı')}${f('phone', 'Telefon')}${f('email', 'E-posta')}${f('web', 'Web sitesi')}</div>
-    ${f('address', 'Adres')}`,
+    ${f('address', 'Adres')}
+    ${autoSettingsHtml(S.settings)}`,
     actions: [{ k: 'no', t: 'Vazgeç' }, { k: 'ok', t: 'Kaydet', cls: 'btn-primary' }] });
   if (r?.k !== 'ok') return;
   $$('[data-c]', r.el).forEach(i => { c[i.dataset.c] = i.value.trim(); });
+  S.settings.versions = readAutoSettings(r.el);
   await saveSettings(S.settings); toast('Ayarlar kaydedildi');
 }
 
@@ -217,7 +273,7 @@ function projectScreen() {
   view().innerHTML = `${topbar(`<span class="sc-crumb">›</span><b class="sc-crumb">${esc(p.name)}</b>`)}
   <div class="sc-page">
     <div class="card">
-      <div class="row-between"><h3>Proje bilgisi</h3><button class="btn btn-ghost btn-sm" data-exp>${icon('download')}Proje dosyasını indir</button></div>
+      <div class="row-between"><h3>Proje bilgisi</h3><div class="row wrap"><button class="btn btn-ghost btn-sm" data-vsave title="Kalıcı kayıt noktası oluştur">${icon('clock')}Sürüm kaydet</button><button class="btn btn-ghost btn-sm" data-vlist>${icon('clock')}Proje sürümleri</button><button class="btn btn-ghost btn-sm" data-exp>${icon('download')}Proje dosyasını indir</button></div></div>
       <div class="grid3">
         <label>Proje adı<input class="inp" data-f="name" value="${esc(p.name)}"></label>
         <label>Müşteri / mal sahibi<input class="inp" data-f="client" value="${esc(p.client)}"></label>
@@ -239,7 +295,10 @@ function projectScreen() {
   bindTop();
   hydratePhotos(view());
   $$('[data-f]').forEach(i => i.oninput = () => { p[i.dataset.f] = i.value; save(); });
-  $('[data-exp]').onclick = async () => downloadBlob(await exportProject(p), `${slug(p.name)}.saggcad.json`);
+  $('[data-exp]').onclick = () => exportProjectDialog(verCtx());
+  $('[data-vsave]').onclick = () => saveVersionDialog(verCtx());
+  $('[data-vlist]').onclick = () => versionsDialog(verCtx());
+  autoV('daily');
   $('[data-newdw]').onclick = () => newDrawingDialog(p);
   $('[data-sketch]').onclick = async () => { const { sketchDialog } = await import('./forms.js'); sketchDialog({ job: jobOf(p), settings: S.settings, fname: `${slug(p.name)}-rolove-altligi` }); };
   $$('[data-dwa]').forEach(b => b.onclick = async () => {
@@ -249,7 +308,7 @@ function projectScreen() {
     if (a === 'tpl') { d.plan = samplePlan(); save(); location.hash = planUrl(p, d); return; }
     if (a === 'del') { if (!await confirmDlg(`"${d.name}" çizimi silinecek.`)) return; p.drawings = p.drawings.filter(x => x.id !== id); }
     if (a === 'ren') { const n = await promptDlg('Çizimin adı', d.name); if (!n?.trim()) return; d.name = n.trim(); d.updatedAt = Date.now(); }
-    if (a === 'copy') p.drawings.push({ id: uid('dw'), name: `${d.name} (kopya)`, kind: d.main ? 'proje' : d.kind, plan: clonePlan(d.plan), createdAt: Date.now(), updatedAt: Date.now() });
+    if (a === 'copy') p.drawings.push({ id: uid('dw'), name: `${d.name} (kopya)`, kind: d.main ? 'proje' : d.kind, plan: clonePlan(d.plan), ...originOf(d, nextRev(p, d)), createdAt: Date.now(), updatedAt: Date.now() });
     save(); projectScreen();
   });
   $('[data-up]').onchange = async e => { await addPhotos(e.target.files, { tag: 'rolove' }); projectScreen(); };
@@ -277,7 +336,8 @@ async function newDrawingDialog(p, then) {
     actions: [{ k: 'no', t: 'Vazgeç' }, { k: 'ok', t: 'Oluştur', cls: 'btn-primary' }] });
   if (r?.k !== 'ok') return;
   const src = $('#dws', r.el).value;
-  const d = { id: uid('dw'), name: $('#dwn', r.el).value.trim() || `Proje ${n}`, kind: $('#dwk', r.el).value, plan: src ? clonePlan(drawingOf(p, src).plan) : emptyPlan(), createdAt: Date.now(), updatedAt: Date.now() };
+  const sd = src ? drawingOf(p, src) : null;
+  const d = { id: uid('dw'), name: $('#dwn', r.el).value.trim() || `Proje ${n}`, kind: $('#dwk', r.el).value, plan: sd ? clonePlan(sd.plan) : emptyPlan(), ...(sd ? originOf(sd, nextRev(p, sd)) : {}), createdAt: Date.now(), updatedAt: Date.now() };
   if (d.plan.meta && !src) d.plan.meta.bg = null;
   p.drawings.push(d); save();
   then ? then(d) : (location.hash = planUrl(p, d));
@@ -333,6 +393,11 @@ function planScreen() {
           <label class="sl">☀︎<input type="range" min="0.4" max="2" step="0.05" id="expo" title="Pozlama"></label>
         </div>
         <div class="p3-host" id="p3host"><div class="p3-load"><div class="spin"></div><p>3D model hazırlanıyor…</p></div></div>
+        <div class="p3-nav" id="p3nav" role="toolbar" aria-label="3D gezinme">
+          <button data-v="iso" title="Sığdır / izometrik">${icon('fit')}</button><span class="sep"></span>
+          <button data-v="top">Üst</button><button data-v="front">Ön</button><button data-v="back">Arka</button><button data-v="left">Sol</button><button data-v="right">Sağ</button><span class="sep"></span>
+          <select id="p3style" class="inp mini" title="Görünüm stili" aria-label="Görünüm stili"><option value="default">Varsayılan</option><option value="dark">Koyu stüdyo</option><option value="clay">Beyaz maket</option></select>
+        </div>
         <p class="p3-hint" id="p3hint">Sürükle: döndür · iki parmak / sağ tık: kaydır · tekerlek / kıstırma: yakınlaştır</p>
       </div>
     </div>
@@ -342,10 +407,16 @@ function planScreen() {
   root.classList.toggle('nav-off', !navOn);
   const sync3d = debounce(() => S.p3?.setPlan(S.editor.root), 350);
   const refresh = debounce(() => { nav?.render(); sb?.render(); }, 120);
-  S.bim = createBim(() => S.editor?.root);   // BIM çekirdeği: eski veriden türetilen salt okunur model
+  let revCode = dw.plan?.meta?.revision?.code || '';
+  autoV('daily');
+  S.bim = createBim(() => S.editor?.root, { getVersion: () => S.editor?.rev });   // BIM çekirdeği: eski veriden türetilir; yazma editör komutlarıyla
   S.editor = new PlanEditor($('#ps2d'), dw.plan, {
     bim: S.bim,
-    onChange: pl => { dw.plan = pl; dw.updatedAt = Date.now(); save(); if (mode !== '2d') sync3d(); refresh(); },
+    onChange: pl => {
+      dw.plan = pl; dw.updatedAt = Date.now(); save(); if (mode !== '2d') sync3d(); refresh();
+      const code = S.editor?.root?.meta?.revision?.code || '';   // B4D: revizyon kodu değişimi → isteğe bağlı otomatik sürüm
+      if (code !== revCode) { revCode = code; if (code) autoV('revcode', { code }); }
+    },
     onLevel: lv => { if (S.p3) { S.p3.opt.level = lv; S.p3.build(); } refresh(); },
     views: id => openViews(id),
     // proje çiziminde rölöve (mevcut durum) soluk altlık olarak görünür
@@ -391,7 +462,9 @@ function planScreen() {
   const sheetMeta = () => ({ project: p.name, client: p.client, company: S.settings.company?.name || '', unit: unitOf(S.editor.root).k });
   const openViews = async id => {
     const { openViews: ov } = await import('./sections.js');
-    ov(S.editor.root, { focus: id, ...sheetMeta(), fname: fname('x').replace(/\.x$/, '') });
+    const ed = S.editor;   // açık pencere editör değişikliklerini izler (B2B); kapanınca abonelik kaldırılır
+    ov(ed.root, { focus: id, ...sheetMeta(), fname: fname('x').replace(/\.x$/, ''), getRoot: () => ed.root,
+      subscribe: fn => { ed.host.addEventListener('pe:change', fn); S.viewSubs = (S.viewSubs || 0) + 1; return () => { ed.host.removeEventListener('pe:change', fn); S.viewSubs--; }; } });
   };
   // 3D model: görünür 3D yoksa geçici, ekran dışı bir görüntüleyici kurulur
   const with3d = async fn => {
@@ -429,6 +502,7 @@ function planScreen() {
       if (k === 'png') return savePng();
       if (k === 'views') return openViews(null);
       if (k === 'pafta') {
+        await autoV('export');
         const R = S.editor.root, N = scaleOf(R), V0 = planSheetView(R, S.editor.plan, N, `${dw.name} — ${levelName(R, S.editor.lv)}`);
         if (!V0) return toast('Plan boş', 'err');
         const { sheetSvg, sheetPdf } = await import('./sections.js');
@@ -471,6 +545,48 @@ function planScreen() {
     toast('Plan görseli proje görsellerine kaydedildi');
   };
   const render = async () => { if (mode === '2d') await setMode('3d'); renderDialog(); };
+  // B4: tadilat / revizyon görünümü — editörde katman + üstte şerit (lejant, kapat); kaynak çizimler değişmez
+  const setRevView = (fn, info) => {
+    $('#ps2d .rev-banner')?.remove();
+    if (!fn) { E.setRevision(null); return; }
+    let memo = { k: null, svg: '' };
+    E.setRevision(lv => { const k = `${E.rev}|${lv}|${p.drawings.map(d => d.updatedAt).join(',')}`; if (memo.k !== k) memo = { k, svg: fn(lv) }; return memo.svg; });
+    const bar = document.createElement('div'); bar.className = 'rev-banner'; bar.setAttribute('role', 'status');
+    bar.innerHTML = `<b>${esc(SHEET_KINDS[info.mode]?.t || 'Revizyon')}</b>${legendItems(info.mode).map(it => { const st = REV_STYLE[it.k]; return `<span class="rv-lg"><i style="border-color:${st.stroke};background:${st.fill || 'transparent'};border-style:${st.dash ? (it.k === 'before' ? 'dotted' : 'dashed') : 'solid'}"></i>${esc(it.t)}</span>`; }).join('')}<button class="btn btn-xs btn-ghost" data-rv-open>Karşılaştırma…</button><button class="icon-btn" data-rv-close aria-label="Revizyon görünümünü kapat" title="Kapat">${icon('x')}</button>`;
+    bar.onclick = e => { if (e.target.closest('[data-rv-close]')) setRevView(null); else if (e.target.closest('[data-rv-open]')) openRev(); };
+    $('#ps2d').append(bar);
+  };
+  // MAX: tasarım sınırları — meta.limits (isteğe bağlı); aşımlar kısıt çözücüde (Model Sağlığı) raporlanır, değer değiştirilmez
+  const openLimits = () => {
+    const cur = E.root.meta?.limits || {};
+    modal({ title: 'Tasarım sınırları (maksimum)', body: `<div class="lim-grid">${Object.entries(LIMITS).map(([k, d]) => `<label>${esc(d.t)}<div class="inp-unit sm"><input type="number" min="0" step="any" inputmode="decimal" data-lim="${k}" value="${cur[k] ?? ''}" placeholder="sınır yok"><span>${esc(d.unit)}</span></div></label>`).join('')}</div>
+      <p class="muted small">Boş bırakılan sınır denetlenmez. Aşan değerler Model Sağlığı'nda uyarı olarak listelenir; çizim kendiliğinden değiştirilmez. Sınırlar bu çizimde saklanır ve tek Ctrl+Z ile geri alınır.</p>`,
+      actions: [{ k: 'no', t: 'Vazgeç' }, { k: 'ok', t: 'Kaydet', cls: 'btn-primary' }] }).then(r => {
+      if (r?.k !== 'ok') return;
+      const limits = Object.fromEntries([...r.el.querySelectorAll('[data-lim]')].map(i => [i.dataset.lim, i.value.trim() === '' ? null : +i.value.replace(',', '.')]));
+      const res = E.bimCommand({ op: 'setDesignLimits', limits });
+      if (!res.ok) return toast(res.errors[0], 'err');
+      const v = checkLimits(E.root);
+      toast(v.length ? `${v.length} sınır aşımı — ayrıntı Model Sağlığı'nda` : 'Tasarım sınırları kaydedildi; aşım yok', v.length ? 'err' : undefined);
+    });
+  };
+  const openRev = () => openRevision({
+    project: p, drawing: dw, editor: E, settings: S.settings, onShow: setRevView, beforeSheetExport: () => autoV('export'),
+    goLevel: lv => { const i = planLevels(E.root).findIndex(l => (l.idx === 0 ? 'L0' : l.plan.id) === lv); if (i >= 0 && i !== E.lv) E.setLevel(i); },
+    openDrawing: id => { location.hash = planUrl(p, drawingOf(p, id)); },
+  });
+  // B3-D: Model Sağlığı — sayaçlar, çözülemeyen kısıtlar; öneriler yalnız "Uygula" ile (tek geri alınabilir komut)
+  const openHealth = () => {
+    const body = () => healthHtml(S.bim, { last: S.editor.lastChange, geo: GEO_STATS.last, view3d: S.p3?.stats3d?.last });
+    healthDetails(S.bim);
+    modal({ title: 'Model Sağlığı', wide: true, body: body(), actions: [{ k: 'ok', t: 'Kapat', cls: 'btn-primary' }], onOpen: el => {
+      el.addEventListener('click', e => {
+        const b = e.target.closest('[data-mh-fix]'); if (!b) return;
+        const f = S.bim.health().solve.fixes[+b.dataset.mhFix]; if (!f) return;
+        reportCmd(S.editor.bimCommand(f.cmd)); el.innerHTML = body();
+      });
+    } });
+  };
 
   /* ── komutlar: menü çubuğu, komut paleti ve mobil menü ortak ── */
   const tool = t => () => { if (mode === '3d') setMode('2d'); E.setTool(t); };
@@ -485,7 +601,9 @@ function planScreen() {
     { id: 'file.export', cat: 'file', t: 'Dışa aktar…', ic: 'download', k: 'Ctrl Shift E', sep: true, run: exportDialog },
     { id: 'file.dxf', cat: 'file', t: '2D DXF olarak dışa aktar', run: () => doExport('dxf2') },
     { id: 'file.png', cat: 'file', t: 'Plan görseli (PNG)', run: () => doExport('png') },
-    { id: 'file.save', cat: 'file', t: 'Proje dosyasını indir (.saggcad.json)', ic: 'file', sep: true, run: async () => downloadBlob(await exportProject(p), `${slug(p.name)}.saggcad.json`) },
+    { id: 'file.vsave', cat: 'file', t: 'Sürüm Kaydet…', ic: 'clock', k: 'Ctrl Alt S', sep: true, kw: 'sürüm versiyon kayıt noktası snapshot', run: () => saveVersionDialog(verCtx()) },
+    { id: 'file.versions', cat: 'file', t: 'Proje Sürümleri…', ic: 'clock', kw: 'sürüm geçmiş geri yükle karşılaştır kalıcı', run: () => versionsDialog(verCtx()) },
+    { id: 'file.save', cat: 'file', t: 'Proje dosyasını indir (.saggcad.json)', ic: 'file', sep: true, run: () => exportProjectDialog(verCtx()) },
     { id: 'file.settings', cat: 'file', t: 'Ayarlar…', ic: 'settings', sep: true, run: settingsDialog },
     ...toolCmds('draw', ['sel', 'wall', 'open', 'furn']),
     { id: 'draw.room', cat: 'draw', t: 'Ölçüyle oda…', ic: 'plus', sep: true, run: () => E.addRoomDialog() },
@@ -500,11 +618,15 @@ function planScreen() {
     ...toolCmds('model', ['model']),
     { id: 'model.slab', cat: 'model', t: 'Dış hattan otomatik döşeme', ic: 'floor', sep: true, run: () => E.autoSlab() },
     { id: 'model.roof', cat: 'model', t: 'Dış hattan otomatik çatı', ic: 'roof', run: () => E.autoRoof() },
+    { id: 'model.revision', cat: 'model', t: 'Revizyon karşılaştırması (tadilat)…', ic: 'layers', kw: 'rölöve proje fark yıkım yeni safha tadilat revizyon karşılaştır', sep: true, run: openRev },
+    { id: 'model.limits', cat: 'model', t: 'Tasarım sınırları (maksimum)…', ic: 'ruler', kw: 'max maksimum sınır üst sınır limit yükseklik alan kat imar', run: openLimits },
+    { id: 'model.revoff', cat: 'model', t: 'Revizyon görünümünü kapat', ic: 'eye', when: () => !!E.revLayer, run: () => setRevView(null) },
     { id: 'model.level', cat: 'model', t: 'Kat ekle…', ic: 'layers', sep: true, run: () => E.addLevelDialog() },
     { id: 'model.rooflv', cat: 'model', t: 'Çatı planı ekle', ic: 'roof', run: () => E.addRoofLevel() },
     ...planLevels(E.root).map((l, i) => ({ id: 'lv.' + l.idx, cat: 'model', t: `Kata geç: ${l.name}`, sep: i === 0, run: () => E.setLevel(l.idx), on: () => E.lv === l.idx })),
     { id: 'model.cab', cat: 'model', t: 'Mutfak / dolap tasarla (seçili duvar)', ic: 'kitchen', sep: true, run: () => E.cabFromSelection() },
     { id: 'model.lib', cat: 'model', t: 'Malzemeler ve yapılar…', ic: 'layers', run: () => E.openLibrary() },
+    { id: 'model.bimtypes', cat: 'model', t: 'BIM Türleri ve Parametreler…', ic: 'layers', kw: 'bim tür tip parametre favori family type', run: () => E.openBimTypes() },
     { id: 'view.2d', cat: 'view', t: '2D plan', k: '', ic: 'grid', run: () => setMode('2d'), on: () => mode === '2d' },
     { id: 'view.3d', cat: 'view', t: '3D model', ic: 'cube', run: () => setMode('3d'), on: () => mode === '3d' },
     { id: 'view.split', cat: 'view', t: 'Yan yana (2D + 3D)', run: () => setMode('split'), on: () => mode === 'split', when: () => !small },
@@ -526,6 +648,7 @@ function planScreen() {
     { id: 'tools.scale', cat: 'tools', t: 'Planı ölçekle (bilinen ölçüden)', ic: 'ruler', run: tool('scale') },
     { id: 'tools.render', cat: 'tools', t: 'Gerçekçi render…', ic: 'sparkle', sep: true, run: render },
     { id: 'tools.bim', cat: 'tools', t: 'BIM model raporu', ic: 'layers', kw: 'bim tür eleman doğrulama ilişki', sep: true, run: () => modal({ title: 'BIM model raporu', wide: true, body: bimReportHtml(S.bim), actions: [{ k: 'ok', t: 'Kapat', cls: 'btn-primary' }] }) },
+    { id: 'tools.health', cat: 'tools', t: 'Model Sağlığı', ic: 'layers', kw: 'bim kısıt çakışma birleşim geometri sağlık', run: openHealth },
     { id: 'tools.keys', cat: 'tools', t: 'Klavye kısayolları', ic: 'list', sep: true, run: () => keysDialog() },
   ];
   S.cmds = commands;
@@ -574,6 +697,7 @@ function planScreen() {
     if (ctrl && k === 'b') { e.preventDefault(); setNav(!navOn); }
     else if (ctrl && k === 'i') { e.preventDefault(); E.toggleInsp(); }
     else if (ctrl && e.shiftKey && k === 'e') { e.preventDefault(); exportDialog(); }
+    else if (ctrl && e.altKey && k === 's') { e.preventDefault(); saveVersionDialog(verCtx()); }
     else if (!typing && !ctrl && e.key === 'F1') { e.preventDefault(); keysDialog(); }
   };
   document.addEventListener('keydown', onKeys);
@@ -638,6 +762,17 @@ async function ensure3d() {
     $$('#cam button').forEach(x => x.classList.toggle('on', x === b));
   };
   sel.onchange = () => p3.interior(sel.value);
+  // U1: gezinme çubuğu (görünüm ön ayarları) ve görünüm stili
+  $('#p3nav').onclick = e => {
+    const b = e.target.closest('[data-v]'); if (!b) return;
+    sel.hidden = true;
+    if (p3.opt.mode === 'interior' && p3.opt.ceiling) { p3.set('ceiling', false); $('.p3-bar [data-t="ceiling"]').classList.remove('on'); }
+    p3.viewPreset(b.dataset.v);
+    $$('#cam button').forEach(x => x.classList.toggle('on', x.dataset.c === (b.dataset.v === 'top' ? 'top' : 'orbit')));
+  };
+  const st = $('#p3style'); let sv = 'default'; try { sv = localStorage.getItem('sg-3dstyle') || 'default'; } catch { /* yok */ }
+  st.value = sv; p3.setStyle(sv);
+  st.onchange = () => { p3.setStyle(st.value); try { localStorage.setItem('sg-3dstyle', st.value); } catch { /* yok */ } };
   return p3;
 }
 
@@ -830,7 +965,7 @@ async function printFloorOrder(p, dw, plan) {
   }
   addEventListener('hashchange', route);
   // sekme kapanırken bekleyen kaydı hemen yaz
-  addEventListener('pagehide', () => S.project && saveProject(S.project));
+  addEventListener('pagehide', () => S.project && saveProject(S.project).catch(() => {}));
   route();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

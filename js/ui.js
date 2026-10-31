@@ -41,6 +41,7 @@ const P = {
   pointer: '<path d="m4 4 7 17 2.5-7.5L21 11z"/>',
   hand: '<path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/>',
   rail: '<path d="M3 6h18M3 6v14M21 6v14M3 17h18"/><path d="M8 6v11M12 6v11M16 6v11"/>',
+  axis: '<circle cx="12" cy="5" r="3"/><path d="M12 8v3M12 13v2M12 17v4"/><path d="M5 14h2M9 14h1M14 14h1M17 14h2"/>',
   wallT: '<path d="M4 20 20 4"/><path d="M4 20h.01M20 4h.01"/><circle cx="4" cy="20" r="2"/><circle cx="20" cy="4" r="2"/>',
   room: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h6V3"/>',
   poly: '<path d="M4 18 7 5l11 3 2 11z"/>',
@@ -183,6 +184,7 @@ export function bindFields(root, obj, onChange) {
 export function debounce(fn, ms) {
   let t; const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
   d.flush = (...a) => { clearTimeout(t); return fn(...a); };
+  d.cancel = () => clearTimeout(t);
   return d;
 }
 

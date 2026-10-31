@@ -5,6 +5,8 @@
  *   • gerçekçi — GPU path tracing (three-gpu-pathtracer), ilerlemeli örnekleme
  */
 import { V, wallLen, wallDir, polyCentroid, pointInPoly, polyArea, wallExt, planLevels } from './plan-geom.js';
+import { wallPrisms } from './bim/wallgeom.js';
+import { prismFaces, toThree } from './bim/mesh.js';
 import { roofFaces, coverOf, outlineOf } from './roof.js';
 import { floorTexture } from './textures.js';
 import { stairWorld, stairBuild, stairXf, stairSolid, stairOutline } from './stairs.js';
@@ -141,19 +143,21 @@ export class Plan3D {
   std(color, rough = 0.85, metal = 0) { return this.mat(`s${color}${rough}${metal}`, () => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal })); }
 
   /* ───────────── sahne kurulumu ───────────── */
-  setPlan(plan) {
-    this.plan = plan;
-    this.build();
+  setPlan(plan, { full = false } = {}) {
+    if (!full && this.lg && this.plan === plan) this.update(plan);   // B3-C: aynı çizim → kısmi güncelleme (gerekirse kendisi tam kurar)
+    else { this.plan = plan; this.build(); }
     if (!this.framed) { this.frame(); this.framed = true; }
   }
 
   build() {
     const ROOT = this.plan; if (!ROOT || !THREE) return;
-    this.root.clear();
-    this.floors = [];
+    this.disposeTree(this.root); this.root.clear();
+    this.floors = []; this.lg = new Map();
+    this.stats3d = this.stats3d || { full: 0, partial: 0, last: null };
+    this.stats3d.full++; this.stats3d.last = { mode: 'full' };
     // zemin (dış)
     const b = this.bounds();
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), this.std('#D9D2C3', 1));
+    const ground = this.ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), this.std('#D9D2C3', 1));
     const sunk = Math.min(0, ...(ROOT.rooms || []).map(r => +r.fz || 0));   // zemin katta çukur döşeme varsa dış zemin onun altında
     ground.rotation.x = -Math.PI / 2; ground.position.set(b.cx, M(sunk) - 0.02, b.cz); ground.receiveShadow = true; ground.userData.noExport = true;
     this.root.add(ground);
@@ -162,18 +166,105 @@ export class Plan3D {
     this.hTop = M(L.at(-1).z + L.at(-1).h) + ((L.some(l => l.plan.roofs?.length)) ? 1.5 : 0);   // bina yüksekliği (m), kadraj için
     for (const lv of L) {
       if (this.opt.cut && lv.idx > act) continue;
-      const lg = new THREE.Group(); lg.position.y = M(lv.z); lg.name = lv.name; this.root.add(lg);
+      const lg = new THREE.Group(); lg.position.y = M(lv.z); lg.name = lv.name; this.root.add(lg); this.lg.set(lv.idx, lg);
       const meta = { ...ROOT.meta, ...(lv.plan.meta || {}) };
       // alt kattaki merdivenlerin üst kat döşemesinde açtığı boşluklar
       const below = lv.idx > 0 && lv.kind !== 'roof' ? L[lv.idx - 1] : null;
       const voids = below && below.kind !== 'roof' ? (below.plan.stairs || []).filter(st => st.void !== false).map(stairOutline).filter(Boolean) : [];
       if (lv.idx > 0 && lv.slab > 0) this.slab(lv.kind === 'roof' ? L[lv.idx - 1].plan : lv.plan, meta, lv.slab, lg, voids);
+      lg.userData.slabSig = lv.idx > 0 && lv.slab > 0 ? JSON.stringify(outlineOf({ ...(lv.kind === 'roof' ? L[lv.idx - 1].plan : lv.plan), meta }) || null) : null;
       if (lv.kind !== 'roof') this.buildLevel(lv.plan, lg, meta, this.opt.cut && lv.idx === act, lv.idx === 0, voids);
       // çatı: kesitte yalnızca çatı planı katı etkinken (alt katın içi görünsün diye)
       if (!this.opt.cut || (lv.kind === 'roof' && lv.idx === act)) for (const rf of lv.plan.roofs || []) this.roof(rf, (lv.kind === 'roof' ? 0 : lv.h) + (+rf.base || 0), meta, lg);
     }
     this.placeSun();
+    this.sceneSig = this.sigOf(ROOT, L); this.boundsSig = JSON.stringify(b);
     this.dirty = true;
+  }
+
+  /* ── B3-C: kısmi güncelleme ──
+   * Sahne imzası (duvar, açıklık ve mahaller dışındaki her şey + görünüm seçenekleri) değişmediyse yalnız değişen
+   * duvarların ağları yenilenir: prizma dizisi kimliği (wallgeom önbelleği) ya da kayıt / açıklık imzası değişen duvarlar
+   * + yüz ayıklamasında bunlara komşu duvarlar. Mahal değişikliği (kot 0) yalnız o mahalin nesnelerini yeniler.
+   * Kamera, görünüm, güneş ve gezinme dokunulmaz. Belirsiz her durumda tam kurulum (build). */
+  sigOf(ROOT, L) {
+    const omit = p => { const o = {}; for (const k of Object.keys(p)) if (!['walls', 'openings', 'rooms', 'levels'].includes(k)) o[k] = k === 'meta' && p.meta ? { ...p.meta, bg: undefined } : p[k]; return o; };   // altlık görseli 3D'yi etkilemez
+    return JSON.stringify([this.opt, L.map(l => [l.idx, l.kind, l.slab, l.z, l.h, l.name, omit(l.plan)])]);
+  }
+  update(plan = this.plan) {
+    const ROOT = this.plan = plan; if (!ROOT || !THREE) return false;
+    const L = planLevels(ROOT);
+    if (!this.lg || this.sigOf(ROOT, L) !== this.sceneSig) { this.build(); return false; }
+    const done = { walls: [], rooms: [] };
+    for (const lv of L) {
+      const g = this.lg.get(lv.idx); if (!g || lv.kind === 'roof') continue;
+      const meta = { ...ROOT.meta, ...(lv.plan.meta || {}) }, act = Math.min(this.opt.level ?? 0, L.length - 1), cut = this.opt.cut && lv.idx === act;
+      const r = this.updateLevel(lv, g, meta, cut, L);
+      if (!r) { this.build(); return false; }
+      done.walls.push(...r.walls); done.rooms.push(...r.rooms);
+    }
+    // döşeme dış hattı (üst kat / çatı döşemesi alt kat duvarlarından)
+    for (const lv of L) {
+      const g = this.lg.get(lv.idx); if (!g || !(lv.idx > 0 && lv.slab > 0)) continue;
+      const src = lv.kind === 'roof' ? L[lv.idx - 1].plan : lv.plan, meta = { ...ROOT.meta, ...(lv.plan.meta || {}) }, sig = JSON.stringify(outlineOf({ ...src, meta }) || null);
+      if (sig === g.userData.slabSig) continue;
+      for (const o of g.children.filter(o => o.userData.levelSlab)) { g.remove(o); this.disposeTree(o); }
+      const below = lv.idx > 0 && lv.kind !== 'roof' ? L[lv.idx - 1] : null;
+      const voids = below && below.kind !== 'roof' ? (below.plan.stairs || []).filter(st => st.void !== false).map(stairOutline).filter(Boolean) : [];
+      this.slab(src, meta, lv.slab, g, voids); g.userData.slabSig = sig;
+    }
+    const b = this.bounds(), bs = JSON.stringify(b);
+    if (bs !== this.boundsSig) { this.ground?.position.set(b.cx, this.ground.position.y, b.cz); this.placeSun(); this.boundsSig = bs; }
+    this.stats3d.partial++; this.stats3d.last = { mode: 'partial', walls: done.walls.sort(), rooms: done.rooms.sort() };
+    this.dirty = true;
+    return true;
+  }
+  updateLevel(lv, g, meta, cut, L) {
+    const P = lv.plan, st = g.userData.w3; if (!st) return null;
+    // mahaller
+    const rs = new Map(P.rooms.map(r => [r.id, JSON.stringify(r)])), rch = [...new Set([...rs.keys(), ...st.rooms.keys()])].filter(id => rs.get(id) !== st.rooms.get(id));
+    const oldRoom = id => { try { return JSON.parse(st.rooms.get(id) || 'null'); } catch { return null; } };
+    for (const id of rch) { const a = oldRoom(id), b = P.rooms.find(r => r.id === id); if (+a?.fz || +b?.fz) return null; }   // çukur döşeme: eşik / mobilya kotu → tam kurulum
+    const below = lv.idx > 0 ? L[lv.idx - 1] : null;
+    const voids = below && below.kind !== 'roof' ? (below.plan.stairs || []).filter(x => x.void !== false).map(stairOutline).filter(Boolean) : [];
+    const ownVoids = (P.stairs || []).filter(x => x.void !== false).map(stairOutline).filter(Boolean);
+    // duvar rengi mahalden gelir: değişen mahalin eski / yeni duvarları
+    const colorWalls = new Set(rch.flatMap(id => [...(oldRoom(id)?.walls || []), ...(P.rooms.find(r => r.id === id)?.walls || [])]));
+    if (rch.length) {
+      const set = new Set(rch);
+      for (const o of g.children.filter(o => set.has(o.userData.roomObj))) { g.remove(o); this.disposeTree(o); this.floors = this.floors.filter(f => f !== o); }
+      for (const r of P.rooms) if (set.has(r.id)) this.roomObjects(r, g, meta, cut, lv.idx === 0, voids, ownVoids);
+      st.rooms = rs;
+    }
+    // duvarlar
+    const recNow = new Map(P.walls.map(w => [w.id, this.wallRecSig(P, w)]));
+    const objs = new Set([...new Set([...recNow.keys(), ...st.rec.keys()])].filter(id => recNow.get(id) !== st.rec.get(id)));
+    for (const id of colorWalls) objs.add(id);
+    if (objs.size && P.walls.some(w => w.arc)) return null;   // yay duvar gövdesi komşu uzantısına bağlı (wallExt) → tam kurulum
+    const { byWall } = wallPrisms(this.plan, P, meta);
+    const prCh = new Set([...new Set([...byWall.keys(), ...st.prisms.keys()])].filter(id => byWall.get(id) !== st.prisms.get(id)));
+    if (!objs.size && !prCh.size && !colorWalls.size) return { walls: [], rooms: rch };
+    // yüz ayıklaması komşuluğu: değişen duvarların eski / yeni prizmalarına değen duvarlar
+    const bbOf = list => { if (!list?.length) return null; const b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity }; for (const pr of list) for (const q of pr.poly) { b.x0 = Math.min(b.x0, q.x); b.y0 = Math.min(b.y0, q.y); b.x1 = Math.max(b.x1, q.x); b.y1 = Math.max(b.y1, q.y); } return b; };
+    const hit = (a, b, e = 0.5) => a && b && a.x0 <= b.x1 + e && b.x0 <= a.x1 + e && a.y0 <= b.y1 + e && b.y0 <= a.y1 + e;
+    const bbNow = new Map([...byWall].map(([id, l]) => [id, bbOf(l)]));
+    const ring = ids => { const boxes = [...ids].flatMap(id => [bbNow.get(id), bbOf(st.prisms.get(id))]).filter(Boolean), out = new Set(ids); for (const [id, b] of bbNow) if (!out.has(id) && boxes.some(x => hit(x, b))) out.add(id); return out; };
+    const mesh = ring(new Set([...prCh, ...objs, ...colorWalls]));
+    for (const o of g.children.filter(o => mesh.has(o.userData.wall) || objs.has(o.userData.ownerWall))) { g.remove(o); this.disposeTree(o); }
+    this.levelWalls(P, g, meta, cut, { objs, mesh, ctx: ring(mesh), byWall });
+    return { walls: [...mesh], rooms: rch };
+  }
+  wallRecSig(P, w) {
+    return JSON.stringify([w, P.openings.filter(o => o.wallId === w.id)]);
+  }
+  /* ağaç kaynaklarını bırak: geometri her zaman; malzeme yalnız önbellekte değilse (önbellek paylaşımlıdır) */
+  disposeTree(obj) {
+    const cached = new Set(this.mats?.values() || []);
+    obj.traverse?.(o => {
+      if (o === obj && o === this.root) return;
+      o.geometry?.dispose?.();
+      for (const m of [].concat(o.material || [])) if (m && !cached.has(m)) m.dispose?.();
+    });
   }
 
   /* çokgen şekil + içinde kalan boşluklar (merdiven boşluğu); plan y'si -y olarak (döşeme / zemin ile aynı) */
@@ -187,7 +278,7 @@ export class Plan3D {
     const pts = outlineOf({ ...P, meta }); if (!pts) return;
     const geo = new THREE.ExtrudeGeometry(this.shapeWithHoles(pts, voids), { depth: M(t), bevelEnabled: false });
     geo.rotateX(-Math.PI / 2);
-    const m = new THREE.Mesh(geo, this.std('#C9C6C0', 0.95)); m.position.y = -M(t); m.castShadow = m.receiveShadow = true; m.name = 'Döşeme';
+    const m = new THREE.Mesh(geo, this.std('#C9C6C0', 0.95)); m.position.y = -M(t); m.castShadow = m.receiveShadow = true; m.name = 'Döşeme'; m.userData.levelSlab = true;
     g.add(m);
   }
   /* çok kenarlı düzlemsel yüzey (cm; z yukarı) → üçgenlenmiş ağ */
@@ -294,8 +385,34 @@ export class Plan3D {
 
     const ownVoids = (P.stairs || []).filter(st => st.void !== false).map(stairOutline).filter(Boolean);
     // odalar: zemin + tavan
-    for (const r of P.rooms) {
-      if (r.pts.length < 3) continue;
+    for (const r of P.rooms) this.roomObjects(r, g, meta, cut, ground0, voids, ownVoids);
+    g.userData.w3 = { rooms: new Map(P.rooms.map(r => [r.id, JSON.stringify(r)])), rec: new Map(), prisms: new Map() };
+    this.levelWalls(P, g, meta, cut);
+
+    // korkuluklar
+    for (const r of P.rails || []) g.add(this.railing(r));
+
+    // mobilya
+    // mobilya / donatı bulunduğu odanın döşeme kotuna oturur
+    const fzAt = p => +(P.rooms.find(r => r.fz && pointInPoly(p, r.pts))?.fz) || 0;
+    for (const it of P.items) { const f = this.furniture(it), dz = fzAt(it); if (dz) f.position.y += M(dz); g.add(f); }
+    for (const st of P.stairs || []) this.stair(st, g);
+    // döşeme elemanları: üst yüz kotundan kalınlık kadar aşağı (çıkma, balkon, teras…)
+    for (const sl of P.slabs || []) {
+      if (!sl.pts || sl.pts.length < 3) continue;
+      const c = compOf(this.plan, sl.comp), t = c ? compThickness(c) : (+sl.t || 15), top = +sl.top || 0;
+      const geo = new THREE.ExtrudeGeometry(this.shapeWithHoles(sl.pts, voids), { depth: M(t), bevelEnabled: false });
+      geo.rotateX(-Math.PI / 2);
+      const m = new THREE.Mesh(geo, this.std('#C9C6C0', 0.95)); m.position.y = M(top - t) - 0.001; m.castShadow = m.receiveShadow = true; m.name = 'Döşeme';
+      g.add(m);
+    }
+  }
+
+  /* mahal nesneleri (zemin, tavan, ışık, kot eşiği) — userData.roomObj ile işaretli */
+  roomObjects(r, g, meta, cut, ground0, voids, ownVoids) {
+    const n0 = g.children.length;
+    (() => {
+      if (r.pts.length < 3) return;
       const shape = this.shapeWithHoles(r.pts, voids);   // merdiven boşluğu odanın zemininde de açılır
       const geo = new THREE.ShapeGeometry(shape);
       geo.rotateX(-Math.PI / 2);
@@ -325,13 +442,52 @@ export class Plan3D {
           g.add(bulb);
         }
       }
-    }
-
+    })();
+    for (let i = n0; i < g.children.length; i++) g.children[i].userData.roomObj = r.id;
+  }
+  /* katın duvarları; only = { objs, mesh, ctx, byWall } kısmi güncelleme (B3-C) */
+  levelWalls(P, g, meta, cut, only = null) {
+    const cutH = 110;
     // duvarlar (açıklıklar kesilerek)
     const roomColorOf = w => P.rooms.find(r => (r.walls || []).includes(w.id) && r.wallColor)?.wallColor;
     for (const w of P.walls) {
-      const L = wallLen(w); if (L < 1) continue;
+      if (only && !only.objs.has(w.id)) continue;
+      const n0 = g.children.length;
+      this.wallObjects(P, g, meta, cut, w, roomColorOf);
+      for (let i = n0; i < g.children.length; i++) g.children[i].userData.ownerWall = w.id;
+    }
+    // B2B: düz duvarlar — birleşimleri temizlenmiş ortak geometriden kapalı yüzey (iç / çakışan yüz yok); kesit modunda üst kırpılır
+    {
+      const byWall = only?.byWall || wallPrisms(this.plan, P, meta).byWall;
+      const src = only ? [...only.ctx].flatMap(id => byWall.get(id) || []) : [...byWall.values()].flat();
+      const clipped = src.map(pr => ({ ...pr, z1: cut ? Math.min(cutH, pr.z1) : pr.z1 })).filter(pr => pr.z1 - pr.z0 >= 0.1);
+      const { groups } = toThree(prismFaces(clipped));
+      for (const [wid, gr] of groups) {
+        if (only && !only.mesh.has(wid)) continue;
+        const w = P.walls.find(x => x.id === wid); if (!w) continue;
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(gr.pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(gr.nor, 3));
+        const m = new THREE.Mesh(geo, this.std(w.color || roomColorOf(w) || meta.wallColor || '#F7F5F0', 0.92));
+        m.castShadow = m.receiveShadow = true; m.name = 'Duvar'; m.userData.wall = wid;
+        g.add(m);
+      }
+      const st = g.userData.w3; st.prisms = new Map(byWall); st.rec = new Map(P.walls.map(w => [w.id, this.wallRecSig(P, w)]));
+    }
+  }
+  /* tek duvarın kapı / pencere nesneleri; yay duvarda kutu parçalı gövde */
+  wallObjects(P, g, meta, cut, w, roomColorOf) {
+    const cutH = 110;
+    {
+      const L = wallLen(w); if (L < 1) return;
       const t = w.t || meta.wallT, H0 = w.h || meta.wallH, H = cut ? Math.min(cutH, H0) : H0;
+      if (!w.arc) {   // B2B: düz duvar gövdesi aşağıda ortak geometriden; burada yalnız kapı / pencere elemanları
+        const B = Math.min(+w.z0 || 0, H - 1), u = wallDir(w), ang = -Math.atan2(u.y, u.x);
+        for (const o of P.openings.filter(x => x.wallId === w.id)) {
+          const sill = B + (o.type === 'window' ? o.sill : 0), top = Math.min(H0, sill + o.h);
+          this.opening(o, w, u, ang, t, Math.min(top, H) - B, g, B);
+        }
+        return;
+      }
       const B = Math.min(+w.z0 || 0, H - 1);   // duvarın alt kotu (çukur döşemeden başlayabilir: −); açıklıklar bu kottan ölçülür
       const color = w.color || roomColorOf(w) || meta.wallColor || '#F7F5F0';
       const mw = this.std(color, 0.92);
@@ -357,24 +513,6 @@ export class Plan3D {
         s = o1;
       }
       piece(s, L + ex.b, B, H);
-    }
-
-    // korkuluklar
-    for (const r of P.rails || []) g.add(this.railing(r));
-
-    // mobilya
-    // mobilya / donatı bulunduğu odanın döşeme kotuna oturur
-    const fzAt = p => +(P.rooms.find(r => r.fz && pointInPoly(p, r.pts))?.fz) || 0;
-    for (const it of P.items) { const f = this.furniture(it), dz = fzAt(it); if (dz) f.position.y += M(dz); g.add(f); }
-    for (const st of P.stairs || []) this.stair(st, g);
-    // döşeme elemanları: üst yüz kotundan kalınlık kadar aşağı (çıkma, balkon, teras…)
-    for (const sl of P.slabs || []) {
-      if (!sl.pts || sl.pts.length < 3) continue;
-      const c = compOf(this.plan, sl.comp), t = c ? compThickness(c) : (+sl.t || 15), top = +sl.top || 0;
-      const geo = new THREE.ExtrudeGeometry(this.shapeWithHoles(sl.pts, voids), { depth: M(t), bevelEnabled: false });
-      geo.rotateX(-Math.PI / 2);
-      const m = new THREE.Mesh(geo, this.std('#C9C6C0', 0.95)); m.position.y = M(top - t) - 0.001; m.castShadow = m.receiveShadow = true; m.name = 'Döşeme';
-      g.add(m);
     }
   }
 
@@ -761,6 +899,28 @@ export class Plan3D {
     this.camera.position.set(b.cx, b.r * 3 + 4, b.cz + 0.01);
     this.controls.target.set(b.cx, 0, b.cz);
     this.controls.update(); this.dirty = true;
+  }
+  /* U1 (UniCAD FusionNavigationBar esinli): görünüm ön ayarları — iso | top | front | back | left | right */
+  viewPreset(k) {
+    if (k === 'iso') return this.frame();
+    if (k === 'top') return this.top();
+    const b = this.bounds(), H = this.hTop || 3, dir = { front: [0, 1], back: [0, -1], left: [-1, 0], right: [1, 0] }[k]; if (!dir) return;
+    this.opt.mode = 'orbit';
+    this.camera.fov = 40; this.camera.updateProjectionMatrix();
+    const ext = Math.max(b.x1 - b.x0, b.z1 - b.z0, H), d = (ext * 0.5 + 1) / Math.tan(20 * Math.PI / 180) * Math.max(1, 1.2 / (this.camera.aspect || 1));
+    this.camera.position.set(b.cx + dir[0] * d, H * 0.5, b.cz + dir[1] * d);
+    this.controls.target.set(b.cx, H * 0.45, b.cz);
+    this.controls.enableZoom = true; this.controls.enablePan = true; this.controls.maxPolarAngle = Math.PI * 0.49;
+    this.controls.update(); this.dirty = true;
+  }
+  /* U1 (UniCAD ViewportStyleManager esinli): görünüm stili — default | dark (koyu stüdyo) | clay (beyaz maket) */
+  setStyle(k) {
+    if (!THREE || !this.scene) return;
+    this.style = ['default', 'dark', 'clay'].includes(k) ? k : 'default';
+    this.scene.background = new THREE.Color(this.style === 'dark' ? '#18212B' : this.style === 'clay' ? '#F4F5F7' : '#E9F1F2');
+    this.clayMat ||= new THREE.MeshStandardMaterial({ color: '#F2F0EB', roughness: 0.9, metalness: 0 });
+    this.scene.overrideMaterial = this.style === 'clay' ? this.clayMat : null;
+    this.dirty = true;
   }
   interior(roomId) {
     const P = this.plan, r = P.rooms.find(x => x.id === roomId) || P.rooms[0];

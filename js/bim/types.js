@@ -1,4 +1,4 @@
-/* ═══ BIM çekirdeği — eleman tür sistemi (B1) ═══
+/* ═══ BIM çekirdeği — eleman tür sistemi (B1, B2A) ═══
  * Archicad "favori" / Revit "Family Type" karşılığı: tür, bir sınıftaki elemanların ortak parametre takımıdır.
  * Aynı türden istenen sayıda eleman olabilir. Tür parametreleri ile eleman (instance) parametreleri ayrı tutulur;
  * resolveParameters() ikisini birleştirir ve her değerin kaynağını (tür / eleman / kat / türetilmiş) bildirir.
@@ -7,9 +7,13 @@
  * (kompozit kütüphanesiyle aynı yerde — proje dosyasıyla birlikte kaydedilir / taşınır). Özel tür, yerleşik türün
  * kimliğini kullanamaz; bir yerleşik türden türetilirse `base` alanında onu belirtir.
  * Kompozit ve malzemeler materials.js'ten okunur, burada yeniden tanımlanmaz.
+ * B2A: özel tür başka bir özel türden de türetilebilir (`base` doğrudan kaynak türü gösterir; parametreler
+ * türetme anında kopyalanır, temel tür sonradan değişince alt tür kendiliğinden değişmez).
+ * Türler ve tür ataması yalnızca commands.js üzerinden (geri alınabilir işlem olarak) yazılır.
  */
 import { WALL_KINDS, SLAB_KINDS, COLUMN_MATS, compOf, compThickness, matOf } from '../materials.js';
 import { CLASSES, getAt } from './schema.js';
+import { FIELDS, TYPE_KEYS, checkValue } from './fields.js';
 
 const T = (id, cls, name, params, extra = {}) => Object.freeze({ id, cls, name, params: Object.freeze({ ...params }), builtin: true, rev: 1, ...extra });
 
@@ -76,22 +80,27 @@ export function typeParameters(root, type) {
 const same = (a, b) => (typeof a === 'number' && typeof b === 'number') ? Math.abs(a - b) < 1e-6 : a === b;
 
 /* eleman parametrelerini çöz: her tanımlı parametre için değer ve kaynağı.
- * source: 'type' (türden) | 'instance' (eleman türden farklı — geçersiz kılma) | 'level' (kattan devralınan) |
- *         'derived' (geometriden hesaplanan) | 'override' (elemanın açık geçersiz kılma kaydı)
- * B1'de tüm parametreler salt okunur (editable: false); düzenleme mevcut özellik panelinden yapılır. */
+ * source: 'type' (türden) | 'override' (elemanda açık geçersiz kılma — `bimOv`) | 'instance' (eleman değeri türden farklı,
+ *         açık kayıt yok — eski proje / B1 verisi) | 'level' (kattan devralınan) | 'derived' (hesaplanan)
+ * editable: parametrenin komutlarla (setInstanceParam) yazılabilir olup olmadığı; scope 'type' olanlar türden değiştirilir. */
 export function resolveParameters(root, el) {
   if (!el || !CLASSES[el.cls]) return [];
-  const type = getType(root, el.typeId), tp = typeParameters(root, type), inh = el.inherited || {}, ov = el.overrides || {};
+  const type = getType(root, el.typeId), tp = typeParameters(root, type), inh = el.inherited || {}, ov = new Set(el.ovKeys || []);
+  const F = FIELDS[el.cls] || {}, writable = el.meta?.origin === 'legacy';
   return CLASSES[el.cls].params.map(spec => {
-    const iv = getAt(el, spec.at), tv = tp[spec.k];
+    const iv = getAt(el, spec.at), tv = tp[spec.k], f = F[spec.k];
     let value = iv, source;
-    if (Object.prototype.hasOwnProperty.call(ov, spec.k)) { value = ov[spec.k]; source = 'override'; }
-    else if (inh[spec.k]) source = inh[spec.k];
+    if (inh[spec.k]) source = inh[spec.k];
+    else if (ov.has(spec.k)) source = 'override';
     else if (spec.scope === 'instance') source = 'instance';
     else if (iv === undefined || iv === null) { value = tv ?? null; source = tv !== undefined ? 'type' : 'instance'; }
     else if (tv === undefined || tv === null) source = 'instance';
     else source = same(iv, tv) ? 'type' : 'instance';
-    return { k: spec.k, t: spec.t, unit: spec.unit, type: spec.type, value: value ?? null, typeValue: tv ?? null, source, overridden: source === 'instance' && tv != null && spec.scope !== 'instance', editable: false };
+    const derivedOnly = source === 'derived' || (el.cls === 'slab' && spec.k === 'thickness' && !!el.props?.compositeId);
+    const editable = !!(writable && f && f.scope !== 'type' && !derivedOnly);
+    const overridden = (source === 'override' || source === 'instance') && tv != null && spec.scope !== 'instance' && !same(value, tv);
+    return { k: spec.k, t: spec.t, unit: spec.unit, type: spec.type, scope: f?.scope || spec.scope, value: value ?? null, typeValue: tv ?? null, source,
+      overridden, explicitOverride: ov.has(spec.k), resettable: !!(writable && f && overridden && f.scope !== 'type'), levelBindable: !!(writable && f?.level), editable };
   });
 }
 
@@ -103,21 +112,35 @@ export function materialLink(root, el) {
     materialId: mid || null, material: mat && mat.t !== mid ? { id: mid, name: mat.t } : null };
 }
 
-/* ── projeye özel tür kaydı (deneysel: B2 öncesinde yazma modeli kesinleşecek) ──
- * Varsayılan dryRun: kökü değiştirmez, yalnızca yapılacak değişikliği döndürür. */
-export function validateType(t) {
+/* ── projeye özel tür doğrulaması ve kaydı ──
+ * saveCustomType düşük düzeyli bir yardımcıdır: verilen kökü (commands.js'te geçici kopyayı) değiştirir.
+ * Arayüz ve API türleri doğrudan bununla değil, geri alınabilir komutlarla (createType / updateType) yazar. */
+export function validateType(t, root = null) {
   const errors = [];
   if (!t || typeof t !== 'object') return ['Tür nesne değil'];
   if (typeof t.id !== 'string' || !/^[A-Z0-9][A-Z0-9-]{1,31}$/.test(t.id)) errors.push('Tür kimliği büyük harf, rakam ve tire içermeli (ör. DIS-DUV-02)');
   if (BUILTIN_BY_ID.has(t.id)) errors.push('Yerleşik tür kimliği kullanılamaz');
   if (!CLASSES[t.cls] || t.cls === 'level') errors.push(`Geçersiz sınıf: ${t.cls}`);
   if (typeof t.name !== 'string' || !t.name.trim()) errors.push('Tür adı boş');
-  if (!t.params || typeof t.params !== 'object') errors.push('Parametreler (params) yok');
-  if (t.base && !getType(null, t.base)) errors.push(`Temel tür bulunamadı: ${t.base}`);
+  if (!t.params || typeof t.params !== 'object' || Array.isArray(t.params)) errors.push('Parametreler (params) yok');
+  if (t.base != null) {
+    const b = getType(root, t.base);
+    if (!b) errors.push(`Temel tür bulunamadı: ${t.base}`);
+    else if (b.cls !== t.cls) errors.push(`Temel tür başka sınıftan: ${t.base}`);
+    else if (b.id === t.id) errors.push('Tür kendisinden türetilemez');
+  }
+  // parametre değerleri: yalnız bu sınıfın tür parametreleri, alan kurallarıyla
+  if (t.params && typeof t.params === 'object' && FIELDS[t.cls]) {
+    for (const [k, v] of Object.entries(t.params)) {
+      if (!TYPE_KEYS[t.cls].includes(k)) { if (v != null) errors.push(`"${k}" bu sınıfın tür parametresi değil`); continue; }
+      if (v == null) continue;
+      const c = checkValue(root, t.cls, k, v); if (!c.ok) errors.push(c.error);
+    }
+  }
   return errors;
 }
 export function saveCustomType(root, type, { dryRun = true } = {}) {
-  const errors = validateType(type);
+  const errors = validateType(type, root);
   if (errors.length) return { ok: false, errors };
   const list = Array.isArray(root?.meta?.bimTypes) ? root.meta.bimTypes : [];
   const prev = list.find(t => t.id === type.id) || null;
@@ -125,8 +148,15 @@ export function saveCustomType(root, type, { dryRun = true } = {}) {
   if (!dryRun) { root.meta ||= {}; root.meta.bimTypes = [...list.filter(t => t.id !== type.id), next]; }
   return { ok: true, dryRun, change: { op: prev ? 'update' : 'create', type: next, prev } };
 }
-/* yerleşik ya da özel bir türden yeni özel tür taslağı (kökü değiştirmez) */
+/* yerleşik ya da özel bir türden yeni özel tür taslağı (kökü değiştirmez); base = kaynak tür */
 export function deriveType(root, baseId, id, name, params = {}) {
   const b = getType(root, baseId); if (!b) return null;
-  return { id, cls: b.cls, name, params: { ...b.params, ...params }, base: b.builtin ? b.id : (b.base || b.id) };
+  return { id, cls: b.cls, name, params: { ...b.params, ...params }, base: b.id };
+}
+/* kullanılmayan bir kimlik öner: DIS-DUV-01 → DIS-DUV-02 … */
+export function suggestTypeId(root, baseId) {
+  const m = /^(.*?)(\d+)$/.exec(baseId || '') || [null, (baseId || 'TUR') + '-', '0'];
+  const used = new Set(listTypes(root).map(t => t.id));
+  for (let n = +m[2] + 1; n < 1000; n++) { const id = `${m[1]}${String(n).padStart(m[2].length || 2, '0')}`; if (!used.has(id)) return id; }
+  return null;
 }

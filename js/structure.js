@@ -13,6 +13,7 @@ import {
 } from './materials.js';
 import { esc, fmtNum, modal, toast, $, $$, icon } from './ui.js';
 import { UNITS, SCALES, unitOf, fmtL } from './units.js';
+import { levelWallGeometry, wallOutline, layerPrio, PRIO_LABEL } from './bim/wallgeom.js';
 
 const pts = a => a.map(p => `${p.x},${p.y}`).join(' ');
 const INK = '#24272B';
@@ -53,6 +54,30 @@ export function wallLayersSvg(R, P, w, pre, px) {
   const [f1a, f1b] = line(t / 2), [f2a, f2b] = line(-t / 2);
   o += `<path d="M${f1a.x} ${f1a.y}L${f1b.x} ${f1b.y}M${f2a.x} ${f2a.y}L${f2b.x} ${f2b.y}" stroke="${INK}" stroke-width="${px(1.4)}" fill="none"/>`;
   return `<g class="wlayers" pointer-events="none">${o}</g>`;
+}
+
+/* B2B: birleşimleri temizlenmiş duvarlar — ortak geometriden (bim/wallgeom.js) katman çokgenleri ve tek kontur.
+ * Türsüz (kompozitsiz, malzemesiz) duvar koyu dolgu (eski görünüm); kompozitli duvarda katman rengi + tarama.
+ * Çok küçük ölçekte (duvar < 7 px) katmanlar yerine düz dolgu. Yay duvarlar (legacy) burada çizilmez. */
+export function wallGeomSvg(R, P, pre, px) {
+  const geo = levelWallGeometry(R, P, { T: P.meta?.wallT });
+  let fill = '';
+  for (const S of geo.walls.values()) {
+    if (S.legacy) continue;
+    const layered = !S.layers[0]?.generic && S.ax.t / px(1) >= 7;
+    for (const l of S.layers) for (const p of l.pieces) {
+      const q = pts(p);
+      // aynı renkte ince kontur: komşu hücreler arasındaki kenar yumuşatma çizgisini kapatır
+      if (!layered) { fill += `<polygon class="wallp" points="${q}" fill="${INK}" stroke="${INK}" stroke-width="${px(0.35)}"/>`; continue; }
+      fill += `<polygon points="${q}" fill="${l.m.col}" stroke="${l.m.col}" stroke-width="${px(0.35)}"/>`;
+      const hf = hatchFill(pre, l.m); if (hf !== 'none') fill += `<polygon points="${q}" fill="${hf}"/>`;
+    }
+  }
+  const o = wallOutline(geo), d = segs => segs.map(([a, b]) => `M${a.x} ${a.y}L${b.x} ${b.y}`).join('');
+  return `<g class="walls" pointer-events="none">${fill}
+    ${o.seams.length ? `<path d="${d(o.seams)}" stroke="${INK}" stroke-width="${px(0.5)}" fill="none"/>` : ''}
+    ${o.cores.length ? `<path d="${d(o.cores)}" stroke="${INK}" stroke-width="${px(1.1)}" fill="none"/>` : ''}
+    <path class="wallc" d="${d(o.contour)}" stroke="${INK}" stroke-width="${px(1.4)}" stroke-linecap="square" fill="none"/></g>`;
 }
 
 /* döşeme: dolgu + kesik-noktalı sınır; ad ve kalınlık etiketi */
@@ -189,14 +214,16 @@ export async function libraryDialog(R, { focus } = {}) {
       <div class="grid2"><label>Ad<input class="inp sm" data-c="t" value="${esc(c.t)}"></label>
         <label>Kullanım<select class="inp sm" data-c="use">${Object.entries(USES).map(([k, u]) => opt(k, u.t, c.use)).join('')}</select></label></div>
       <p class="muted small">${USES[c.use]?.kind === 'slab' ? 'Katmanlar üstten alta.' : 'Katmanlar dış yüzden iç yüze (iç duvarda 1. yüzden 2. yüze).'}</p>
-      <table class="mat-tbl lib-layers"><thead><tr><th>#</th><th>Malzeme</th><th class="r">d (cm)</th><th>Taşıyıcı</th><th></th></tr></thead><tbody>
-      ${c.layers.map(([mk, d], i) => `<tr data-i="${i}"><td>${i + 1}</td><td><select class="inp sm" data-l="m">${matOptions(root, mk)}</select></td>
+      <table class="mat-tbl lib-layers"><thead><tr><th>#</th><th>Malzeme</th><th class="r">d (cm)</th><th>Taşıyıcı</th><th title="Birleşimde yüksek öncelikli katman sürer">Öncelik</th><th></th></tr></thead><tbody>
+      ${c.layers.map(([mk, d, pr], i) => { const def = layerPrio(root, { ...c, layers: c.layers.map(([a, b]) => [a, b]) }, i), has = Number.isFinite(+pr) && pr !== null && pr !== ''; return `<tr data-i="${i}"><td>${i + 1}</td><td><select class="inp sm" data-l="m">${matOptions(root, mk)}</select></td>
         <td><input class="inp sm" type="number" step="0.1" min="0" data-l="d" value="${d}"></td>
         <td><input type="radio" name="core" data-l="core" ${(c.core ?? 0) === i ? 'checked' : ''}></td>
-        <td class="nowrap"><button class="icon-btn sm" data-la="up" title="Yukarı">↑</button><button class="icon-btn sm" data-la="dn" title="Aşağı">↓</button><button class="icon-btn sm danger-t" data-la="del" title="Sil">${icon('x')}</button></td></tr>`).join('')}
+        <td><select class="inp sm" data-l="p" title="${esc(PRIO_LABEL[has ? +pr : def] || '')}">${opt('', `Varsayılan (${def})`, has ? String(+pr) : '')}${[9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map(n => opt(String(n), `${n} — ${PRIO_LABEL[n]}`, has ? String(+pr) : '')).join('')}</select></td>
+        <td class="nowrap"><button class="icon-btn sm" data-la="up" title="Yukarı">↑</button><button class="icon-btn sm" data-la="dn" title="Aşağı">↓</button><button class="icon-btn sm danger-t" data-la="del" title="Sil">${icon('x')}</button></td></tr>`; }).join('')}
       </tbody></table>
       <div class="row wrap"><button class="btn btn-xs btn-ghost" data-ca="addL">${icon('plus')}Katman ekle</button>
         <label class="mini-l">Ölçülmüş R<sub>w</sub> <input class="inp sm" type="number" step="1" data-c="rw" value="${c.rw ?? ''}" placeholder="kütle yasası" style="width:90px"> dB</label></div>
+      <p class="muted small">Öncelik duvar birleşimlerinde hangi katmanın süreceğini belirler (9 taşıyıcı çekirdek … 1 sıva / kaplama). "Varsayılan" malzeme grubundan türetilir.</p>
       ${statsHtml(root, c, { esc, fmtNum })}
     </div>`;
   };
@@ -237,6 +264,7 @@ export async function libraryDialog(R, { focus } = {}) {
       const i = +el.closest('[data-i]').dataset.i;
       if (el.dataset.l === 'm') c.layers[i][0] = el.value;
       else if (el.dataset.l === 'd') c.layers[i][1] = Math.max(0, +el.value || 0);
+      else if (el.dataset.l === 'p') { if (el.value === '') c.layers[i].length = 2; else c.layers[i][2] = Math.max(0, Math.min(9, +el.value)); }   // birleşim önceliği (boş: malzemeden)
       else c.core = i;
     } else if (el.dataset.f) {
       const m = M[+el.closest('[data-m]').dataset.m], f = el.dataset.f;

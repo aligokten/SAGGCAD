@@ -74,7 +74,9 @@ test('4 — kompozit ve tür bağlantıları', () => {
   assert.equal(ml.composite.id, 'dis-tugla-eps'); assert.equal(ml.composite.layers, 4); assert.equal(ml.compositeMissing, false);
   const par = Object.fromEntries(bim.resolveElementParameters('wfx001').map(p => [p.k, p]));
   assert.equal(par.thickness.source, 'type'); assert.equal(par.height.source, 'level'); assert.equal(par.compositeId.value, 'dis-tugla-eps');
-  assert.ok(Object.values(par).every(p => p.editable === false));
+  // B2A: düzenlenebilirlik alan eşlemesinden gelir — türe ait (işlev) ve hesaplanan (uzunluk) parametreler elemanda düzenlenmez
+  assert.equal(par.function.editable, false); assert.equal(par.length.editable, false);
+  assert.equal(par.thickness.editable, true); assert.equal(par.height.levelBindable, true);
   // eleman tür değerinden farklıysa geçersiz kılma olarak görünür
   const R = root(); R.walls[0].t = 30;
   const p2 = Object.fromEntries(createBim(R).resolveElementParameters('wfx001').map(p => [p.k, p]));
@@ -147,12 +149,12 @@ test('7 — dönüştürme tekrarlandığında sonuç değişmiyor, girdi deği�
   assert.equal(bim.getElementType({}), null); assert.deepEqual(bim.resolveElementParameters('yok'), []);
   assert.equal(createBim(null).report().elements, 0);
   assert.equal(createBim({}).getIssues()[0].code, 'ROOT_INVALID');
-  // deneysel tür atama: dryRun varsayılan, gerçek yazma yalnız bimType alanına
+  // deneysel tür atama: yalnız önizleme; B2A'da gerçek yazma reddedilir (geri al / kayıt atlanmasın)
   const dr = bim.experimental.assignType('wfx003', 'IC-DUV-01');
   assert.equal(dr.ok, true); assert.equal(R.walls[2].bimType, undefined);
-  bim.experimental.assignType('wfx003', 'IC-DUV-01', { dryRun: false });
-  assert.equal(R.walls[2].bimType, 'IC-DUV-01'); assert.equal(bim.getElement('wfx003').typeId, 'IC-DUV-01');
-  const { bimType, ...rest } = R.walls[2]; assert.deepEqual(rest, JSON.parse(json0).walls[2]);
+  assert.equal(bim.experimental.assignType('wfx003', 'IC-DUV-01', { dryRun: false }).ok, false);
+  assert.equal(bim.experimental.saveType({ id: 'X-01', cls: 'wall', name: 'x', params: {} }, { dryRun: false }).ok, false);
+  assert.equal(JSON.stringify(R), json0, 'deneysel API veriyi değiştirmedi');
   // yerinde değişiklik (aynı uzunlukta JSON) önbelleği geçersiz kılar
   R.walls[0].a = { x: R.walls[0].a.x + 1, y: R.walls[0].a.y };
   assert.notEqual(bim.getElement('wfx001').geom.a.x, buildModel(JSON.parse(json0)).elements.get('wfx001').geom.a.x);

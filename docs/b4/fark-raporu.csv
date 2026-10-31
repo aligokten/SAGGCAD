@@ -1,0 +1,56 @@
+﻿Kat;Sınıf;Kimlik (kaynak);Kimlik (hedef);Ad;Karşılaştırma;Önerilen safha;Karar;Etkin safha;Elle eşleştirme;Değişen alanlar;Önce;Sonra;Not
+Zemin kat;wall;wfx001;wfx001;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":535,""thickness"":26.5,""height"":280}";"{""length"":535,""thickness"":26.5,""height"":280}";
+Zemin kat;wall;wfx002;wfx002;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":435,""thickness"":27,""height"":280}";"{""length"":435,""thickness"":27,""height"":280}";
+Zemin kat;wall;wfx003;wfx003;;Geometrisi değişen;Değiştirilecek;Değiştirilecek;Değiştirilecek;;t;"{""length"":535,""thickness"":15,""height"":280}";"{""length"":535,""thickness"":30,""height"":280}";
+Zemin kat;wall;wfx004;;;Yalnız kaynakta;Yıkılacak / sökülecek;Yıkılacak / sökülecek;Yıkılacak / sökülecek;;;"{""length"":435,""thickness"":15,""height"":280}";;
+Zemin kat;wall;wfx006;wfx006;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":435,""thickness"":15,""height"":280}";"{""length"":435,""thickness"":15,""height"":280}";
+Zemin kat;wall;wfx007;wfx007;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":315,""thickness"":15,""height"":280}";"{""length"":315,""thickness"":15,""height"":280}";
+Zemin kat;wall;wfx008;wfx008;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":375,""thickness"":15,""height"":280}";"{""length"":375,""thickness"":15,""height"":280}";
+Zemin kat;wall;wfx009;wfx009;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":395,""thickness"":15,""height"":280}";"{""length"":395,""thickness"":15,""height"":280}";
+Zemin kat;wall;wfx00a;wfx00a;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":375,""thickness"":15,""height"":280}";"{""length"":375,""thickness"":15,""height"":280}";
+Zemin kat;wall;wfx00b;wfx00b;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":245,""thickness"":15,""height"":280}";"{""length"":245,""thickness"":15,""height"":280}";
+Zemin kat;wall;wfx00c;wfx00c;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":275,""thickness"":15,""height"":280}";"{""length"":275,""thickness"":15,""height"":280}";
+Zemin kat;wall;wfx00d;wfx00d;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":245,""thickness"":15,""height"":280}";"{""length"":245,""thickness"":15,""height"":280}";
+Zemin kat;wall;;wYENI1;;Yalnız hedefte;Yeni;Değiştirilecek;Değiştirilecek;;;;"{""length"":300,""thickness"":15,""height"":280}";
+Zemin kat;wall;wfx005;wYENIDEN;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;evet;;"{""length"":315,""thickness"":15,""height"":280}";"{""length"":315,""thickness"":15,""height"":280}";
+Zemin kat;window;ofx00e;ofx00e;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""width"":180,""height"":150}";"{""width"":180,""height"":150}";
+Zemin kat;door;ofx00f;;;Yalnız kaynakta;Yıkılacak / sökülecek;;Yıkılacak / sökülecek;;;"{""width"":100,""height"":215}";;
+Zemin kat;window;ofx00g;ofx00g;;Geometrisi değişen;Değiştirilecek;;Değiştirilecek;;wallId;"{""width"":120,""height"":120}";"{""width"":120,""height"":120}";
+Zemin kat;opening;ofx00h;ofx00h;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""width"":120,""height"":220}";"{""width"":120,""height"":220}";
+Zemin kat;window;ofx00i;ofx00i;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""width"":140,""height"":140}";"{""width"":140,""height"":140}";
+Zemin kat;door;ofx00j;ofx00j;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""width"":90,""height"":210}";"{""width"":90,""height"":210}";
+Zemin kat;door;ofx00k;ofx00k;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""width"":80,""height"":210}";"{""width"":80,""height"":210}";
+Zemin kat;window;ofx00l;ofx00l;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""width"":60,""height"":60}";"{""width"":60,""height"":60}";
+Zemin kat;window;ofxorphan;ofxorphan;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""width"":100,""height"":120}";"{""width"":100,""height"":120}";
+Zemin kat;door;;oKAPI1;;Yalnız hedefte;Yeni;;Yeni;;;;"{""width"":90,""height"":210}";
+Zemin kat;room;rfx00m;rfx00m;Salon;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""area"":21.84}";"{""area"":21.84}";
+Zemin kat;room;rfx00n;rfx00n;Mutfak;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""area"":12.6}";"{""area"":12.6}";
+Zemin kat;room;rfx00o;rfx00o;Yatak Odası;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""area"":13.68}";"{""area"":13.68}";
+Zemin kat;room;rfx00p;rfx00p;Banyo;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""area"":5.98}";"{""area"":5.98}";
+Zemin kat;item;ifx00q;ifx00q;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx00r;ifx00r;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx00s;ifx00s;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx00t;ifx00t;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx00u;ifx00u;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx00v;ifx00v;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx00w;ifx00w;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx00x;ifx00x;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx00y;ifx00y;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx00z;ifx00z;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx010;ifx010;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx011;ifx011;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;item;ifx012;ifx012;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;beam;ifxbeam1;ifxbeam1;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;column;ifxcol1;ifxcol1;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;column;ifxcol2;ifxcol2;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;;;
+Zemin kat;slab;slfx1;slfx1;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""area"":7}";"{""area"":7}";
+1. Kat;wall;wfxu1;wfxu1;;Geometrisi değişen;Değiştirilecek;;Değiştirilecek;;t;"{""length"":500,""thickness"":15,""height"":280}";"{""length"":500,""thickness"":25,""height"":280}";
+1. Kat;wall;wfxu2;wfxu2;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""length"":400,""thickness"":15,""height"":280}";"{""length"":400,""thickness"":15,""height"":280}";
+1. Kat;door;ofxu1;ofxu1;;Değişmeyen;Mevcut / korunacak;;Mevcut / korunacak;;;"{""width"":90,""height"":210}";"{""width"":90,""height"":210}";
+
+ÖZET;Kapsam;Kaynak duvar;Hedef duvar;Korunacak;Önerilen kaldırma;Yeni duvar;Değiştirilen;Eklenen kapı;Kaldırılan kapı;Eklenen pencere;Kaldırılan pencere;Karşılaştırılamayan
+ÖZET;Zemin kat;13;13;11;1;0;2;1;1;0;0;0
+ÖZET;1. Kat;2;2;1;0;0;1;0;0;0;0;0
+ÖZET;Toplam;15;15;12;1;0;3;1;1;0;0;0
+
+"Not: sayılar eleman adedidir; imalat metrajı ya da maliyet değildir (B4C)."

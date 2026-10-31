@@ -1,12 +1,15 @@
 {
   "name": "saggcad",
-  "version": "0.2.0",
+  "version": "0.6.2-b4d",
   "private": true,
   "description": "SAGGCAD — bağımsız rölöve ve mimari çizim programı",
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 8080",
     "check": "for f in js/*.js js/bim/*.js sw.js; do node --check \"$f\" || exit 1; done",
-    "test": "npm run check && node --test tests/*.test.mjs"
+    "test": "npm run check && node --test tests/*.test.mjs",
+    "bench": "node tests/bench/bim.bench.mjs",
+    "bench:b3": "node tests/bench/b3.bench.mjs",
+    "svg": "node tests/bench/join-svg.mjs"
   }
 }

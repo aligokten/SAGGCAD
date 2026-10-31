@@ -139,7 +139,7 @@ export function toDXF3D(groups) {
 }
 
 /* ───────────── DXF ortak ───────────── */
-const LAYER_COLORS = { DUVAR: 7, ODA: 8, KAPI: 3, PENCERE: 5, MOBILYA: 30, MUTFAK: 1, OLCU: 2, YAZI: 7, ALAN: 4, ACIKLIK: 6, ELEKTRIK: 30, TESISAT: 150, KORKULUK: 8 };
+const LAYER_COLORS = { DUVAR: 7, ODA: 8, KAPI: 3, PENCERE: 5, MOBILYA: 30, MUTFAK: 1, OLCU: 2, YAZI: 7, ALAN: 4, ACIKLIK: 6, ELEKTRIK: 30, TESISAT: 150, KORKULUK: 8, AKS: 1 };
 function dxfHead(layers) {
   const L = [...new Set(['0', ...layers])];
   return ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$INSUNITS', '70', '4', '0', 'ENDSEC',
@@ -153,12 +153,24 @@ export function planToDXF(plan) {
   const P = plan, T = P.meta?.wallT || 15;
   const k = 10, X = v => (v * k).toFixed(1), Y = v => (-v * k).toFixed(1);
   const tr = s => String(s).replace(/ğ/g, 'g').replace(/Ğ/g, 'G').replace(/ş/g, 's').replace(/Ş/g, 'S').replace(/ı/g, 'i').replace(/İ/g, 'I').replace(/ç/g, 'c').replace(/Ç/g, 'C').replace(/ö/g, 'o').replace(/Ö/g, 'O').replace(/ü/g, 'u').replace(/Ü/g, 'U');
-  const out = dxfHead(['DUVAR', 'ODA', 'KAPI', 'PENCERE', 'KORKULUK', 'MOBILYA', 'MUTFAK', 'ELEKTRIK', 'TESISAT', 'OLCU', 'YAZI', 'ALAN']);
+  const out = dxfHead(['DUVAR', 'ODA', 'KAPI', 'PENCERE', 'KORKULUK', 'MOBILYA', 'MUTFAK', 'ELEKTRIK', 'TESISAT', 'OLCU', 'YAZI', 'ALAN', 'AKS']);
   const line = (L, a, b) => out.push('0', 'LINE', '8', L, '10', X(a.x), '20', Y(a.y), '30', '0', '11', X(b.x), '21', Y(b.y), '31', '0');
   const poly = (L, pts, closed = true) => { out.push('0', 'POLYLINE', '8', L, '66', '1', '70', closed ? '1' : '0', '10', '0', '20', '0', '30', '0'); for (const p of pts) out.push('0', 'VERTEX', '8', L, '10', X(p.x), '20', Y(p.y), '30', '0'); out.push('0', 'SEQEND', '8', L); };
   const text = (L, p, s, h = 15, ang = 0) => out.push('0', 'TEXT', '8', L, '10', X(p.x), '20', Y(p.y), '30', '0', '40', (h * k).toFixed(1), '1', tr(s), '50', String(ang), '72', '1', '73', '2', '11', X(p.x), '21', Y(p.y), '31', '0');
   const arc = (L, c, r, a0, a1) => out.push('0', 'ARC', '8', L, '10', X(c.x), '20', Y(c.y), '30', '0', '40', (r * k).toFixed(1), '50', a0.toFixed(2), '51', a1.toFixed(2));
 
+  // akslar: çizgi + uçlarda baloncuk (daire) ve ad
+  for (const g of P.grids || []) {
+    const L = Math.hypot(g.b.x - g.a.x, g.b.y - g.a.y); if (L < 0.5) continue;
+    const u = { x: (g.b.x - g.a.x) / L, y: (g.b.y - g.a.y) / L }, R = 30, bub = g.bub || 'both';
+    line('AKS', g.a, g.b);
+    for (const [end, p, sg] of [['a', g.a, -1], ['b', g.b, 1]]) {
+      if (bub !== 'both' && bub !== end) continue;
+      const c = { x: p.x + u.x * R * sg, y: p.y + u.y * R * sg };
+      out.push('0', 'CIRCLE', '8', 'AKS', '10', X(c.x), '20', Y(c.y), '30', '0', '40', (R * k).toFixed(1));
+      text('AKS', c, g.name || '', 22);
+    }
+  }
   // odalar: iç sınır + ad + alan
   for (const r of P.rooms) {
     poly('ODA', r.pts);

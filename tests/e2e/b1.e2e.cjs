@@ -31,7 +31,9 @@ const ok = (c, m) => { if (!c) throw new Error('B1 HATA: ' + m); console.log('�
   await p.waitForSelector('.bim-sec'); await p.click('.bim-sec summary'); await p.waitForTimeout(150);
   const txt = await p.textContent('.bim-sec');
   ok(txt.includes('DIS-DUV-01') && txt.includes('wfx001') && txt.includes('Dış duvar — tuğla 19'), 'panelde BIM türü, eleman kimliği ve kompozit görünüyor');
-  ok(await p.locator('.bim-sec input, .bim-sec select, .bim-sec textarea').count() === 0, 'BIM parametreleri düzenlenebilir gibi gösterilmiyor');
+  // B2A: bölümde tür seçimi ve kat bağı var; parametre değerleri için ikinci bir giriş alanı yok (tek düzenleyici: panel alanları)
+  // B2B: kat bağı ofseti kendi parametresidir (başka bir alanın kopyası değil); onun dışında değer girişi yok
+  ok(await p.locator('.bim-sec input[type=number]:not([data-bim-topoff]), .bim-sec input[type=text], .bim-sec input:not([type]), .bim-sec textarea').count() === 0, 'BIM bölümünde ikinci değer düzenleyicisi yok');
   ok(await p.locator('.pe-insp [data-k=t]').count() === 1, 'mevcut kalınlık alanı yerinde');
   if (process.env.SHOTS) await p.screenshot({ path: path.join(process.env.SHOTS, 'b1-insp.png') });
   ok(before === await p.evaluate(() => JSON.stringify(window.SAGGCAD.editor.root)), 'BIM paneli veriyi değiştirmedi');
