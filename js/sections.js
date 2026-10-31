@@ -6,6 +6,7 @@
  * Ölçü / yazı boyları kağıtta sabittir (mm); modelde 1:N ölçek için N/10 ile büyütülür.
  */
 import { V, wallLen, wallDir, wallNormal, wallExt, planLevels, polyArea } from './plan-geom.js';
+import { wallPrisms } from './bim/wallgeom.js';
 import { roofFaces, outlineOf, coverOf } from './roof.js';
 import { compOf, compThickness, matOf, hatchDefs, hatchFill } from './materials.js';
 import { wallComp } from './structure.js';
@@ -41,8 +42,19 @@ export function buildSolids(R) {
       for (const ly of layersZ(comp, Z + (+sl.top || 0), +sl.t || 15, matOf(R, 'betonarme'))) S.push({ kind: 'slab', poly: sl.pts, z0: ly.z0, z1: ly.z1, m: ly.m, core: ly.core, lv: id });
     }
     if (lv.kind !== 'roof') {
+      // B2B: düz duvarlar ortak geometriden (birleşim temizliği, katman önceliği; 2D ve 3D ile aynı prizmalar)
+      const { prisms } = wallPrisms(R, P, meta);
+      for (const pr of prisms) S.push({ kind: 'wall', wid: pr.wid, poly: pr.poly, z0: Z + pr.z0, z1: Z + pr.z1, m: pr.generic ? GENERIC : pr.m, core: pr.core, lv: id });
       for (const w of P.walls || []) {
         const Lw = wallLen(w); if (Lw < 1) continue;
+        if (!w.arc) {   // gövde yukarıda; burada yalnız cam / kapı kanadı
+          const t = w.t || meta.wallT, H = w.h || meta.wallH, B = Math.min(+w.z0 || 0, H - 1), u = wallDir(w), n = wallNormal(w);
+          for (const o of (P.openings || []).filter(x => x.wallId === w.id)) {
+            const o0 = o.pos - o.w / 2, o1 = o.pos + o.w / 2, sill = B + (o.type === 'window' ? (+o.sill || 0) : 0), top = Math.min(H, sill + (+o.h || 0));
+            if (o.type !== 'gap') S.push({ kind: o.type === 'window' ? 'glass' : 'door', wid: w.id, poly: quad(w.a, u, n, o0, o1, t * 0.12, -t * 0.12), z0: Z + sill, z1: Z + top, m: o.type === 'window' ? GLASS : LEAF, lv: id, op: true });
+          }
+          continue;
+        }
         const t = w.t || meta.wallT, H = w.h || meta.wallH, B = Math.min(+w.z0 || 0, H - 1);
         const u = wallDir(w), n = wallNormal(w), ex = wallExt(P, w), comp = wallComp(R, w, meta.wallT);
         const sd = w.lflip ? -1 : 1, tot = comp ? compThickness(comp) || t : t, k = t / tot;
@@ -350,8 +362,10 @@ export function viewDxf(V0) {
 }
 
 /* ───────────── pencere: kesit ve görünüşler ───────────── */
-export async function openViews(R, { focus = null, project = '', client = '', company = '', fname = 'cizim' } = {}) {
-  const views = viewsOf(R);
+/* subscribe(fn) → abonelikten çık fonksiyonu: editör değişince pencere güncel modelden yeniden çizilir (B2B);
+ * getRoot verilirse her çizimde güncel kök okunur (geri al kökü yeni nesneyle değiştirebilir). Kapanınca abonelik kaldırılır. */
+export async function openViews(R, { focus = null, project = '', client = '', company = '', fname = 'cizim', getRoot = null, subscribe = null } = {}) {
+  let views = viewsOf(R);
   if (!views.length) return;
   let cur = views.find(v => v.id === focus) || views[0], N = scaleOf(R), dims = true, hatch = true;
   const body = document.createElement('div');
@@ -376,11 +390,23 @@ export async function openViews(R, { focus = null, project = '', client = '', co
     body._V = V0;
   };
   draw();
+  let raf = 0;
+  const refresh = () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      if (getRoot) { const nr = getRoot(); if (nr) R = nr; }
+      views = viewsOf(R); cur = views.find(v => v.id === cur.id) || views[0];
+      if (cur && body.isConnected) draw();
+    });
+  };
+  const unsub = typeof subscribe === 'function' ? subscribe(refresh) : null;
   body.addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) { cur = views.find(v => v.id === b.dataset.v); draw(); } });
   body.addEventListener('change', e => { const o = e.target.dataset.o; if (!o) return; if (o === 'N') N = +e.target.value; else if (o === 'dims') dims = e.target.checked; else hatch = e.target.checked; draw(); });
   const meta = { project, client, company, unit: unitOf(R).k };
   const slug = s => String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  await modal({ title: 'Kesit ve görünüşler', body, wide: true,
+  body._unsub = unsub;
+  try { await modal({ title: 'Kesit ve görünüşler', body, wide: true,
     actions: [{ k: 'close', t: 'Kapat' }, { k: 'dxf', t: 'DXF', icon: 'download' }, { k: 'svg', t: 'SVG', icon: 'download' }, { k: 'all', t: 'Tümü (PDF)', icon: 'print' }, { k: 'pdf', t: 'Ölçekli pafta (PDF)', cls: 'btn-primary', icon: 'print' }],
     onOpen: (el) => {
       const foot = el.parentElement.querySelector('.modal-foot');
@@ -398,4 +424,5 @@ export async function openViews(R, { focus = null, project = '', client = '', co
         } catch (err) { console.error(err); toast('Dışa aktarılamadı: ' + err.message, 'err'); } finally { b.disabled = false; }
       }; });
     } });
+  } finally { unsub?.(); if (raf) cancelAnimationFrame(raf); }   // pencere kapanınca abonelik kaldırılır
 }

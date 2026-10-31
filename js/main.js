@@ -391,7 +391,9 @@ function planScreen() {
   const sheetMeta = () => ({ project: p.name, client: p.client, company: S.settings.company?.name || '', unit: unitOf(S.editor.root).k });
   const openViews = async id => {
     const { openViews: ov } = await import('./sections.js');
-    ov(S.editor.root, { focus: id, ...sheetMeta(), fname: fname('x').replace(/\.x$/, '') });
+    const ed = S.editor;   // açık pencere editör değişikliklerini izler (B2B); kapanınca abonelik kaldırılır
+    ov(ed.root, { focus: id, ...sheetMeta(), fname: fname('x').replace(/\.x$/, ''), getRoot: () => ed.root,
+      subscribe: fn => { ed.host.addEventListener('pe:change', fn); S.viewSubs = (S.viewSubs || 0) + 1; return () => { ed.host.removeEventListener('pe:change', fn); S.viewSubs--; }; } });
   };
   // 3D model: görünür 3D yoksa geçici, ekran dışı bir görüntüleyici kurulur
   const with3d = async fn => {

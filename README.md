@@ -8,7 +8,7 @@ internet olmadan da açılır (telefon / tablette *Ana ekrana ekle* ile uygulama
 burada müşteri / teklif / keşif akışından bağımsız, kendi proje yönetimiyle çalışır.
 
 🌐 Canlı sürüm: <https://aligokten.github.io/SAGGCAD/> (`main` dalına her gönderimde otomatik yayınlanır) ·
-sürüm **0.4.0-b2a** (B2A geliştirme sürümü; sürüm geçmişi [docs/ROADMAP.md](docs/ROADMAP.md))
+sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMAP.md](docs/ROADMAP.md))
 
 ## Özellikler
 
@@ -58,6 +58,10 @@ sürüm **0.4.0-b2a** (B2A geliştirme sürümü; sürüm geçmişi [docs/ROADMA
   elemanlar güncellenir; elemanda özel olarak değiştirilmiş değerler korunur ("Bu değişiklik 12 duvarı etkileyecek…").
 - Özellik panelinin **BIM** bölümü: tür atama, her değerin kaynağı (Tür / Geçersiz kılındı / Eleman / Kat / Hesaplanan),
   **Türe döndür**, **Kata bağlı** yükseklik. Tüm BIM değişiklikleri tek adımda geri alınır (Ctrl+Z).
+- **Akıllı duvar birleşimleri (B2B)**: L / T / X / I birleşimleri çizerken algılanır; kompozit katmanlar önceliğe göre
+  temizlenir (çekirdek sürer, kaplama sarar). 2D plan, 3D model, kesit ve duvar metrajı aynı geometriden üretilir —
+  köşede boşluk ya da çift hacim yok. Panelde birleşimler, referans çizgisi, katman öncelikleri, uç başına otomatik
+  birleşim ve kat bağı (duvar / kolon / kiriş üst kotu). Örnekler: [docs/b2b](docs/b2b).
 - Eski projeler aynen açılır: kayıt biçimi değişmedi; türler `meta.bimTypes`, atama `bimType`, geçersiz kılma `bimOv`
   isteğe bağlı alanlarında. Ayrıntı: [docs/BIM-CEKIRDEK.md](docs/BIM-CEKIRDEK.md).
 
@@ -116,6 +120,8 @@ npm start        # http://localhost:8080  (python3 -m http.server)
 npm test         # sözdizimi denetimi + çizim motoru, yapı fiziği ve BIM testleri (node --test)
 node tests/e2e/b1.e2e.cjs http://localhost:8080/    # isteğe bağlı tarayıcı testleri (Playwright gerekir)
 node tests/e2e/b2a.e2e.cjs http://localhost:8080/
+node tests/e2e/b2b.e2e.cjs http://localhost:8080/
+npm run svg      # L / T / X birleşim örnekleri → docs/b2b/*.svg
 npm run bench    # BIM servis katmanı ölçümü
 ```
 
@@ -132,7 +138,8 @@ js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı e
 js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek
 js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
 css/ui.css        arayüz tasarım sistemi ve temalar
-js/bim/           BIM çekirdeği: schema, types, fields, adapter, relations, commands, api, ui, manager
+js/bim/           BIM çekirdeği: schema, types, fields, adapter, relations, commands, wallcmds, api, ui, manager,
+                  joins, wallgeom, geom2d, mesh (duvar birleşimleri ve ortak geometri)
 js/plan-geom.js   plan geometrisi ve metraj   js/importer.js, importui.js   DXF / PDF içe aktarma
 js/exporters.js   DXF, DAE, 3DS, STL, DXF 3D  js/cabinet.js, cabdesign.js   mutfak / dolap tasarlayıcı
 js/roof.js, stairs.js, tiles.js, openings.js, fixtures.js, joinery.js, floororder.js, labels.js, cnc.js, forms.js …

@@ -28,3 +28,14 @@ const out = {
   builds: { signature: sig.stats().builds, version: ver.stats().builds },
 };
 console.log(JSON.stringify(out, null, 2));
+
+// B2B: duvar birleşim geometrisi (her 2D çizim / 3D kurulumda; önbellek duvar verisi değişince yenilenir)
+import { levelWallGeometry, wallPrisms } from '../../js/bim/wallgeom.js';
+{
+  const P = { walls: [], openings: R.openings, meta: { wallT: 20, wallH: 280 } }, n = Math.round(Math.sqrt(N / 2));
+  for (let i = 0; i <= n; i++) { P.walls.push({ id: `h${i}`, a: { x: 0, y: i * 400 }, b: { x: n * 400, y: i * 400 }, t: 26.5, comp: 'dis-tugla-eps' }); P.walls.push({ id: `v${i}`, a: { x: i * 400, y: 0 }, b: { x: i * 400, y: n * 400 }, t: 14, comp: 'ic-tugla' }); }
+  const t0 = performance.now(); const g = levelWallGeometry({ meta: {} }, P); const t1 = performance.now();
+  levelWallGeometry({ meta: {} }, P); const t2 = performance.now();
+  const { prisms } = wallPrisms({ meta: {} }, P, P.meta); const t3 = performance.now();
+  console.log(JSON.stringify({ b2bWalls: P.walls.length, joins: g.joins.joins.length, geometryMs: +(t1 - t0).toFixed(1), cachedMs: +(t2 - t1).toFixed(2), prisms: prisms.length, prismsMs: +(t3 - t2).toFixed(1) }));
+}

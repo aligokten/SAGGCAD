@@ -8,8 +8,8 @@ kendiliğinden güncellenir. Referans: Archicad 30 (eleman → kompozit → kat)
 |---|---|---|
 | **B1** | Eleman şeması, tür sistemi, eski veri adaptörü, ilişki modeli, okuma API'si | **Tamamlandı** (sürüm 0.3.1) |
 | **B2A** | Güvenli yazma motoru (komutlar), tür yöneticisi, düzenlenebilir parametreler, geçersiz kılma, geri al | **Tamamlandı** (sürüm 0.4.0-b2a) |
-| B2B | Akıllı duvar birleşimleri (L / T / X), katman önceliği, kata bağlı geometri, açıklık ilişkileri | Planlandı (aşağıda) |
-| B3 | Bağımlılık grafiği, artımlı türetme (plan / 3D / kesit / metraj), genel kısıt çözücü | Planlanacak |
+| **B2B** | Akıllı duvar birleşimleri (L / T / X / I), katman önceliği, ortak 2D / 3D / kesit geometrisi, duvar hareketi, mahal sınırı, kata bağlı geometri | **Tamamlandı** (sürüm 0.4.0-b2b) |
+| B3 | Bağımlılık grafiği, artımlı model güncelleme, tek işlem günlüğü, yay duvar birleşimleri | Planlandı (aşağıda) |
 | B4 | İşlem tabanlı geri al–yinele, rölöve ↔ proje eleman farkı | Planlanacak |
 | B5 | IFC 4 dışa aktarma, pafta düzenleyici | Planlanacak |
 
@@ -216,67 +216,181 @@ artımlı). Editörsüz kullanımda (testler) içerik imzası yedek olarak kalı
 - Kat silme geri al yığınlarını sıfırlar (mevcut davranış); öncesindeki BIM komutları geri alınamaz.
 - Tür parametreleri: mahal, çatı, merdiven türleri yalnız listelenir / atanır; kapı ve pencerede yalnız ölçüler.
   Eleman başka kata taşınamaz (`setElementLevelBinding` yalnız duvar / mahal yüksekliği).
-- Kolon / kiriş yüksekliği kata bağlanamaz (3D ve kesit bu elemanlarda açık değer bekler) — B2B.
+- ~~Kolon / kiriş yüksekliği kata bağlanamaz~~ → B2B: `setTopBinding` (duvar, kolon, kiriş)
 - Yay duvar parçaları ayrı elemandır; türü parça parça atanır.
 - Türler çizim kökünde (`meta.bimTypes`) durur: aynı projedeki iki çizim (rölöve / proje) türleri paylaşmaz.
-- Açık kesit / görünüş penceresi değişiklikte kendiliğinden yenilenmez.
+- ~~Açık kesit / görünüş penceresi değişiklikte kendiliğinden yenilenmez.~~ → B2B: editör değişiklik olayına abone
 - Çok büyük planlarda değişiklik başına tam yeniden türetme (3500 elemanda ≈ 60 ms) — B3 artımlı türetme.
 
 ---
 
-## B2B — Akıllı duvar birleşimleri (teknik plan)
+## B2B — Akıllı duvar birleşimleri ve parametrik yapı ilişkileri (tamamlandı)
 
-Hedef: duvar uçlarının birbirini tanıması, kompozit katmanların birleşimde doğru temizlenmesi ve duvar hareketinde
-bağlı elemanların (açıklık, mahal, birleşen duvarlar) tutarlı kalması. Yazma yine yalnız `commands.js` üzerinden;
-birleşim bilgisi kayıtlara yazılmaz, her türetmede geometriden hesaplanır (tek kaynak ilkesi).
+Öncelik görsel değil geometrik doğruluktur: 2D plan, 3D model, kesit / görünüş ve duvar metrajı **aynı** kırpılmış katman
+çokgenlerinden üretilir. Birleşim bilgisi kayda yazılmaz; her seferinde duvar verisinden türetilir.
 
-### B2B.1 Birleşim grafiği (L / T / X)
-- `js/bim/joins.js`: kat başına uç nokta ızgara dizini (hücre = 2 × en kalın duvar). Her uç için yakın uçlar ve eksen
-  üzerindeki gövdeler aranır. Sınıflar: **L** (iki uç, açı ≠ 180°), **I** (doğrusal devam), **T** (uç bir gövdeye
-  değiyor), **X** (iki gövde kesişiyor), **serbest uç**. Tolerans: `V.eq` ile aynı 0,5 cm + kalınlığın yarısı.
-- Çıktı: `{ id, kind, walls: [{ id, end: 'a'|'b'|'body', t }], at, angle }` ve BIM ilişkisi `joinedAt` (relations.js'e
-  yeni tür; doğrulama: kopuk L, üst üste binen duvar, sıfır açı).
-- Test: her birleşim türü için sentetik planlar, eski `plan-geom.js wallExt` sonuçlarıyla karşılaştırma.
+### Mimari
+```
+js/bim/
+  geom2d.js    saf 2D geometri: yarı düzlem kırpma, dışbükey fark, kesişim alanı, kenar örtüşmesi, sınır kutusu
+  joins.js     birleşim grafiği: L / T / X / I / STAR / LEGACY, serbest uç, sorunlar, belirlenimci kimlik, wallJoinInfo
+  wallgeom.js  katman öncelikleri, birleşim kuralları, katman çokgenleri, açıklık bölgeleri, prizmalar, metraj, kontur,
+               çakışma raporu ve son güvence ayrıştırması (levelWallGeometry önbellekli)
+  mesh.js      prizmalardan 3D yüzey: paylaşılan yan yüz eleme, kapalılık / hacim / normal / iç yüz denetimi, Three.js dizileri
+  wallcmds.js  duvar komutları (moveWallEnd, offsetWall, setWallLength, setWallReference, setJoinEnabled),
+               açıklık konum politikası, mahal sınırı güncellemesi, kata bağlı geometri (setTopBinding, setLevelHeight,
+               setLevelSlab, syncLevelBindings)
+structure.js   wallGeomSvg — 2D çizim (geometriden ayrı; yalnız çizer)
+plan3d.js      düz duvarlar ortak prizmalardan tek BufferGeometry (duvar başına); kapı / pencere elemanları eskisi gibi
+sections.js    buildSolids düz duvarlarda ortak prizmaları kullanır; açık kesit penceresi editör değişikliğine abone
+```
 
-### B2B.2 Merkez ve referans çizgileri
-- `refLine`: `axis` | `face+` | `face-` (bugünkü `face` alanı) BIM parametresi olur; değiştirmek geometriyi taşımaz,
-  yalnız referansı çevirir (komut: `setWallReference`). Kalınlık değişiminde referans yüz sabit kalır (B2A'da yüzden
-  çizilmiş duvarlar için uygulandı; merkez dışı referansların tümüne genellenir).
-- Birleşim noktası referans çizgilerinin kesişimiyle hesaplanır; plan ve kesit aynı noktayı kullanır.
+### Birleşim grafiği (B2B-1)
+- **L**: iki uç aynı noktada (eksen toleransı 0,5 cm), açı ≠ 180°. 15°'nin altında `ACUTE_ANGLE` uyarısı.
+- **I**: iki uç aynı noktada, doğrusal devam (2° tolerans) → uçlar düğümde dik kesilir; eski yarım kalınlık uzatması
+  (çift hacim) kalktı.
+- **T**: uç başka bir duvarın gövdesinde; temas sınırı ana duvarın kalınlık bandı + 1 cm (eksen toleransından ayrı).
+  Üç uçlu düğümde doğrusal çift + kol da T'dir. Bandın dışındaki komşu duvar birleşmez (test: 1,5 cm dışarıda birleşmez).
+- **X**: gövdeler kesişiyor ya da dört uçlu düğümde iki doğrusal çift. **STAR**: diğer çok uçlu düğümler (açıortay).
+  **LEGACY**: yay duvar içeren düğüm — eski uzatma korunur, `ARC_LEGACY` ile raporlanır.
+- Sorunlar: `ZERO_LENGTH`, `SHORT_WALL`, `OVERLAP` (aynı doğruda üst üste / aynı uçtan aynı yöne), `ID_DUPLICATE`,
+  `JOIN_DISABLED`, `NODE_OVERLAP`, `GEOM_OVERLAP_RESOLVED`. BIM modelinde `JOIN_*` sorunu ve `joinedAt` ilişkisi olarak görünür.
+- Kimlik belirlenimci: `L:w1.b|w2.a`, `T:h.body|s.a` … (duvar sırası değişse de aynı).
 
-### B2B.3 Kompozit katman öncelikleri
-- `materials.js` kompozitlerine katman başına isteğe bağlı `prio` (0–9; varsayılan: taşıyıcı çekirdek 9, yalıtım 5,
-  sıva / kaplama 1). Eski kompozitlerde `core` dizininden türetilir (veri yazılmaz).
-- Birleşimde her katman çifti için öncelik karşılaştırılır: yüksek öncelikli katman sürer, düşük olan onun yüzünde biter
-  (Archicad "katman önceliği" mantığı).
+### Katman önceliği ve temizlik kuralları (B2B-2)
+Varsayılan öncelik (0–9): 9 taşıyıcı çekirdek (taşıyıcı duvar ya da beton çekirdek) · 7 taşıyıcı olmayan ana katman ·
+6 diğer kâgir / beton · 5 dolgu · 4 ısı / ses yalıtımı · 3 su / buhar yalıtımı · 2 levha, hava boşluğu · 1 sıva, kaplama.
+Projeye özel öncelik "Malzemeler ve yapılar" penceresinde katman başına seçilir; kompozit katmanının 3. değeri olarak
+saklanır (`[malzeme, kalınlık, öncelik]`). Eski kompozitler yeniden yazılmaz; değer yoksa malzeme grubundan türetilir.
 
-### B2B.4 Taşıyıcı çekirdek birleşimleri
-- Taşıyıcı katmanlar (`core`) birleşimde birbirine kadar uzanır ve kesişim çokgeni birleştirilir; perde ↔ tuğla gibi
-  farklı malzemeli çekirdekler bitişik kalır, taramalar ayrılır. Kolon ile duvar çekirdeği: kolon kesiti duvarı kırpar.
+Köşe bölgesi iki duvar şeridinin kesişimidir ve katman bantlarıyla hücrelere bölünür:
 
-### B2B.5 Kaplama katmanlarının temizlenmesi
-- `wallLayersSvg` ve kesit prizmaları her katmanı birleşim grafiğinden gelen uç kesim çizgileriyle kırpar
-  (bugünkü dikdörtgen şeritler yerine çokgen). L köşede dış sıva sürekli döner, iç sıva köşede biter; T birleşimde
-  bağlanan duvarın kaplaması ana duvarın yüzünde biter. Sonuç kat başına önbelleğe alınır (B3'te artımlı).
+| Birleşim | Kural |
+|---|---|
+| L — çekirdek / çekirdek | yüksek öncelik hücreyi alır; eşitse gönye (hücre köşegeni) |
+| L — çekirdek / karşı duvarın iç katmanı | çekirdek geçer, karşı çekirdeğe ulaşır |
+| L — çekirdek / karşı duvarın dış katmanı | dış katman köşeyi sarar |
+| L — aynı taraftaki katmanlar | dışa (içte: iç yüze) yakın olan sürer; aynı derinlikte öncelik; o da eşitse köşegen |
+| T | kol katmanı ana duvar katmanlarını yakın yüzden itibaren öncelikleri kendisinden **düşük** olduğu sürece geçer, ilk eşit / yüksekte durur; ana duvar sürekli |
+| X | hücre öncelik yüksek olana; eşitse kimliği önce gelen duvara |
+| Son güvence | kurallardan sonra hâlâ çakışan parça (ör. tekrar çizilmiş duvar) öncelikle ayrıştırılır ve `GEOM_OVERLAP_RESOLVED` ile raporlanır |
 
-### B2B.6 Duvar hareketinde kapı / pencere ilişkileri
-- Komutlar: `moveWallEnd`, `offsetWall`, `setWallLength`. Barındırılan açıklıklar göreli konumlarını korur
-  (`pos` başlangıç ucuna göre; uzunluk kısalırsa sığmayan açıklık reddedilir ya da kullanıcı onayıyla kaydırılır).
-- Birleşen duvar uçları birlikte taşınır (bugünkü `endsAt` davranışı komut katmanına alınır); mahal `boundedBy`
-  sınırları ve `pts` yeniden üretilir (kapalı döngü bulma), kopukluk raporlanır.
+Örnek çıktılar: `docs/b2b/*.svg` (`npm run svg`) — L 90° / 60° / 135°, perde ↔ tuğla, T dış ↔ iç bölme, T hafif bölme,
+T perde kolu, X perde ↔ tuğla, farklı kalınlıklı L. Her dosyanın alt yazısında alan ve çakışma sayısı (hepsinde 0).
 
-### B2B.7 Kat yüksekliğine bağlı duvar geometrisi
-- `top: { level: 'self' | 'next', offset }` ve `base: { level, offset }` (isteğe bağlı alanlar); `h` = türetilmiş.
-  Üst kat döşemesi kalınlığı ve kat yüksekliği değişince bağlı duvar / kolon / kiriş yükseklikleri komutla güncellenir.
-  Kolon ve kiriş için kat bağı (B2A sınırı) burada eklenir.
+### 2D / 3D / kesit (B2B-2, B2B-4)
+- 2D: katman çokgenleri (renk + tarama) ve tek kontur; kontur, kenar örtüşmesinden hesaplanır (ortak kenar çizilmez,
+  malzeme sınırı ince, çekirdek sınırı kalın). Duvar çizilirken, taşınırken, kalınlığı değişirken birleşim yeniden
+  hesaplanır (önbellek duvar verisi değişince yenilenir). Kullanıcının girdiği koordinatlar değişmez.
+- 3D: duvar başına tek `BufferGeometry`; paylaşılan yan yüzler (birleşim, katman sınırı, açıklık bölgesi sınırı)
+  elenir, söve yüzleri kalır. Denetim: kapalılık vektörü ≈ 0, diverjans hacmi = prizma hacmi, ters normal 0, iç yüz 0,
+  Three.js sarımı doğru (eksen dönüşümü yansıma olduğu için çevrilir).
+- Kesit: `buildSolids` aynı prizmaları kullanır; kesilen katmanların alan oranı kompozit kalınlık oranına eşit (test).
+- Açık "Kesit ve görünüşler" penceresi editörün `pe:change` olayına abone olur ve güncel kökten yeniden çizer;
+  pencere kapanınca abonelik kaldırılır (testte sayaç 1 → 0).
 
-### B2B.8 Kesit / 3D uyumluluğu
-- `sections.js` ve `plan3d.js` birleşimden kırpılmış katman çokgenlerini kullanır; L / T / X köşelerinde kesit ve
-  3D'de çakışan hacim kalmaz (hacim metrajı çift sayılmaz). Kesit / görünüş penceresi editör değişiklik olayına abone
-  olup kendini yeniler.
+### Duvar hareketi ve bağlı elemanlar (B2B-3)
+- Komutlar geçici kopyada hesaplanır, doğrulanır ve tek geri alınabilir işlem olarak uygulanır. Özette etkilenen duvarlar,
+  mahaller ve kopan T bağlantıları döner; panelin "Uzunluk" alanı artık `setWallLength` komutunu kullanır.
+- Açıklık politikası: ötelemede açıklık duvarla gider; uç / uzunluk değişiminde sabit kalan uca uzaklık korunur;
+  yeni boya sığmayan açıklık varsa komut **reddedilir** (boyut / konum sessizce değişmez).
+- Birleşen uçlar (0,5 cm) birlikte taşınır; kopan T bağlantısı uyarılır (kol uzatılmaz).
+- Mahal: yalnız sınır duvarı gerçekten değişen kenarlar hareket eder, duvar eksenine olan mevcut uzaklık korunur.
+  Belirsiz eşleme, paralel kenar, ters dönme ya da kendini kesme durumunda mahal değişmez ve raporlanır. Kimlik, ad,
+  kaplama ve diğer alanlar korunur. İşlem idempotenttir (aynı komut tekrar edilince mahal yeniden yuvarlanmaz).
+- `setWallReference` yalnız referansı (`face`) değiştirir; koordinatlar yerinde kalır. `setJoinEnabled` bir uçta
+  otomatik birleşimi kapatır / açar (`joinOff` — kullanıcı tercihi, türetilmiş veri değildir).
 
-### B2B.9 Testler ve kabul
-- Birim: birleşim sınıflandırması, öncelik tablosu, katman kırpma çokgenleri (alan korunumu), referans çizgisi,
-  açıklık göreli konumu, kata bağlı yükseklik, mahal döngüsü; tüm komutlar için geri al / yinele birebir JSON.
-- Uyumluluk: `eski-proje-v1` ve B2A ile kaydedilmiş dosyalar açılıp kaydedildiğinde B1 / B2A sürümlerinde açılabilir.
-- Uçtan uca: köşede katman temizliği (2D SVG ve kesit), duvar ucunu sürükleyince açıklık ve mahalin izlemesi, 3D.
+### Metraj
+`bim.wallQuantities()` kat başına duvar hacmi ve malzeme hacimleri (birleşimlerde çift sayım yok; açıklıklar düşülür).
+Test: metraj = 3D diverjans hacmi = kesit prizma hacmi; malzeme toplamı = toplam hacim. Mahal net alanı ve duvar alanı
+mevcut `planMetrics` ile devam eder.
+
+### Kata bağlı geometri (B2B-4)
+`bimTop: { mode, off }` (isteğe bağlı alan; duvar, kolon, kiriş):
+- `level`: üst kot = kat yüksekliği + ofset (üst kat döşemesi altı; kiriş için `off < 0` ile altına)
+- `nextSlabTop`: üst kot = kat yüksekliği + üst katın döşeme kalınlığı + ofset
+- `fixed`: bağ yok (duvarda o anki yükseklik açık değer olarak yazılır)
+Değer eski alanlara yazılır (duvar `h`, kolon `h = üst − z`, kiriş `z = üst − h`). Kat yüksekliği (`setLevelHeight`) ve
+döşeme kalınlığı (`setLevelSlab`) komutla değişir ve bağlı elemanlar aynı işlemde güncellenir; panelin ilgili alanları bu
+komutları kullanır. Üst kat yoksa `nextSlabTop`, çatı katında bağ, sıfır / negatif yükseklik ve döşeme altına inen
+kiriş reddedilir. Bağlı elemanın yüksekliği panelden elle değişirse bağ kaldırılır (bildirimle).
+
+### Arayüz
+Özellik panelinin BIM bölümünde, duvar için **Birleşim ve referans** (başlangıç / bitiş / gövde birleşimleri ve bağlı
+duvarlar, uç başına "Otomatik" anahtarı, referans çizgisi, katman öncelikleri, birleşim sorunları) ve duvar / kolon /
+kiriş için **Kat bağı** (üst kot türü + ofset). Mobilde aynı denetimler dokunmayla çalışır (testte doğrulandı).
+
+### Ölçümler
+`npm run bench` (Intel Xeon 2,8 GHz, node 22):
+
+| Durum | Süre |
+|---|---|
+| Örnek proje (13 duvar) geometri, ilk hesap | ≈ 3 ms |
+| Aynı, önbellekten | ≈ 0,02 ms |
+| 22 duvarlık ızgara, 121 birleşim | ≈ 50 ms |
+| 66 duvarlık ızgara, 1089 X kesişimi (aşırı durum) | ≈ 130 ms (ızgara dizini öncesi 4,3 s) |
+
+### Testler
+- `tests/joins.test.mjs` (9), `tests/wallgeom.test.mjs` (10), `tests/b2b-cmds.test.mjs` (7), `tests/b2b-3d.test.mjs` (5) —
+  alan korunumu (beklenen dış hat çokgeniyle), ham ve son çakışma, kapalı kontur, katman alanları, hacim ve mesh denetimleri.
+- `tests/e2e/b2b.e2e.cjs` (Playwright): çizerken L / T, tek kontur, panel bölümleri, birleşim kapatma / geri al, referans,
+  sığmayan pencere reddi, bağlı uç + mahal, birebir geri al, 3D mesh denetimi, kat bağı + kat yüksekliği + geri al, kesit
+  penceresi yenilenmesi ve abonelik temizliği, kaydet / yeniden aç, DXF, mobil, konsol hatası.
+
+### Bilinen sınırlar (B2B)
+- **Yay duvarlar**: birleşim temizliği uygulanmaz; eski çizim ve uzatma kuralı korunur, `ARC_LEGACY` ile raporlanır (B3).
+- STAR (4'ten fazla ya da doğrusal çifti olmayan çok uçlu) düğümlerde açıortay birleşimi; katman önceliği uygulanmaz,
+  farklı kalınlıklarda küçük boşluk kalabilir (`STAR_JOIN` raporlanır).
+- Kanvasta uç / gövde sürükleme hâlâ eski doğrudan yazma yoludur (açıklık sığma denetimi ve mahal güncellemesi yalnız
+  komutlarda ve paneldeki uzunluk alanında). B3'te sürükleme komut katmanına alınacak.
+- "Malzemeler ve yapılar" penceresinde döşeme kompoziti değişince kat bağı güncellemesi ayrı bir geri al adımıdır.
+- Geri al yığını hâlâ kat başınadır (B2A sınırı).
+- Mahal yeniden hesabı yalnız komutla değişen duvarlara bağlı kenarlarda; mahalin kapalı döngüsünü sıfırdan bulma yok.
+- 3D'de duvar katman renkleri ayrı gösterilmez (eski görünüm: duvar / oda rengi); kesit ve 2D katmanlı.
+- Kesit penceresi açıkken plan düzenlenemez (pencere modaldır); yenilenme API / geri al gibi dış değişikliklerde çalışır.
+
+---
+
+## B3 — Bağımlılık grafiği ve artımlı model güncelleme (teknik plan)
+
+Hedef: her değişiklikte tüm modeli yeniden türetmek yerine yalnız etkilenen elemanları yeniden hesaplamak; tüm
+düzenleme yollarını (kanvas sürükleme dahil) komut katmanına almak; kat başına geri al yığınını tek işlem günlüğüyle
+değiştirmek; yay duvar birleşimlerini desteklemek.
+
+### B3.1 Değişiklik olayları ve kirli işaretleme
+- `commands.js` yaması zaten alan düzeyinde: `{ lv, coll, id, key }`. Editör her uygulanan yamayı `pe:patch` olayıyla
+  yayınlar; eski doğrudan yazma yolları (sürükleme, panel alanları) için `editor.touch(lv, coll, id, keys)` eklenir.
+- `js/bim/deps.js`: bağımlılık grafiği — düğümler eleman kimlikleri; kenarlar:
+  duvar → birleşim komşuları (joins), duvar → açıklıklar (hostedBy), duvar → mahaller (boundedBy / geometrik eşleme),
+  kat → kata bağlı elemanlar (bimTop, h = 0), tür → atanmış elemanlar (bimType), kompozit → kullanan duvar / döşemeler.
+- Kirli küme = değişen kimlikler + grafikte bir adım (geometri için birleşim komşuları iki adım).
+
+### B3.2 Artımlı türetme
+- `adapter.buildModel` → eleman başına `elementFromLegacy` önbelleği (kimlik + kayıt imzası); yalnız kirli elemanlar
+  yeniden üretilir, `issues` ve ters dizin artımlı güncellenir.
+- `wallgeom`: kat başına birleşim grafiği ızgara dizini kalıcı tutulur; kirli duvar + komşuları için hücre çözümü yeniden
+  yapılır, diğer duvarların katman çokgenleri korunur. Kabul ölçütü: 2000 duvarlı katta tek duvar taşıma < 10 ms.
+- 3D: duvar başına mesh zaten ayrı; yalnız kirli duvarların `BufferGeometry`'si değiştirilir (tam `build()` yerine).
+- Kesit / metraj: kat ve eleman başına önbellek; açık kesit penceresi yalnız etkilenen katı yeniden çizer.
+
+### B3.3 Tek işlem günlüğü (geri al / yinele)
+- Kat başına anlık görüntü yığını yerine proje (çizim) başına tek günlük: her kayıt bir yama (alan düzeyi) ya da
+  eski yol için kat anlık görüntüsü farkı (JSON diff → yama). Katlar arası geri alma tutarlı olur; kat silme günlüğü
+  sıfırlamaz (kat ekleme / silme de yama olur).
+- Kanvas sürüklemesi: hareket boyunca önizleme, bırakınca `moveWallEnd` / `offsetWall` komutu (açıklık sığma
+  denetimi ve mahal güncellemesi sürüklemede de geçerli).
+
+### B3.4 Genel kısıt çözücü (sıralı, döngü denetimli)
+- Kurallar: kat bağı → birleşen uçlar → barındırılan açıklıklar → mahal sınırı → döşeme dış hattı. Topolojik sıra;
+  döngü bulunursa işlem reddedilir ve döngü raporlanır.
+- Mahal sınırı: duvar grafiğinden kapalı döngü bulma (yüz izleme), birden çok çözümde kullanıcıya seçim.
+
+### B3.5 Yay duvar birleşimleri
+- Yay parçaları tek mantıksal eleman (`arc.id`) olarak ele alınır; uçta teğet doğrultusuyla L / T kuralları; katman
+  bantları yarıçap ötelemesiyle; kırpma eğri yaklaşık (parça çokgenleri) ama alan korunumlu.
+
+### B3.6 Testler ve kabul
+- Artımlı ↔ tam türetme eşitliği (rastgele düzenleme dizileri, 1000 adım): model, katman çokgenleri, prizma ve metraj aynı.
+- Performans bütçeleri `npm run bench` ile CI dışında ölçülür ve belgeye işlenir.
+- Tek günlükle çok katlı geri al / yinele birebir JSON; sürükleme komutlarının uçtan uca testi.

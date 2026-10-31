@@ -10,9 +10,9 @@ import { STAIR_TYPES, STAIR_BUILD, newStair, isU, winders, stairParams, stairLoc
 import { TILE_SIZES, TILE_PATTERNS, TILE_JOINTS, tileable, tileOf, tileDefaults, applySize, tileLayout, tilePreviewSvg, tilePlanPath } from './tiles.js';
 import { DOOR_MODELS, DOOR_USES, WIN_MODELS, WIN_USES, FRAME_COLORS, LEAF_COLORS, RAIL_KINDS, doorModel, doorUse, winModel, winUse, winRail, railKind, frameColor, leafColor, applyUse, sashes, leaves, winTilt, winHingeAtStart } from './openings.js';
 import { WALL_KINDS, SLAB_KINDS, compOf, compThickness, matOf, slabKind } from './materials.js';
-import { structDefs, wallLayersSvg, slabSvg, columnSvg, beamSvg, sectionMarkSvg, wallStructInsp, columnInsp, beamInsp, slabInsp, sectionInsp, drawingSettingsInsp, libraryDialog } from './structure.js';
+import { structDefs, wallLayersSvg, wallGeomSvg, slabSvg, columnSvg, beamSvg, sectionMarkSvg, wallStructInsp, columnInsp, beamInsp, slabInsp, sectionInsp, drawingSettingsInsp, libraryDialog } from './structure.js';
 import { unitOf, toU, fromU, fmtL, fmtLU } from './units.js';
-import { bimInspHtml, bindBimInsp } from './bim/ui.js';
+import { bimInspHtml, bindBimInsp, reportCmd } from './bim/ui.js';
 import { runCommand, applyPatch, noteLegacyEdit } from './bim/commands.js';
 import { openTypeManager } from './bim/manager.js';
 import { clsOfLegacy } from './bim/fields.js';
@@ -1738,10 +1738,9 @@ export class PlanEditor {
         o += `<polyline class="wall" fill="none" stroke-linejoin="round" points="${pts.map(q => `${q.x},${q.y}`).join(' ')}" stroke-width="${f.t || meta.wallT}"/>`;
         continue;
       }
-      const e = wallExt(P, w), u = wallDir(w), A = V.sub(w.a, V.mul(u, e.a)), B = V.add(w.b, V.mul(u, e.b));
-      o += `<line class="wall" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke-width="${w.t || meta.wallT}"/>`;
-      o += wallLayersSvg(R, P, w, pre, px);   // kompozit / malzemeli duvar: katman şeritleri
     }
+    // düz duvarlar (B2B): birleşim grafiğinden temizlenmiş ortak geometri — L / T / X köşelerinde tek kontur, katman önceliği
+    o += wallGeomSvg(R, P, pre, px);
     // açıklıklar
     for (const op of P.openings) {
       const w = P.walls.find(x => x.id === op.wallId); if (!w) continue;
@@ -2114,7 +2113,15 @@ export class PlanEditor {
   }
 
   /* ───────────── özellik paneli ───────────── */
+  /* panel yeniden çizimi yeniden girişe karşı korunur: odaktaki alan silinirken tarayıcının gönderdiği change / blur
+   * olayı ikinci bir çizim ya da komut başlatmaz (iç içe innerHTML hatası ve çift uygulama önlenir) */
   renderInsp() {
+    if (this._rIns) { this._rInsAgain = true; return; }
+    this._rIns = true;
+    try { this._renderInsp(); } finally { this._rIns = false; }
+    if (this._rInsAgain) { this._rInsAgain = false; queueMicrotask(() => this.renderInsp()); }
+  }
+  _renderInsp() {
     const s = this.sel, o = this.obj(s), P = this.plan;
     const U = unitOf(this._root), RT = this._root;
     // uzunluk alanları seçili birimde gösterilir (data-len: kayıtta cm'ye çevrilir)
@@ -2348,13 +2355,26 @@ export class PlanEditor {
         return;
       }
       el.onchange = () => {
+        if (this._rIns || !el.isConnected) return;   // panel yeniden çizilirken silinen alanın geç change olayı
         const k = el.dataset.k;
         let v = el.type === 'number' ? parseFloat(el.value) : el.type === 'checkbox' ? el.checked : el.value;
         if (el.type === 'number' && !Number.isFinite(v)) return;
         if (el.dataset.len) v = +fromU(v, this._root).toFixed(3);   // seçili birim → cm
         this.snap();
         const x = this.obj(this.sel);
-        if (this.structChange(k, v, x)) { this.bimNote(k, x); this.changed(); return; }
+        // B2B: kat yüksekliği / döşeme kalınlığı komutla — bağlı duvar, kolon ve kirişler aynı işlemde güncellenir
+        if (k === 'meta.wallH' || k === 'lv.slab') {
+          this.undoS.pop();
+          const res = this.bimCommand(k === 'meta.wallH' ? { op: 'setLevelHeight', level: this.lv, height: v } : { op: 'setLevelSlab', level: this.lv, thickness: Math.max(0, v) });
+          if (!res.ok) reportCmd(res); if (!res.applied) this.renderInsp(); this.updateLvSel(); this.renderHud(); return;
+        }
+        // bağlı elemanın yüksekliği elle değişirse kat bağı kaldırılır (sabit yükseklik)
+        if (x?.bimTop && ((this.sel.kind === 'wall' && k === 'h') || (this.sel.kind === 'item' && (k === 'top' || k === 'z' || (k === 'h' && x.type === 'kolon'))))) { delete x.bimTop; toast('Kat bağı kaldırıldı — sabit yükseklik'); }
+        if (this.structChange(k, v, x)) {
+          this.bimNote(k, x); this.changed();
+          if (k === 'lv.slabComp') { const r = this.bimCommand({ op: 'syncLevelBindings' }); if (r.applied) toast('Kat bağlı elemanlar döşeme kalınlığına göre güncellendi (ayrı geri al adımı)'); }
+          return;
+        }
         if (k.startsWith('lv.')) {
           const q = k.slice(3);
           if (this.lv) this.plan[q] = q === 'slab' ? Math.max(0, v) : v;
@@ -2390,8 +2410,16 @@ export class PlanEditor {
           else x[k] = Math.max(k === 'rot' ? -360 : 0, v);
         } else if (k === 'len' && this.sel.kind === 'rail') {
           const np = V.add(x.a, V.mul(V.norm(V.sub(x.b, x.a)), Math.max(1, v))); x.b = { x: +np.x.toFixed(2), y: +np.y.toFixed(2) };
-        } else if (k === 'len') {
+        } else if (k === 'len' && this.sel.kind === 'wall' && !x.arc) {
+          // B2B: uzunluk komutla (başlangıç ucu sabit; birleşen uçlar, açıklıklar ve mahaller birlikte; sığmayan açıklık reddedilir)
           const r = x.face ? wallRef(x, P.meta.wallT, P) : null;   // yüz uzunluğu girildiyse eksen aynı farkla uzar
+          const L = Math.max(1, r ? wallLen(x) + v - V.dist(r.a, r.b) : v);
+          this.undoS.pop();   // bimCommand kendi geri al kaydını ekler
+          const res = this.bimCommand({ op: 'setWallLength', id: x.id, length: +L.toFixed(2), anchor: 'a' });
+          reportCmd(res); if (!res.applied) this.renderInsp();
+          return;
+        } else if (k === 'len') {
+          const r = x.face ? wallRef(x, P.meta.wallT, P) : null;
           const L = Math.max(1, r ? wallLen(x) + v - V.dist(r.a, r.b) : v), np = V.add(x.a, V.mul(wallDir(x), L));
           this.endsAt(x.b).forEach(([w, kk]) => { w[kk] = { x: +np.x.toFixed(2), y: +np.y.toFixed(2) }; });
         } else if (k === 'left') x.pos = Math.max(x.w / 2, Math.min(wallLen(this.wall(x.wallId)) - x.w / 2, v + x.w / 2));
