@@ -151,6 +151,7 @@ export function planBounds(plan) {
   plan.labels.forEach(l => pts.push({ x: l.x, y: l.y }));
   (plan.stairs || []).forEach(st => pts.push(...stairBounds(st)));
   if (!pts.length) return null;
+  (plan.grids || []).forEach(g => pts.push(g.a, g.b));   // akslar: çizim varsa sınıra dahil (baloncuklar kırpılmasın)
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
   return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
 }

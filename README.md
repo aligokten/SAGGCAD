@@ -45,8 +45,19 @@ sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMA
 ### Yapı elemanları (Archicad'deki yapı araçlarına karşılık)
 - **Duvar türü / işlevi:** dış duvar, iç bölme, betonarme perde, yığma taşıyıcı, hafif bölme (alçı levha), bodrum / istinat, parapet;
   taşıyıcı / taşıyıcı değil işareti. Tür seçilince kompozit yapı ve kalınlık gelir; dış duvarda dış yüz otomatik binanın dışına alınır.
+- **Aks** (A): iki noktayla aks çizgisi; uçlarda baloncuk ve ad (yatay akslar A, B, C…, düşey akslar 1, 2, 3…; ad ve
+  baloncuk özellik panelinden). **Aks sistemi…**: aralıkları yazarak (ör. `400 500 400`, `3x350`) toplu aks, tek Ctrl+Z.
+  Aks kesişimleri, uçları ve çizgileri tüm çizim araçlarında yaslama noktasıdır; zemin kattaki akslar üst katlarda soluk
+  görünür ve yaslanır. DXF'te `AKS` katmanı. Metraja ve 3D'ye girmez.
 - **Kolon** (L): dikdörtgen ya da dairesel; betonarme, çelik, ahşap, yığma; planda malzeme taramasıyla dolu kesit.
-- **Kiriş** (B): iki nokta; genişlik / yükseklik, üst kotu döşeme altına hizalı; planda kesik çizgi.
+  **Yerleştirme noktası**: merkez ya da bir köşe (sol üst / sağ üst / sağ alt / sol alt) ve açı — tıklanan nokta kolonun o
+  noktası olur (ör. kolonun dış köşesini aks kesişimine ya da duvar köşesine oturtmak için).
+- **Kiriş** (B): iki nokta; genişlik / yükseklik, üst kotu döşeme altına hizalı; planda kesik çizgi. Çizgi kirişin
+  ekseni ya da sağ / sol yüzü olabilir.
+- **Köşeden tutup taşıma**: seçili kolon ve kirişte dört köşe (kare), merkez ve kirişte iki uç (daire) tutamacı. Köşeden
+  sürüklenen eleman o köşesiyle aks kesişimine, duvar yüz köşesine, başka bir kolonun / kirişin köşesine yaslanır; ölçü ve
+  açı korunur. Kiriş ucundan sürüklenince diğer uç sabit kalır, boy ve açı yeniden hesaplanır. Kolon / kiriş köşeleri diğer
+  araçlar (duvar, kiriş, ölçü…) için de yaslama noktasıdır.
 - **Döşeme** (F): köşelerle ya da dış hattan otomatik; ara kat, zemine oturan, balkon / çıkma, teras; üst yüz kotu.
 - Kat döşemesine de kompozit yapı atanır (kat kotu yapının kalınlığından hesaplanır).
 
@@ -150,6 +161,7 @@ node tests/e2e/b1.e2e.cjs http://localhost:8080/    # isteğe bağlı tarayıcı
 node tests/e2e/b2a.e2e.cjs http://localhost:8080/
 node tests/e2e/b2b.e2e.cjs http://localhost:8080/
 node tests/e2e/b4d.e2e.cjs http://localhost:8080/       # B4D: proje sürümleri, gerçek IndexedDB
+node tests/e2e/aks.e2e.cjs http://localhost:8080/       # aks aracı, kolon / kiriş köşe tutamaçları
 node tests/e2e/b4d-perf.e2e.cjs http://localhost:8080/  # B4D: 100 / 500 / 1000 sürüm ölçümü
 npm run svg      # L / T / X birleşim örnekleri → docs/b2b/*.svg
 npm run bench    # BIM servis katmanı ölçümü
@@ -171,6 +183,7 @@ js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı e
 js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek
 js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
 js/timeline.js    işlem zaman çizelgesi      js/presspull.js   Akıllı Bas-Çek (Q) kipleri
+js/grids.js       akslar (adlandırma, aks sistemi, kesişimler) ve kolon / kiriş köşe / yerleştirme geometrisi
 js/revview.js     revizyon katmanı / paftaları (SVG, DXF, PDF)   js/revui.js   Revizyon Karşılaştırması penceresi
 js/pdffont.js     PDF'e DejaVu Sans gömme (vendor/fonts, lisans: vendor/fonts/LICENSE-dejavu)
 css/ui.css        arayüz tasarım sistemi ve temalar
