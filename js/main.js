@@ -570,6 +570,8 @@ function planScreen() {
       toast(v.length ? `${v.length} sınır aşımı — ayrıntı Model Sağlığı'nda` : 'Tasarım sınırları kaydedildi; aşım yok', v.length ? 'err' : undefined);
     });
   };
+  // betonarme donatı metrajı (kesin = statik projeden, tahmini = yönetmelik minimumu; ayrı gösterilir)
+  const openRebar = async () => { const { openRebarReport } = await import('./rebarui.js'); openRebarReport({ editor: E, project: p, drawing: dw, printSheet: (title, body) => printDoc(`<div class="pdoc">${docHeader(S.settings, title, metaLine(p, `<span>Çizim <b>${esc(dw.name)}</b></span>`))}${body}${docFooter()}</div>`, `${title} ${p.name}`) }); };
   const openRev = () => openRevision({
     project: p, drawing: dw, editor: E, settings: S.settings, onShow: setRevView, beforeSheetExport: () => autoV('export'),
     goLevel: lv => { const i = planLevels(E.root).findIndex(l => (l.idx === 0 ? 'L0' : l.plan.id) === lv); if (i >= 0 && i !== E.lv) E.setLevel(i); },
@@ -618,6 +620,7 @@ function planScreen() {
     ...toolCmds('model', ['model']),
     { id: 'model.slab', cat: 'model', t: 'Dış hattan otomatik döşeme', ic: 'floor', sep: true, run: () => E.autoSlab() },
     { id: 'model.roof', cat: 'model', t: 'Dış hattan otomatik çatı', ic: 'roof', run: () => E.autoRoof() },
+    { id: 'model.rebar', cat: 'model', t: 'Donatı metrajı (betonarme)…', ic: 'layers', kw: 'donatı demir çelik etriye nervürlü metraj kolon kiriş döşeme perde betonarme kg ton', sep: true, run: openRebar },
     { id: 'model.revision', cat: 'model', t: 'Revizyon karşılaştırması (tadilat)…', ic: 'layers', kw: 'rölöve proje fark yıkım yeni safha tadilat revizyon karşılaştır', sep: true, run: openRev },
     { id: 'model.limits', cat: 'model', t: 'Tasarım sınırları (maksimum)…', ic: 'ruler', kw: 'max maksimum sınır üst sınır limit yükseklik alan kat imar', run: openLimits },
     { id: 'model.revoff', cat: 'model', t: 'Revizyon görünümünü kapat', ic: 'eye', when: () => !!E.revLayer, run: () => setRevView(null) },
