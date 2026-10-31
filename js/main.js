@@ -334,6 +334,11 @@ function planScreen() {
           <label class="sl">☀︎<input type="range" min="0.4" max="2" step="0.05" id="expo" title="Pozlama"></label>
         </div>
         <div class="p3-host" id="p3host"><div class="p3-load"><div class="spin"></div><p>3D model hazırlanıyor…</p></div></div>
+        <div class="p3-nav" id="p3nav" role="toolbar" aria-label="3D gezinme">
+          <button data-v="iso" title="Sığdır / izometrik">${icon('fit')}</button><span class="sep"></span>
+          <button data-v="top">Üst</button><button data-v="front">Ön</button><button data-v="back">Arka</button><button data-v="left">Sol</button><button data-v="right">Sağ</button><span class="sep"></span>
+          <select id="p3style" class="inp mini" title="Görünüm stili" aria-label="Görünüm stili"><option value="default">Varsayılan</option><option value="dark">Koyu stüdyo</option><option value="clay">Beyaz maket</option></select>
+        </div>
         <p class="p3-hint" id="p3hint">Sürükle: döndür · iki parmak / sağ tık: kaydır · tekerlek / kıstırma: yakınlaştır</p>
       </div>
     </div>
@@ -655,6 +660,17 @@ async function ensure3d() {
     $$('#cam button').forEach(x => x.classList.toggle('on', x === b));
   };
   sel.onchange = () => p3.interior(sel.value);
+  // U1: gezinme çubuğu (görünüm ön ayarları) ve görünüm stili
+  $('#p3nav').onclick = e => {
+    const b = e.target.closest('[data-v]'); if (!b) return;
+    sel.hidden = true;
+    if (p3.opt.mode === 'interior' && p3.opt.ceiling) { p3.set('ceiling', false); $('.p3-bar [data-t="ceiling"]').classList.remove('on'); }
+    p3.viewPreset(b.dataset.v);
+    $$('#cam button').forEach(x => x.classList.toggle('on', x.dataset.c === (b.dataset.v === 'top' ? 'top' : 'orbit')));
+  };
+  const st = $('#p3style'); let sv = 'default'; try { sv = localStorage.getItem('sg-3dstyle') || 'default'; } catch { /* yok */ }
+  st.value = sv; p3.setStyle(sv);
+  st.onchange = () => { p3.setStyle(st.value); try { localStorage.setItem('sg-3dstyle', st.value); } catch { /* yok */ } };
   return p3;
 }
 

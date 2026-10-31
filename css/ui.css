@@ -378,3 +378,55 @@ select.mini { height: 30px; padding: 0 22px 0 8px; border: 1px solid var(--ui-li
 .mh-card.err b { color: #D33A4A; }
 .mh-fixes { display: flex; flex-direction: column; gap: 6px; }
 .mh-fixes div { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
+
+/* ── U1 (UniCAD esinli): seçim filtresi ── */
+.pe-filter { position: absolute; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 6; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px); padding: 5px 6px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 8px; box-shadow: 0 2px 12px rgba(15, 27, 45, .14); }
+.pe-filter[hidden] { display: none; }
+.pe-filter-h { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--ui-muted); padding: 0 4px; }
+.pe-filter-h .ic { width: 14px; height: 14px; }
+.pe-filter .chip { min-height: 26px; padding: 3px 10px; font-size: 12px; font-weight: 500; border-width: 1px; background: var(--ui-panel); color: var(--ui-text-2); border-color: var(--ui-line); }
+.pe-filter .chip.on { background: #1786FF; border-color: #1786FF; color: #fff; }
+
+/* ── U1: işlem zaman çizelgesi (kanvasın altında şerit) ── */
+.pe-tl { order: 3; display: flex; align-items: center; gap: 4px; padding: 6px 8px; overflow-x: auto; background: var(--ui-panel); border-top: 1px solid var(--ui-line); scrollbar-width: thin; flex: none; }
+.pe-tl[hidden] { display: none; }
+.pe-canvas { order: 2; }
+.tl-chip { display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 180px; height: 28px; padding: 0 9px 0 4px; border: 1px solid var(--ui-line); border-radius: 6px; background: var(--ui-panel-2); color: var(--ui-text-2); font-size: 12px; cursor: pointer; }
+.tl-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-chip i { font-style: normal; font-size: 10.5px; font-variant-numeric: tabular-nums; min-width: 18px; height: 18px; display: grid; place-items: center; border-radius: 4px; background: var(--ui-line-2); color: var(--ui-muted); padding: 0 3px; }
+.tl-chip.bim i { background: #1786FF; color: #fff; }
+.tl-chip.undone { opacity: .45; border-style: dashed; }
+.tl-chip:hover { border-color: #1786FF; }
+.tl-chip.start { padding: 0 6px; }
+.tl-chip.start .ic { width: 14px; height: 14px; }
+.tl-chip.start.cur { border-color: #1786FF; }
+.tl-mark { flex: none; width: 3px; height: 30px; border-radius: 2px; background: #1786FF; box-shadow: 0 0 0 3px rgba(23, 134, 255, .18); }
+.tl-empty { font-size: 12px; color: var(--ui-muted); padding: 0 6px; }
+
+/* ── U1: Akıllı Bas-Çek (Q) ── */
+.pe-pp { position: absolute; z-index: 7; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; min-width: 220px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 8px; box-shadow: 0 4px 18px rgba(15, 27, 45, .18); }
+.pe-pp[hidden] { display: none; }
+.pp-h { display: flex; flex-direction: column; gap: 4px; }
+.pp-h b { font-size: 12.5px; }
+.pp-h span { display: flex; flex-wrap: wrap; gap: 4px; }
+.pe-pp .chip { min-height: 24px; padding: 2px 9px; font-size: 11.5px; font-weight: 500; border-width: 1px; background: var(--ui-panel-2); color: var(--ui-text-2); border-color: var(--ui-line); }
+.pe-pp .chip.on { background: #1786FF; border-color: #1786FF; color: #fff; }
+.pe-pp small { font-size: 11px; }
+
+/* ── U1: imleçte palet (S) ve sabitlenen komutlar ── */
+.cmdk-back.at-cursor { background: transparent; }
+.cmdk-pin { margin-left: auto; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 4px; color: var(--ui-muted); opacity: 0; }
+.cmdk-pin .ic { width: 13px; height: 13px; }
+.cmdk button:hover .cmdk-pin, .cmdk button.on .cmdk-pin, .cmdk-pin.on { opacity: 1; }
+.cmdk-pin.on { color: #F59E0B; }
+.cmdk-pin.on .ic { fill: currentColor; }
+.cmdk-pin:hover { background: var(--ui-hover); }
+.cmdk-list button.on .cmdk-pin:not(.on) { color: #fff; }
+
+/* ── U1: 3D gezinme çubuğu (görünüm ön ayarları, görünüm stili) ── */
+.p3-nav { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 2px; padding: 4px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 8px; box-shadow: 0 2px 12px rgba(15, 27, 45, .14); max-width: calc(100% - 16px); overflow-x: auto; }
+.p3-nav button { height: 28px; min-width: 28px; padding: 0 8px; border-radius: 5px; font-size: 12px; color: var(--ui-text-2); display: inline-grid; place-items: center; }
+.p3-nav button:hover { background: var(--ui-hover); color: var(--ui-text); }
+.p3-nav button .ic { width: 15px; height: 15px; }
+.p3-nav .sep { width: 1px; height: 18px; background: var(--ui-line); margin: 0 3px; }
+.p3-nav select { height: 28px; font-size: 12px; }

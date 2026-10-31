@@ -72,6 +72,12 @@ Sonraki aşama: [parametrik BIM çekirdeği](BIM-CEKIRDEK.md).
 - [ ] Yay duvar kompozit katman temizliği, teğet birleşimleri ve 3D / kesit gövdesi — eski yaklaşımda, raporlanıyor (`ARC_LEGACY`) → B4 sonrası
 - Ölçümler ve sınırlar: [BIM-CEKIRDEK.md › B3](BIM-CEKIRDEK.md#b3--bağımlılık-grafiği-merkezi-işlem-geçmişi-ve-artımlı-bim-modelleme)
 
+## 0.5.1-u1 · U1 — UniCAD esinli iş akışı (tamamlandı)
+Referans: [UniCAD](https://github.com/UNITRONIX/UniCAD) (FreeCAD çatalı, Fusion 360 tarzı). Kod taşınmadı, kavramlar yeniden yazıldı — [eşleme](UNICAD-REFERANS.md).
+- [x] İşlem zaman çizelgesi (B3 günlüğü üzerinde, geri sarma) · [x] Seçim filtresi · [x] Akıllı Bas-Çek (Q)
+- [x] İmleçte komut paleti (S) ve sabitleme · [x] 3D gezinme çubuğu ve görünüm stilleri
+- [ ] Sonraki adaylar: 2D kayan bağlamsal araç paleti (FusionSketchPalette), render ışık ön ayarları (TaskRenderStudio)
+
 ## B4 — Rölöve ↔ proje ve revizyon yönetimi (yol haritası)
 - [ ] Rölöve ve proje çizimlerinde elemanların kimlikle karşılaştırılması (eşleşen / yalnız rölövede / yalnız projede, değişen parametreler)
 - [ ] Eleman durum sınıfları: **mevcut**, **yıkılacak**, **yeni** (çizim stili, filtre, metraj ayrımı)
