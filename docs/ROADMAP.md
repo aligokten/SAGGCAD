@@ -106,6 +106,14 @@ Ayrıntı: [REVIZYON.md › B4C](REVIZYON.md#b4c--ilave-ve-azalan-imalat-metraj�
 - [x] Sürümlerle dışa / içe aktarma (biçim aynı, kimlik çakışması yok), hata durumları, 100 / 500 / 1000 sürüm ölçümü
 - Ayrıntı: [REVIZYON.md — B4D](REVIZYON.md#b4d--kalıcı-proje-sürümleri-akıllı-karşılaştırma-ve-güvenli-geri-yükleme-062-b4d-uygulandı)
 
+## Aks ve köşe yerleştirme (tamamlandı)
+- [x] Aks aracı (A): çizgi + baloncuk + ad (yatay harf, düşey rakam), aks sistemi penceresi (aralıklarla toplu aks)
+- [x] Aks kesişimleri / uçları / çizgileri ve kolon-kiriş köşeleri yaslama noktası; zemin aksları üst katlarda referans
+- [x] Kolon yerleştirme noktası (merkez / dört köşe) ve açı; kiriş çizgi hizası (eksen / sağ yüz / sol yüz)
+- [x] Seçili kolon / kirişi köşesinden, merkezinden ya da (kirişte) ucundan tutup taşıma — tek Ctrl+Z
+- [x] DXF `AKS` katmanı; testler `tests/aks.test.mjs`, `tests/e2e/aks.e2e.cjs`
+- [ ] Sonraki: akslar arası otomatik ölçü zinciri, kesit / görünüşlerde aks çizgileri, aksa bağlı kolon (aks taşınınca kolon izler)
+
 ## B5 — Profesyonel Pafta Editörü (teknik yol haritası)
 Amaç: tek paftada birden çok plan / kesit / görünüş / metraj tablosu, antet tasarımı, ölçek denetimi, revizyon tablosu ve
 vektörel PDF. Mevcut parçalar yeniden kullanılır: `planSheetView` (plan görünümü), `sections.js` (`sheetSvg`, `sheetPdf`,
