@@ -54,6 +54,15 @@ sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMA
   noktası olur (ör. kolonun dış köşesini aks kesişimine ya da duvar köşesine oturtmak için).
 - **Kiriş** (B): iki nokta; genişlik / yükseklik, üst kotu döşeme altına hizalı; planda kesik çizgi. Çizgi kirişin
   ekseni ya da sağ / sol yüzü olabilir.
+- **Donatı hesabı ve metrajı** (betonarme kolon, kiriş, döşeme, perde): özellik panelinde *Donatı* bölümü — kaynak
+  **Statik projeden (elle)**: boyuna çap / adet, etriye çapı, sarılma ve orta aralık (kolon / kiriş), iki doğrultu çap /
+  aralık (döşeme, isteğe bağlı üst hasır), düşey / yatay çap / aralık (perde, iki yüz); ya da **Yönetmelik minimumu
+  (yaklaşık)**: TS 500 / TBDY 2018 en az koşullarından (kolonda %1 boyuna oran, en az 4Ø14; kirişte 0,8·fctd/fyd ve
+  2Ø12; iki doğrultuda çalışan döşemede toplam %0,35; perde gövdesinde %0,25; sarılma bölgesi ve aralık sınırları)
+  türetilen ön tahmin. Elle girilen değer sınırların dışındaysa uyarılır, değiştirilmez. **Model → Donatı metrajı…**:
+  eleman listesi, çap toplamları (m, kg, ton), beton m³ ve kg/m³; kesin (statik projeden) ve tahmini (minimum) ayrı
+  sütunlarda; tanımsız elemanlar metraja girmez; *Tanımsızlara minimum ata* (tek Ctrl+Z); hesap kuralları (beton / çelik
+  sınıfı, paspayları, bindirme, büküm ve kanca boyları, ticari çubuk boyu); CSV ve yazdırılabilir rapor.
 - **Köşeden tutup taşıma**: seçili kolon ve kirişte dört köşe (kare), merkez ve kirişte iki uç (daire) tutamacı. Köşeden
   sürüklenen eleman o köşesiyle aks kesişimine, duvar yüz köşesine, başka bir kolonun / kirişin köşesine yaslanır; ölçü ve
   açı korunur. Kiriş ucundan sürüklenince diğer uç sabit kalır, boy ve açı yeniden hesaplanır. Kolon / kiriş köşeleri diğer
@@ -162,6 +171,7 @@ node tests/e2e/b2a.e2e.cjs http://localhost:8080/
 node tests/e2e/b2b.e2e.cjs http://localhost:8080/
 node tests/e2e/b4d.e2e.cjs http://localhost:8080/       # B4D: proje sürümleri, gerçek IndexedDB
 node tests/e2e/aks.e2e.cjs http://localhost:8080/       # aks aracı, kolon / kiriş köşe tutamaçları
+node tests/e2e/donati.e2e.cjs http://localhost:8080/    # donatı hesabı ve metrajı
 node tests/e2e/b4d-perf.e2e.cjs http://localhost:8080/  # B4D: 100 / 500 / 1000 sürüm ölçümü
 npm run svg      # L / T / X birleşim örnekleri → docs/b2b/*.svg
 npm run bench    # BIM servis katmanı ölçümü
@@ -183,6 +193,7 @@ js/materials.js   malzeme / kompozit / yapı fiziği   js/structure.js   yapı e
 js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve ölçek
 js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
 js/timeline.js    işlem zaman çizelgesi      js/presspull.js   Akıllı Bas-Çek (Q) kipleri
+js/bim/rebar.js   betonarme donatı: yönetmelik minimumu, çubuk boyları, metraj (saf)   js/rebarui.js  donatı paneli ve metraj penceresi
 js/grids.js       akslar (adlandırma, aks sistemi, kesişimler) ve kolon / kiriş köşe / yerleştirme geometrisi
 js/revview.js     revizyon katmanı / paftaları (SVG, DXF, PDF)   js/revui.js   Revizyon Karşılaştırması penceresi
 js/pdffont.js     PDF'e DejaVu Sans gömme (vendor/fonts, lisans: vendor/fonts/LICENSE-dejavu)

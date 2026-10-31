@@ -541,3 +541,26 @@ select.mini { height: 30px; padding: 0 22px 0 8px; border: 1px solid var(--ui-li
 }
 .vr-chk { display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 30px; cursor: pointer; }
 .vr-chk input { width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+
+/* ── donatı ── */
+.rb-insp { border-top: 1px solid var(--ui-line-2); margin-top: 10px; padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.rb-t { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.rb-t th, .rb-t td { padding: 4px 6px; border-bottom: 1px solid var(--ui-line-2); text-align: right; }
+.rb-t th:first-child, .rb-t td:first-child, .rb-el td:nth-child(2), .rb-el td:nth-child(3), .rb-el th:nth-child(2), .rb-el th:nth-child(3) { text-align: left; }
+.rb-t th { font-weight: 600; color: var(--ui-muted); font-size: 11px; }
+.rb-t .rb-tot td { font-weight: 600; border-top: 2px solid var(--ui-line); }
+.rb { display: flex; flex-direction: column; gap: 10px; min-width: 0; overflow-x: auto; }
+.rb h4 { margin: 6px 0 0; font-family: 'Inter Tight', Inter, sans-serif; }
+.rb-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.rb-bar label { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--ui-muted); }
+.rb-mode { font-size: 10.5px; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--ui-line); white-space: nowrap; }
+.rb-mode.m-manual { color: #15803D; border-color: rgba(21, 128, 61, .45); }
+.rb-mode.m-min { color: #B45309; border-color: rgba(217, 119, 6, .5); }
+.rb-mode.m-none { color: var(--ui-muted); }
+.rb-none td { color: var(--ui-muted); }
+.rb-w { display: inline-flex; align-items: center; gap: 2px; color: #D97706; font-size: 11px; }
+.rb-w .ic { width: 12px; height: 12px; }
+.rb .link { background: none; border: 0; padding: 0; color: var(--ui-text); cursor: pointer; text-decoration: underline dotted; font: inherit; }
+.rb-rules { border: 1px solid var(--ui-line-2); border-radius: 6px; padding: 8px 10px; }
+.rb-rules summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.rb-rules .grid3 { margin-top: 8px; }

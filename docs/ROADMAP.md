@@ -114,6 +114,14 @@ Ayrıntı: [REVIZYON.md › B4C](REVIZYON.md#b4c--ilave-ve-azalan-imalat-metraj�
 - [x] DXF `AKS` katmanı; testler `tests/aks.test.mjs`, `tests/e2e/aks.e2e.cjs`
 - [ ] Sonraki: akslar arası otomatik ölçü zinciri, kesit / görünüşlerde aks çizgileri, aksa bağlı kolon (aks taşınınca kolon izler)
 
+## Betonarme donatı hesabı ve metrajı (tamamlandı)
+- [x] Kolon / kiriş / döşeme / perde için donatı tanımı: statik projeden (kesin) ya da yönetmelik minimumu (tahmini)
+- [x] Çubuk boyları (filiz, bindirme, büküm, 135° kanca, 12 m ek), etriye sayısı (sarılma bölgeleri), çokgen döşemede tarama
+- [x] Donatı metrajı penceresi: çap toplamları, kesin / tahmini ayrı, kg/m³, toplu minimum atama, kurallar, CSV, yazdır
+- [x] Testler: `tests/donati.test.mjs` (elle hesaplanmış değerler), `tests/e2e/donati.e2e.cjs`
+- [ ] Sonraki: mesnet ek donatısı ve pilye, perde uç bölgesi, temel / radye, açıklık düşümü, kesme boyu ve fire,
+  donatı açılımı (çubuk çizelgesi / pafta), B4C tadilat metrajına donatı satırları, statik yazılım (ör. IFC / CSV) içe aktarma
+
 ## B5 — Profesyonel Pafta Editörü (teknik yol haritası)
 Amaç: tek paftada birden çok plan / kesit / görünüş / metraj tablosu, antet tasarımı, ölçek denetimi, revizyon tablosu ve
 vektörel PDF. Mevcut parçalar yeniden kullanılır: `planSheetView` (plan görünümü), `sections.js` (`sheetSvg`, `sheetPdf`,
