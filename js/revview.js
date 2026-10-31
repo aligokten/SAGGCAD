@@ -10,6 +10,7 @@
 import { V, wallDir, wallNormal, polyArea } from './plan-geom.js';
 import { fitPaper } from './units.js';
 import { PHASES } from './bim/diff.js';
+import { pdfFont } from './pdffont.js';
 
 export const REV_STYLE = Object.freeze({
   existing: { stroke: '#6B7280', fill: '#D9DCE1', dash: null, w: 0.25, hatch: null, layer: 'REV-MEVCUT', aci: 8, lt: 'CONTINUOUS' },
@@ -107,7 +108,7 @@ export function revisionPrims(src, dst, result, lvId, { mode = 'compare', filter
   };
   if (SHEET_KINDS[mode]?.side === 'src' || mode === 'compare' || mode === 'new') draw(src, PA, 'src');
   if (mode === 'new' || mode === 'compare') draw(dst, PB, 'dst');
-  if (highlight) prims.filter(q => q.key === highlight && q.t === 'poly').forEach(q => prims.push({ ...q, style: 'hl', fill: null, hl: true }));
+  if (highlight) { const H = new Set([].concat(highlight)); prims.filter(q => H.has(q.key) && q.t === 'poly').forEach(q => prims.push({ ...q, style: 'hl', fill: null, hl: true })); }   // tek anahtar ya da dizi (metraj satırı)
   const xs = prims.flatMap(q => q.t === 'poly' ? q.pts.map(p => p[0]) : q.t === 'line' ? [q.a[0], q.b[0]] : [q.x]), ys = prims.flatMap(q => q.t === 'poly' ? q.pts.map(p => p[1]) : q.t === 'line' ? [q.a[1], q.b[1]] : [q.y]);
   const box = xs.length ? { x0: Math.min(...xs) - 60, y0: Math.min(...ys) - 60, x1: Math.max(...xs) + 60, y1: Math.max(...ys) + 60 } : { x0: 0, y0: 0, x1: 100, y1: 100 };
   return { prims, box };
@@ -206,14 +207,15 @@ export function revisionDxf(S) {
 /* ── vektörel PDF (jsPDF çizim komutları; gerçek ölçek, mm) ── */
 let jsp = null;
 const loadJsPdf = () => jsp ||= new Promise((res, rej) => { if (window.jspdf) return res(window.jspdf); const s = document.createElement('script'); s.src = 'vendor/jspdf.umd.min.js'; s.onload = () => res(window.jspdf); s.onerror = () => { jsp = null; rej(new Error('jsPDF yüklenemedi')); }; document.head.append(s); });
-const TR = s => String(s ?? '').replace(/ğ/g, 'g').replace(/Ğ/g, 'G').replace(/ş/g, 's').replace(/Ş/g, 'S').replace(/ı/g, 'i').replace(/İ/g, 'I').replace(/²/g, '2');   // standart PDF yazı tipi (WinAnsi) için
+/* metin: gömülü DejaVu Sans (Türkçe karakterler korunur); gömülemezse pdffont.js ASCII'ye düşer ve pdf.lossyText = true */
 export async function revisionPdf(sheets, { compress = true } = {}) {
   const { jsPDF } = await loadJsPdf();
-  let pdf = null;
+  let pdf = null, F = null;
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   for (const S of sheets) {
     const P = S.paper, ori = P.w >= P.h ? 'l' : 'p';
-    if (!pdf) pdf = new jsPDF({ orientation: ori, unit: 'mm', format: [P.w, P.h], compress }); else pdf.addPage([P.w, P.h], ori);
+    if (!pdf) { pdf = new jsPDF({ orientation: ori, unit: 'mm', format: [P.w, P.h], compress }); F = await pdfFont(pdf); pdf.lossyText = F.lossy; } else pdf.addPage([P.w, P.h], ori);
+    const TR = F.text;
     const { k, dx, dy } = S.map, X = x => x * k + dx, Y = y => y * k + dy;
     for (const q of S.prims) {
       const st = q.hl ? null : REV_STYLE[q.style]; if (!st) continue;
@@ -223,18 +225,18 @@ export async function revisionPdf(sheets, { compress = true } = {}) {
         if (q.fill) pdf.setFillColor(...rgb(q.fill));
         pdf.lines(segs, pts[0][0], pts[0][1], [1, 1], q.fill ? 'FD' : 'S', !!q.closed);
       } else if (q.t === 'line') pdf.line(X(q.a[0]), Y(q.a[1]), X(q.b[0]), Y(q.b[1]));
-      else if (q.t === 'text') { pdf.setTextColor(17, 24, 39); pdf.setFontSize(q.s * k / 0.3528); pdf.text(TR(q.str), X(q.x), Y(q.y), { align: q.anchor === 'middle' ? 'center' : 'left' }); }
+      else if (q.t === 'text') { pdf.setFont(F.family, 'normal'); pdf.setTextColor(17, 24, 39); pdf.setFontSize(q.s * k / 0.3528); pdf.text(TR(q.str), X(q.x), Y(q.y), { align: q.anchor === 'middle' ? 'center' : 'left' }); }
     }
     pdf.setLineDashPattern([], 0);
     for (const q of S.sheet) {
       if (q.t === 'rect') { pdf.setDrawColor(17, 17, 17); pdf.setLineWidth(q.lw); if (q.fill) pdf.setFillColor(255, 255, 255); pdf.rect(q.x, q.y, q.w, q.h, q.fill ? 'FD' : 'S'); }
       else if (q.t === 'line') { pdf.setDrawColor(17, 17, 17); pdf.setLineWidth(q.lw); pdf.line(q.a[0], q.a[1], q.b[0], q.b[1]); }
       else if (q.t === 'swatch') { const st = REV_STYLE[q.style]; pdf.setDrawColor(...rgb(st.stroke)); pdf.setLineWidth(st.w); pdf.setLineDashPattern(st.dash || [], 0); pdf.setFillColor(...rgb(st.fill || '#FFFFFF')); pdf.rect(q.x, q.y, q.w, q.h, 'FD'); pdf.setLineDashPattern([], 0); }
-      else if (q.t === 'text' && q.str) { pdf.setFont('helvetica', q.b ? 'bold' : 'normal'); const c = rgb(q.c || '#111111'); pdf.setTextColor(...c); pdf.setFontSize(q.s / 0.3528); pdf.text(TR(q.str), q.x, q.y, q.anchor === 'end' ? { align: 'right' } : undefined); }
+      else if (q.t === 'text' && q.str) { pdf.setFont(F.family, q.b ? 'bold' : 'normal'); const c = rgb(q.c || '#111111'); pdf.setTextColor(...c); pdf.setFontSize(q.s / 0.3528); pdf.text(TR(q.str), q.x, q.y, q.anchor === 'end' ? { align: 'right' } : undefined); }
     }
   }
   return pdf;
 }
 /* boş vektörel PDF belgesi (rapor için) */
-export async function newPdf(w = 210, h = 297) { const { jsPDF } = await loadJsPdf(); return new jsPDF({ orientation: w >= h ? 'l' : 'p', unit: 'mm', format: [w, h], compress: true }); }
+export async function newPdf(w = 210, h = 297, { compress = true } = {}) { const { jsPDF } = await loadJsPdf(); const pdf = new jsPDF({ orientation: w >= h ? 'l' : 'p', unit: 'mm', format: [w, h], compress }); const F = await pdfFont(pdf); pdf.font = F; pdf.lossyText = F.lossy; return pdf; }
 export { lvPlan };

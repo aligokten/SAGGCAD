@@ -1,0 +1,1108 @@
+{
+ "format": "saggcad",
+ "version": 1,
+ "blobs": {},
+ "project": {
+  "id": "pjvilla",
+  "name": "Örnek villa",
+  "client": "Örnek müşteri",
+  "address": "",
+  "note": "B4C metraj örneği",
+  "createdAt": 1793354400000,
+  "updatedAt": 1793354400000,
+  "photos": [],
+  "drawings": [
+   {
+    "id": "dwvR",
+    "name": "Rölöve (mevcut durum)",
+    "kind": "rolove",
+    "main": true,
+    "plan": {
+     "v": 1,
+     "walls": [
+      {
+       "id": "zd1",
+       "a": {
+        "x": 0,
+        "y": 0
+       },
+       "b": {
+        "x": 1200,
+        "y": 0
+       },
+       "t": 26.5,
+       "h": 0,
+       "comp": "dis-tugla-eps",
+       "kind": "dis"
+      },
+      {
+       "id": "zd2",
+       "a": {
+        "x": 1200,
+        "y": 0
+       },
+       "b": {
+        "x": 1200,
+        "y": 1000
+       },
+       "t": 26.5,
+       "h": 0,
+       "comp": "dis-tugla-eps",
+       "kind": "dis"
+      },
+      {
+       "id": "zd3",
+       "a": {
+        "x": 1200,
+        "y": 1000
+       },
+       "b": {
+        "x": 0,
+        "y": 1000
+       },
+       "t": 26.5,
+       "h": 0,
+       "comp": "dis-tugla-eps",
+       "kind": "dis"
+      },
+      {
+       "id": "zd4",
+       "a": {
+        "x": 0,
+        "y": 1000
+       },
+       "b": {
+        "x": 0,
+        "y": 0
+       },
+       "t": 26.5,
+       "h": 0,
+       "comp": "dis-tugla-eps",
+       "kind": "dis"
+      },
+      {
+       "id": "zi1",
+       "a": {
+        "x": 700,
+        "y": 0
+       },
+       "b": {
+        "x": 700,
+        "y": 1000
+       },
+       "t": 14,
+       "h": 0,
+       "comp": "ic-tugla",
+       "kind": "ic"
+      },
+      {
+       "id": "zi2",
+       "a": {
+        "x": 700,
+        "y": 550
+       },
+       "b": {
+        "x": 1200,
+        "y": 550
+       },
+       "t": 14,
+       "h": 0,
+       "comp": "ic-tugla",
+       "kind": "ic"
+      },
+      {
+       "id": "zi3",
+       "a": {
+        "x": 0,
+        "y": 600
+       },
+       "b": {
+        "x": 700,
+        "y": 600
+       },
+       "t": 14,
+       "h": 0,
+       "comp": "ic-tugla",
+       "kind": "ic"
+      }
+     ],
+     "openings": [
+      {
+       "id": "zk1",
+       "wallId": "zd1",
+       "type": "door",
+       "pos": 350,
+       "w": 100,
+       "h": 215,
+       "sill": 0
+      },
+      {
+       "id": "zp1",
+       "wallId": "zd4",
+       "type": "window",
+       "pos": 300,
+       "w": 180,
+       "h": 150,
+       "sill": 85
+      },
+      {
+       "id": "zp2",
+       "wallId": "zd2",
+       "type": "window",
+       "pos": 275,
+       "w": 120,
+       "h": 120,
+       "sill": 100
+      },
+      {
+       "id": "zp3",
+       "wallId": "zd3",
+       "type": "window",
+       "pos": 850,
+       "w": 150,
+       "h": 140,
+       "sill": 90
+      },
+      {
+       "id": "zp4",
+       "wallId": "zd2",
+       "type": "window",
+       "pos": 780,
+       "w": 60,
+       "h": 60,
+       "sill": 160
+      },
+      {
+       "id": "zk2",
+       "wallId": "zi1",
+       "type": "door",
+       "pos": 275,
+       "w": 90,
+       "h": 210,
+       "sill": 0
+      },
+      {
+       "id": "zk3",
+       "wallId": "zi2",
+       "type": "door",
+       "pos": 250,
+       "w": 80,
+       "h": 210,
+       "sill": 0
+      },
+      {
+       "id": "zk4",
+       "wallId": "zi3",
+       "type": "door",
+       "pos": 550,
+       "w": 90,
+       "h": 210,
+       "sill": 0
+      }
+     ],
+     "rooms": [
+      {
+       "id": "zr1",
+       "name": "Salon",
+       "floor": "parke",
+       "pts": [
+        {
+         "x": 13.25,
+         "y": 13.25
+        },
+        {
+         "x": 693,
+         "y": 13.25
+        },
+        {
+         "x": 693,
+         "y": 593
+        },
+        {
+         "x": 13.25,
+         "y": 593
+        }
+       ]
+      },
+      {
+       "id": "zr2",
+       "name": "Mutfak",
+       "floor": "seramik",
+       "pts": [
+        {
+         "x": 707,
+         "y": 13.25
+        },
+        {
+         "x": 1186.75,
+         "y": 13.25
+        },
+        {
+         "x": 1186.75,
+         "y": 543
+        },
+        {
+         "x": 707,
+         "y": 543
+        }
+       ]
+      },
+      {
+       "id": "zr3",
+       "name": "Banyo",
+       "floor": "seramik",
+       "pts": [
+        {
+         "x": 707,
+         "y": 557
+        },
+        {
+         "x": 1186.75,
+         "y": 557
+        },
+        {
+         "x": 1186.75,
+         "y": 986.75
+        },
+        {
+         "x": 707,
+         "y": 986.75
+        }
+       ]
+      },
+      {
+       "id": "zr4",
+       "name": "Yatak odası",
+       "floor": "parke",
+       "pts": [
+        {
+         "x": 13.25,
+         "y": 607
+        },
+        {
+         "x": 693,
+         "y": 607
+        },
+        {
+         "x": 693,
+         "y": 986.75
+        },
+        {
+         "x": 13.25,
+         "y": 986.75
+        }
+       ]
+      }
+     ],
+     "items": [],
+     "dims": [],
+     "labels": [],
+     "rails": [],
+     "stairs": [],
+     "sections": [],
+     "roofs": [],
+     "slabs": [
+      {
+       "id": "zs1",
+       "kind": "balkon",
+       "comp": "dos-balkon",
+       "pts": [
+        {
+         "x": 300,
+         "y": -180
+        },
+        {
+         "x": 900,
+         "y": -180
+        },
+        {
+         "x": 900,
+         "y": -13
+        },
+        {
+         "x": 300,
+         "y": -13
+        }
+       ]
+      }
+     ],
+     "meta": {
+      "wallH": 280,
+      "wallT": 20,
+      "slab": 0,
+      "scale": 50
+     },
+     "levels": [
+      {
+       "id": "k1",
+       "kind": "floor",
+       "name": "1. Kat",
+       "slab": 15,
+       "slabComp": "dos-seramik",
+       "walls": [
+        {
+         "id": "kd1",
+         "a": {
+          "x": 0,
+          "y": 0
+         },
+         "b": {
+          "x": 1200,
+          "y": 0
+         },
+         "t": 26.5,
+         "h": 0,
+         "comp": "dis-tugla-eps",
+         "kind": "dis"
+        },
+        {
+         "id": "kd2",
+         "a": {
+          "x": 1200,
+          "y": 0
+         },
+         "b": {
+          "x": 1200,
+          "y": 1000
+         },
+         "t": 26.5,
+         "h": 0,
+         "comp": "dis-tugla-eps",
+         "kind": "dis"
+        },
+        {
+         "id": "kd3",
+         "a": {
+          "x": 1200,
+          "y": 1000
+         },
+         "b": {
+          "x": 0,
+          "y": 1000
+         },
+         "t": 26.5,
+         "h": 0,
+         "comp": "dis-tugla-eps",
+         "kind": "dis"
+        },
+        {
+         "id": "kd4",
+         "a": {
+          "x": 0,
+          "y": 1000
+         },
+         "b": {
+          "x": 0,
+          "y": 0
+         },
+         "t": 26.5,
+         "h": 0,
+         "comp": "dis-tugla-eps",
+         "kind": "dis"
+        },
+        {
+         "id": "ki1",
+         "a": {
+          "x": 600,
+          "y": 0
+         },
+         "b": {
+          "x": 600,
+          "y": 1000
+         },
+         "t": 14,
+         "h": 0,
+         "comp": "ic-tugla",
+         "kind": "ic"
+        },
+        {
+         "id": "ki2",
+         "a": {
+          "x": 600,
+          "y": 500
+         },
+         "b": {
+          "x": 1200,
+          "y": 500
+         },
+         "t": 14,
+         "h": 0,
+         "comp": "ic-tugla",
+         "kind": "ic"
+        }
+       ],
+       "openings": [
+        {
+         "id": "kp1",
+         "wallId": "kd1",
+         "type": "window",
+         "pos": 300,
+         "w": 150,
+         "h": 140,
+         "sill": 90
+        },
+        {
+         "id": "kp2",
+         "wallId": "kd3",
+         "type": "window",
+         "pos": 300,
+         "w": 150,
+         "h": 140,
+         "sill": 90
+        },
+        {
+         "id": "kk1",
+         "wallId": "ki1",
+         "type": "door",
+         "pos": 250,
+         "w": 90,
+         "h": 210,
+         "sill": 0
+        },
+        {
+         "id": "kk2",
+         "wallId": "ki2",
+         "type": "door",
+         "pos": 300,
+         "w": 80,
+         "h": 210,
+         "sill": 0
+        }
+       ],
+       "rooms": [
+        {
+         "id": "kr1",
+         "name": "Ebeveyn yatak",
+         "floor": "parke",
+         "pts": [
+          {
+           "x": 13.25,
+           "y": 13.25
+          },
+          {
+           "x": 593,
+           "y": 13.25
+          },
+          {
+           "x": 593,
+           "y": 986.75
+          },
+          {
+           "x": 13.25,
+           "y": 986.75
+          }
+         ]
+        },
+        {
+         "id": "kr2",
+         "name": "Çocuk odası",
+         "floor": "parke",
+         "pts": [
+          {
+           "x": 607,
+           "y": 13.25
+          },
+          {
+           "x": 1186.75,
+           "y": 13.25
+          },
+          {
+           "x": 1186.75,
+           "y": 493
+          },
+          {
+           "x": 607,
+           "y": 493
+          }
+         ]
+        },
+        {
+         "id": "kr3",
+         "name": "Banyo 2",
+         "floor": "seramik",
+         "pts": [
+          {
+           "x": 607,
+           "y": 507
+          },
+          {
+           "x": 1186.75,
+           "y": 507
+          },
+          {
+           "x": 1186.75,
+           "y": 986.75
+          },
+          {
+           "x": 607,
+           "y": 986.75
+          }
+         ]
+        }
+       ],
+       "items": [],
+       "slabs": [],
+       "stairs": [],
+       "rails": [],
+       "dims": [],
+       "labels": [],
+       "sections": [],
+       "meta": {
+        "wallH": 280
+       }
+      }
+     ]
+    },
+    "createdAt": 1793354400000,
+    "updatedAt": 1793354400000
+   },
+   {
+    "id": "dwvP",
+    "name": "Tadilat projesi",
+    "kind": "proje",
+    "plan": {
+     "v": 1,
+     "walls": [
+      {
+       "id": "zd1",
+       "a": {
+        "x": 0,
+        "y": 0
+       },
+       "b": {
+        "x": 1200,
+        "y": 0
+       },
+       "t": 26.5,
+       "h": 0,
+       "comp": "dis-tugla-eps",
+       "kind": "dis"
+      },
+      {
+       "id": "zd2",
+       "a": {
+        "x": 1200,
+        "y": 0
+       },
+       "b": {
+        "x": 1200,
+        "y": 1000
+       },
+       "t": 26.5,
+       "h": 0,
+       "comp": "dis-tugla-eps",
+       "kind": "dis"
+      },
+      {
+       "id": "zd3",
+       "a": {
+        "x": 1200,
+        "y": 1000
+       },
+       "b": {
+        "x": 0,
+        "y": 1000
+       },
+       "t": 26.5,
+       "h": 0,
+       "comp": "dis-tugla-eps",
+       "kind": "dis"
+      },
+      {
+       "id": "zd4",
+       "a": {
+        "x": 0,
+        "y": 1000
+       },
+       "b": {
+        "x": 0,
+        "y": 0
+       },
+       "t": 26.5,
+       "h": 0,
+       "comp": "dis-tugla-eps",
+       "kind": "dis"
+      },
+      {
+       "id": "zi1",
+       "a": {
+        "x": 700,
+        "y": 0
+       },
+       "b": {
+        "x": 700,
+        "y": 1000
+       },
+       "t": 14,
+       "h": 0,
+       "comp": "ic-tugla",
+       "kind": "ic"
+      },
+      {
+       "id": "zi2",
+       "a": {
+        "x": 700,
+        "y": 550
+       },
+       "b": {
+        "x": 1200,
+        "y": 550
+       },
+       "t": 13,
+       "h": 0,
+       "comp": "ic-gazbeton",
+       "kind": "ic"
+      },
+      {
+       "id": "zn1",
+       "a": {
+        "x": 250,
+        "y": 1000
+       },
+       "b": {
+        "x": 250,
+        "y": 700
+       },
+       "t": 13,
+       "h": 0,
+       "comp": "ic-gazbeton",
+       "kind": "ic"
+      }
+     ],
+     "openings": [
+      {
+       "id": "zk1",
+       "wallId": "zd1",
+       "type": "door",
+       "pos": 350,
+       "w": 100,
+       "h": 215,
+       "sill": 0
+      },
+      {
+       "id": "zp1",
+       "wallId": "zd4",
+       "type": "window",
+       "pos": 300,
+       "w": 240,
+       "h": 150,
+       "sill": 85
+      },
+      {
+       "id": "zp2",
+       "wallId": "zd2",
+       "type": "window",
+       "pos": 275,
+       "w": 120,
+       "h": 120,
+       "sill": 100
+      },
+      {
+       "id": "zp3",
+       "wallId": "zd3",
+       "type": "window",
+       "pos": 850,
+       "w": 150,
+       "h": 140,
+       "sill": 90
+      },
+      {
+       "id": "zp4",
+       "wallId": "zd2",
+       "type": "window",
+       "pos": 780,
+       "w": 60,
+       "h": 60,
+       "sill": 160
+      },
+      {
+       "id": "zk2",
+       "wallId": "zi1",
+       "type": "door",
+       "pos": 275,
+       "w": 90,
+       "h": 210,
+       "sill": 0
+      },
+      {
+       "id": "zk3",
+       "wallId": "zi2",
+       "type": "door",
+       "pos": 250,
+       "w": 80,
+       "h": 210,
+       "sill": 0
+      },
+      {
+       "id": "zn2",
+       "wallId": "zd3",
+       "type": "door",
+       "pos": 450,
+       "w": 90,
+       "h": 215,
+       "sill": 0
+      }
+     ],
+     "rooms": [
+      {
+       "id": "zr1",
+       "name": "Salon + yemek",
+       "floor": "parke",
+       "pts": [
+        {
+         "x": 13.25,
+         "y": 13.25
+        },
+        {
+         "x": 693,
+         "y": 13.25
+        },
+        {
+         "x": 693,
+         "y": 986.75
+        },
+        {
+         "x": 13.25,
+         "y": 986.75
+        }
+       ]
+      },
+      {
+       "id": "zr2",
+       "name": "Mutfak",
+       "floor": "seramik",
+       "pts": [
+        {
+         "x": 707,
+         "y": 13.25
+        },
+        {
+         "x": 1186.75,
+         "y": 13.25
+        },
+        {
+         "x": 1186.75,
+         "y": 543
+        },
+        {
+         "x": 707,
+         "y": 543
+        }
+       ]
+      },
+      {
+       "id": "zr3",
+       "name": "Banyo",
+       "floor": "seramik",
+       "pts": [
+        {
+         "x": 707,
+         "y": 557
+        },
+        {
+         "x": 1186.75,
+         "y": 557
+        },
+        {
+         "x": 1186.75,
+         "y": 986.75
+        },
+        {
+         "x": 707,
+         "y": 986.75
+        }
+       ]
+      }
+     ],
+     "items": [],
+     "dims": [],
+     "labels": [],
+     "rails": [],
+     "stairs": [],
+     "sections": [],
+     "roofs": [],
+     "slabs": [
+      {
+       "id": "zs1",
+       "kind": "balkon",
+       "comp": "dos-balkon",
+       "pts": [
+        {
+         "x": 300,
+         "y": -180
+        },
+        {
+         "x": 900,
+         "y": -180
+        },
+        {
+         "x": 900,
+         "y": -13
+        },
+        {
+         "x": 300,
+         "y": -13
+        }
+       ]
+      }
+     ],
+     "meta": {
+      "wallH": 280,
+      "wallT": 20,
+      "slab": 0,
+      "scale": 50,
+      "revision": {
+       "code": "R1",
+       "phases": {
+        "L0/zi3": "demolish",
+        "L0/zn1": "new",
+        "L0/zn2": "new",
+        "L0/zk4": "demolish",
+        "L0/zi2": "modify",
+        "L0/zp1": "modify"
+       },
+       "methods": {
+        "L0/zi2": "replace",
+        "L0/zp1": "replace"
+       },
+       "qty": {
+        "prices": {
+         "wall-area:tugla-yatay|demolish": 180,
+         "wall-area:gazbeton-600|build": 950,
+         "layer-area:siva-alci|build": 260,
+         "door:90×215|build": 14500,
+         "door:90×210|demolish": 900
+        }
+       }
+      }
+     },
+     "levels": [
+      {
+       "id": "k1",
+       "kind": "floor",
+       "name": "1. Kat",
+       "slab": 15,
+       "slabComp": "dos-seramik",
+       "walls": [
+        {
+         "id": "kd1",
+         "a": {
+          "x": 0,
+          "y": 0
+         },
+         "b": {
+          "x": 1200,
+          "y": 0
+         },
+         "t": 26.5,
+         "h": 0,
+         "comp": "dis-tugla-eps",
+         "kind": "dis"
+        },
+        {
+         "id": "kd2",
+         "a": {
+          "x": 1200,
+          "y": 0
+         },
+         "b": {
+          "x": 1200,
+          "y": 1000
+         },
+         "t": 26.5,
+         "h": 0,
+         "comp": "dis-tugla-eps",
+         "kind": "dis"
+        },
+        {
+         "id": "kd3",
+         "a": {
+          "x": 1200,
+          "y": 1000
+         },
+         "b": {
+          "x": 0,
+          "y": 1000
+         },
+         "t": 26.5,
+         "h": 0,
+         "comp": "dis-tugla-eps",
+         "kind": "dis"
+        },
+        {
+         "id": "kd4",
+         "a": {
+          "x": 0,
+          "y": 1000
+         },
+         "b": {
+          "x": 0,
+          "y": 0
+         },
+         "t": 26.5,
+         "h": 0,
+         "comp": "dis-tugla-eps",
+         "kind": "dis"
+        },
+        {
+         "id": "ki1",
+         "a": {
+          "x": 600,
+          "y": 0
+         },
+         "b": {
+          "x": 600,
+          "y": 1000
+         },
+         "t": 14,
+         "h": 0,
+         "comp": "ic-tugla",
+         "kind": "ic"
+        },
+        {
+         "id": "ki2",
+         "a": {
+          "x": 600,
+          "y": 500
+         },
+         "b": {
+          "x": 1200,
+          "y": 500
+         },
+         "t": 14,
+         "h": 260,
+         "comp": "ic-tugla",
+         "kind": "ic"
+        }
+       ],
+       "openings": [
+        {
+         "id": "kp1",
+         "wallId": "kd1",
+         "type": "window",
+         "pos": 300,
+         "w": 150,
+         "h": 140,
+         "sill": 90
+        },
+        {
+         "id": "kp2",
+         "wallId": "kd3",
+         "type": "window",
+         "pos": 300,
+         "w": 150,
+         "h": 140,
+         "sill": 90
+        },
+        {
+         "id": "kk1",
+         "wallId": "ki1",
+         "type": "door",
+         "pos": 250,
+         "w": 90,
+         "h": 210,
+         "sill": 0
+        },
+        {
+         "id": "kk2",
+         "wallId": "ki2",
+         "type": "door",
+         "pos": 300,
+         "w": 80,
+         "h": 210,
+         "sill": 0
+        }
+       ],
+       "rooms": [
+        {
+         "id": "kr1",
+         "name": "Ebeveyn yatak",
+         "floor": "parke",
+         "pts": [
+          {
+           "x": 13.25,
+           "y": 13.25
+          },
+          {
+           "x": 593,
+           "y": 13.25
+          },
+          {
+           "x": 593,
+           "y": 986.75
+          },
+          {
+           "x": 13.25,
+           "y": 986.75
+          }
+         ]
+        },
+        {
+         "id": "kr2",
+         "name": "Çocuk odası",
+         "floor": "parke",
+         "pts": [
+          {
+           "x": 607,
+           "y": 13.25
+          },
+          {
+           "x": 1186.75,
+           "y": 13.25
+          },
+          {
+           "x": 1186.75,
+           "y": 493
+          },
+          {
+           "x": 607,
+           "y": 493
+          }
+         ]
+        },
+        {
+         "id": "kr3",
+         "name": "Banyo 2",
+         "floor": "seramik",
+         "pts": [
+          {
+           "x": 607,
+           "y": 507
+          },
+          {
+           "x": 1186.75,
+           "y": 507
+          },
+          {
+           "x": 1186.75,
+           "y": 986.75
+          },
+          {
+           "x": 607,
+           "y": 986.75
+          }
+         ]
+        }
+       ],
+       "items": [],
+       "slabs": [],
+       "stairs": [],
+       "rails": [],
+       "dims": [],
+       "labels": [],
+       "sections": [],
+       "meta": {
+        "wallH": 280
+       }
+      }
+     ]
+    },
+    "sourceDrawingId": "dwvR",
+    "sourceCreatedAt": 1793354401000,
+    "revisionLabel": "R1",
+    "createdAt": 1793354401000,
+    "updatedAt": 1793354402000
+   }
+  ]
+ }
+}

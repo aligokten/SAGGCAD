@@ -1,6 +1,6 @@
 /* SAGGCAD — çevrimdışı kabuk önbelleği. Kendi dosyalarımız önce ağdan (yeni sürüm hemen gelsin),
  * çevrimdışıysa önbellekten; yazı tipleri önce önbellekten. Sürüm değişince CACHE adını artırın. */
-const CACHE = 'saggcad-v9';
+const CACHE = 'saggcad-v10';
 const CORE = [
   './',
   'index.html',
@@ -46,12 +46,15 @@ const CORE = [
   'js/timeline.js',
   'js/revview.js',
   'js/revui.js',
+  'js/pdffont.js',
   'js/presspull.js',
   'js/bim/adapter.js',
   'js/bim/api.js',
   'js/bim/commands.js',
   'js/bim/deps.js',
   'js/bim/diff.js',
+  'js/bim/qtydiff.js',
+  'js/bim/quantities.js',
   'js/bim/fields.js',
   'js/bim/geom2d.js',
   'js/bim/history.js',
@@ -69,6 +72,9 @@ const CORE = [
   'vendor/three/three.core.js',
   'vendor/three/addons/controls/OrbitControls.js',
   'vendor/three/addons/environments/RoomEnvironment.js',
+  'vendor/jspdf.umd.min.js',
+  'vendor/fonts/DejaVuSans.ttf',
+  'vendor/fonts/DejaVuSans-Bold.ttf',
 ];
 
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });

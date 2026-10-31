@@ -24,7 +24,8 @@ import { linkPlan } from './joins.js';
 export const COMMANDS = ['createType', 'duplicateType', 'updateType', 'deleteType', 'assignType', 'setInstanceParam', 'resetInstanceParam', 'setElementLevelBinding',
   'moveWallEnd', 'offsetWall', 'setWallLength', 'setWallReference', 'setJoinEnabled', 'setArcGeometry',   // B2B: duvar geometrisi (wallcmds.js)
   'setTopBinding', 'setLevelHeight', 'setLevelSlab', 'syncLevelBindings',
-  'setRevisionPhase', 'matchElements', 'unmatchElements', 'setRevisionCode'];   // B4: tadilat / revizyon kararları (meta.revision)                   // B2B: kata bağlı geometri
+  'setRevisionPhase', 'matchElements', 'unmatchElements', 'setRevisionCode',
+  'setInterventionMethod', 'setQtyPrice', 'setQtySettings', 'setDesignLimits'];   // B4C: müdahale yöntemi, birim fiyat, metraj ayarları, tasarım sınırları   // B4: tadilat / revizyon kararları (meta.revision)                   // B2B: kata bağlı geometri
 
 class CmdError extends Error {}
 const fail = m => { throw new CmdError(m); };
@@ -359,6 +360,46 @@ const C = {
     putRev(S, { ...rev, matches: m });
     return { label: `Eşleştirme kaldırıldı: ${dst}`, summary: { op: 'unmatchElements', level, dst } };
   },
+  /* B4C: değiştirilecek elemanın müdahale yöntemi (söküm / imalat kesin toplamlarına girmesi için onay) */
+  setInterventionMethod(S, { keys, method }) {
+    const list = Array.isArray(keys) ? keys : [keys];
+    if (!list.length || list.some(k => typeof k !== 'string' || !/^[^/]+\/[^/]+$/.test(k))) fail('Geçersiz eleman anahtarı (KAT/kimlik)');
+    if (method !== null && !QTY_METHODS.includes(method)) fail(`Geçersiz müdahale yöntemi: ${method}`);
+    const rev = revOf(S), m = { ...(rev.methods || {}) };
+    for (const k of list) { if (method === null || method === 'undecided') delete m[k]; else m[k] = method; }
+    putRev(S, { ...rev, methods: sortObj(m) });
+    return { label: `${list.length} eleman: müdahale ${method && method !== 'undecided' ? `"${QTY_METHOD_T[method]}"` : 'kararı kaldırıldı'}`, summary: { op: 'setInterventionMethod', count: list.length, method } };
+  },
+  setQtyPrice(S, { item, kind = 'build', price }) {
+    if (typeof item !== 'string' || !item) fail('Kalem anahtarı gerekli');
+    if (kind !== 'build' && kind !== 'demolish') fail('Fiyat türü "build" ya da "demolish"');
+    if (price !== null && !(Number.isFinite(+price) && +price >= 0 && +price < 1e9)) fail('Birim fiyat 0 ya da pozitif bir sayı olmalı');
+    const rev = revOf(S), q = { ...(rev.qty || {}) }, pr = { ...(q.prices || {}) }, k = `${item}|${kind}`;
+    if (price === null) delete pr[k]; else pr[k] = +price;
+    putRev(S, { ...rev, qty: cleanQty({ ...q, prices: sortObj(pr) }) });
+    return { label: `Birim fiyat: ${item} (${kind === 'build' ? 'imalat' : 'söküm'}) ${price === null ? 'silindi' : price}`, summary: { op: 'setQtyPrice', item, kind, price } };
+  },
+  setQtySettings(S, { currency, vat, openings, threshold }) {
+    const rev = revOf(S), q = { ...(rev.qty || {}) };
+    if (currency !== undefined) { if (!/^[A-Z]{3}$/.test(String(currency))) fail('Para birimi üç harfli kod olmalı (TRY, EUR…)'); q.currency = currency === 'TRY' ? undefined : currency; }
+    if (vat !== undefined) { if (vat !== 'incl' && vat !== 'excl') fail('KDV "incl" ya da "excl"'); q.vat = vat === 'excl' ? undefined : vat; }
+    if (openings !== undefined) { if (!['all', 'over', 'none'].includes(openings)) fail('Açıklık politikası all | over | none'); q.openings = openings === 'all' ? undefined : openings; }
+    if (threshold !== undefined) { if (!(Number.isFinite(+threshold) && +threshold >= 0 && +threshold <= 100)) fail('Eşik 0–100 m²'); q.threshold = +threshold === 0.5 ? undefined : +threshold; }
+    putRev(S, { ...rev, qty: cleanQty(q) });
+    return { label: 'Metraj ayarları', summary: { op: 'setQtySettings' } };
+  },
+  /* MAX: tasarım sınırları (meta.limits) — yalnız rapor (kısıt çözücü); değerler kendiliğinden değiştirilmez */
+  setDesignLimits(S, { limits }) {
+    if (!limits || typeof limits !== 'object') fail('Sınırlar nesnesi gerekli');
+    const cur = { ...(S.W.meta.limits || {}) };
+    for (const [k, v] of Object.entries(limits)) {
+      if (!LIMIT_KEYS.includes(k)) fail(`Bilinmeyen sınır: ${k}`);
+      if (v === null || v === '' || v === undefined) delete cur[k];
+      else { if (!(Number.isFinite(+v) && +v > 0 && +v < 1e7)) fail(`${k}: pozitif sayı olmalı`); cur[k] = +v; }
+    }
+    S.set(META, S.W.meta, 'limits', Object.keys(cur).length ? sortObj(cur) : undefined);
+    return { label: 'Tasarım sınırları', summary: { op: 'setDesignLimits', count: Object.keys(cur).length } };
+  },
   setRevisionCode(S, { code }) {
     const c = String(code ?? '').trim();
     if (c.length > 24) fail('Revizyon kodu en fazla 24 karakter');
@@ -381,6 +422,10 @@ function newErrors(root, W, ids) {
 
 export const REV_PHASES = ['existing', 'demolish', 'new', 'modify'];
 const REV_PHASE_T = { existing: 'Mevcut', demolish: 'Yıkılacak', new: 'Yeni', modify: 'Değiştirilecek' };
+export const QTY_METHODS = ['replace', 'partial', 'surface', 'undecided'];
+const QTY_METHOD_T = { replace: 'Tamamen yeniden', partial: 'Kısmi', surface: 'Yalnız yüzey', undecided: 'Kararsız' };
+export const LIMIT_KEYS = ['maxWallHeight', 'maxWallLength', 'maxWallThickness', 'maxOpeningWidth', 'maxRoomArea', 'maxLevels', 'maxBuildingHeight', 'maxFootprint', 'maxFloorArea'];
+const cleanQty = q => { const r = Object.fromEntries(Object.entries(q).filter(([, v]) => v !== undefined && !(v && typeof v === 'object' && !Object.keys(v).length))); return Object.keys(r).length ? r : undefined; };
 const sortObj = o => Object.fromEntries(Object.keys(o).sort().map(k => [k, o[k]]));
 const revOf = S => (S.W.meta?.revision && typeof S.W.meta.revision === 'object' ? clone(S.W.meta.revision) : {});
 function putRev(S, rev) {

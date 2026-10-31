@@ -468,3 +468,19 @@ select.mini { height: 30px; padding: 0 22px 0 8px; border: 1px solid var(--ui-li
 .rv-lg { display: inline-flex; align-items: center; gap: 4px; color: var(--ui-text-2); white-space: nowrap; }
 .rv-lg i { width: 14px; height: 9px; border-width: 1.5px; border-radius: 2px; }
 @media (max-width: 860px) { .rev-banner { top: 8px; } .rv-list { max-height: 36vh; } .rv-list td:nth-child(5) small { display: none; } }
+
+/* ── B4C: Metraj Farkı ── */
+.rv-tabs { align-self: flex-start; }
+.rv-qf { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.rv-qf label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--ui-muted); min-width: 0; }
+.rv-qf .inp.mini { max-width: 190px; }
+.rv-qty td { white-space: nowrap; }
+.rv-qty td:first-child { white-space: normal; min-width: 180px; }
+.rv-qty .rv-gh td { background: var(--ui-panel-2); font-weight: 700; font-size: 12px; }
+.rv-qty .rv-tot td { font-weight: 700; border-top: 1px solid var(--ui-line); }
+.rv-qty tfoot td { position: sticky; bottom: 0; background: var(--ui-panel); }
+.rv-price { width: 72px; text-align: right; }
+.rv-qty .link { background: none; border: 0; padding: 0; color: var(--ui-text); text-align: left; cursor: pointer; text-decoration: underline dotted; font: inherit; }
+.rv-qty .link:hover { color: #1786FF; }
+.lim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 12px; }
+.lim-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }

@@ -75,6 +75,10 @@ sürüm **0.4.0-b2b** (B2B geliştirme sürümü; sürüm geçmişi [docs/ROADMA
   Revizyon görünümü (yıkım kırmızı kesik + tarama, yeni yeşil çapraz tarama, değişen turuncu + eski konum), Mevcut Durum /
   Yıkım / Yeni İmalat / Karşılaştırma paftaları (vektörel PDF, SVG, DXF), fark raporu (CSV, PDF). Ayrıntı:
   [docs/REVIZYON.md](docs/REVIZYON.md), örnekler: [docs/b4](docs/b4).
+- **İmalat metrajı ve tadilat farkı (B4C)**: Revizyon penceresi → *Metraj Farkı*: duvar (brüt / net alan, boy, hacim,
+  katman hacimleri), doğrama, döşeme, mahal kaplamaları; mevcut / yeni / net fark / söküm / yeni imalat ayrı; söküm ve imalat
+  yalnız onaylı safha ve müdahale yöntemiyle kesinleşir. İsteğe bağlı birim fiyat (kullanıcı girer), CSV ve Türkçe karakterli
+  PDF rapor. **Tasarım sınırları (maksimum)**: Model menüsü; aşımlar Model Sağlığı'nda. Örnek: [docs/b4c](docs/b4c).
 - **UniCAD esinli iş akışı (U1)**: işlem **zaman çizelgesi** (bir adıma tıklayıp modeli o ana sar), **seçim filtresi**,
   **Akıllı Bas-Çek** (`Q`: seçime göre ötele / kalınlık / yükseklik / yarıçap…), imleçte **komut paleti** (`S`) ve
   sabitlenen komutlar, 3D **gezinme çubuğu** (Üst / Ön / Arka / Sol / Sağ / izometrik) ve **görünüm stilleri**
@@ -157,11 +161,12 @@ js/sections.js    kesit ve görünüşler, pafta  js/units.js       birim ve öl
 js/workbench.js   menü, komut paleti, gezgin, durum çubuğu, tema, çalışma alanları (motordan bağımsız)
 js/timeline.js    işlem zaman çizelgesi      js/presspull.js   Akıllı Bas-Çek (Q) kipleri
 js/revview.js     revizyon katmanı / paftaları (SVG, DXF, PDF)   js/revui.js   Revizyon Karşılaştırması penceresi
+js/pdffont.js     PDF'e DejaVu Sans gömme (vendor/fonts, lisans: vendor/fonts/LICENSE-dejavu)
 css/ui.css        arayüz tasarım sistemi ve temalar
 js/bim/           BIM çekirdeği: schema, types, fields, adapter, relations, commands, wallcmds, api, ui, manager,
                   joins, wallgeom, geom2d, mesh (duvar birleşimleri ve ortak geometri),
                   history (merkezi işlem günlüğü), deps (bağımlılık grafiği), solver (kısıt çözücü),
-                  diff (rölöve ↔ proje karşılaştırması)
+                  diff (rölöve ↔ proje karşılaştırması), quantities / qtydiff (metraj ve metraj farkı)
 js/plan-geom.js   plan geometrisi ve metraj   js/importer.js, importui.js   DXF / PDF içe aktarma
 js/exporters.js   DXF, DAE, 3DS, STL, DXF 3D  js/cabinet.js, cabdesign.js   mutfak / dolap tasarlayıcı
 js/roof.js, stairs.js, tiles.js, openings.js, fixtures.js, joinery.js, floororder.js, labels.js, cnc.js, forms.js …
@@ -171,7 +176,7 @@ tests/            node --test birim testleri; tests/e2e/ Playwright uçtan uca; 
 ## Lisanslar
 
 Gömülü kütüphanelerin lisansları `vendor/` altındadır: three.js, three-gpu-pathtracer, three-mesh-bvh, dxf-parser,
-html2canvas, jsPDF, qrcode (MIT), pdf.js (Apache-2.0).
+html2canvas, jsPDF, qrcode (MIT), pdf.js (Apache-2.0), DejaVu Sans yazı tipi (Bitstream Vera türevi serbest lisans, `vendor/fonts/LICENSE-dejavu`).
 
 ## Yol haritası
 
