@@ -1,5 +1,6 @@
-node_modules/
-dist/
-*.log
+__pycache__/
+*.pyc
+.pytest_cache/
+*.FCStd1
+*.FCBak
 .DS_Store
-.vite/
