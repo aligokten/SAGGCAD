@@ -128,10 +128,11 @@ try:
 
     # ── kaydet / aç: özellikler ve kurallar dosyada ──
     path = os.path.join(os.getcwd(), "fc-test.FCStd")
+    col_name = col.Name   # belge kapanınca nesne başvuruları geçersizleşir
     doc.saveAs(path)
     App.closeDocument(doc.Name)
     doc2 = App.openDocument(path)
-    c2 = doc2.getObject(col.Name)
+    c2 = doc2.getObject(col_name)
     check(c2.DonatiKaynak == "Statik projeden (elle)" and c2.BoyunaAdet == 12 and RF.rules_of(doc2)["lap"] == 50, "kaydet / aç: donatı özellikleri ve kurallar korundu")
     rep2 = RF.report(doc2)
     check(approx(rep2["totals"]["total"], rep["totals"]["total"], 1e-6), "yeniden açılan belgede metraj aynı", [rep2["totals"]["total"], rep["totals"]["total"]])
