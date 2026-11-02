@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
+  <name>SAGGCAD</name>
+  <description>Mimari rölöve, tadilat ve betonarme metraj tezgâhı: aks sistemi, donatı hesabı ve metrajı (FreeCAD / UniCAD, BIM üzerine).</description>
+  <version>0.7.0</version>
+  <date>2026-11-02</date>
+  <maintainer email="aligokten99@gmail.com">Ali Gökten</maintainer>
+  <license>Belirlenmedi (FreeCAD ile uyumlu öneri: LGPL-2.1-or-later)</license>
+  <url type="repository" branch="main">https://github.com/aligokten/SAGGCAD</url>
+  <url type="bugtracker">https://github.com/aligokten/SAGGCAD/issues</url>
+  <icon>saggcad/resources/icons/saggcad.svg</icon>
+  <content>
+    <workbench>
+      <name>SAGGCAD</name>
+      <classname>SaggcadWorkbench</classname>
+      <subdirectory>./</subdirectory>
+      <icon>saggcad/resources/icons/saggcad.svg</icon>
+      <freecadmin>1.0.0</freecadmin>
+      <depend>BIM</depend>
+      <depend>Draft</depend>
+      <depend>Spreadsheet</depend>
+      <tag>BIM</tag>
+      <tag>architecture</tag>
+      <tag>rebar</tag>
+    </workbench>
+  </content>
+</package>

@@ -4,13 +4,42 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
-  test:
+  cekirdek:
+    name: Çekirdek (pytest, FreeCAD'siz)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-python@v5
         with:
-          node-version: 22
-      - run: npm test
+          python-version: "3.11"
+      - run: pip install pytest
+      - run: python -m pytest -v tests
+
+  freecad:
+    name: FreeCAD bütünleşik test (conda-forge FreeCAD, arayüzsüz)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: fc
+          create-args: >-
+            python=3.11
+            freecad=1.0
+          init-shell: bash
+          cache-environment: true
+      - name: FreeCAD sürümü
+        run: freecadcmd --version || true
+      - name: Bütünleşik test
+        env:
+          QT_QPA_PLATFORM: offscreen
+          SAGGCAD_FC_OUT: fc-results.json
+        run: freecadcmd tests/freecad/run_fc_tests.py
+      - name: Sonuç denetimi
+        run: python tests/freecad/check_results.py fc-results.json
