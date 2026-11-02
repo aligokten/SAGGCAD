@@ -19,6 +19,7 @@ import { History } from './bim/history.js';
 import { timelineItems, rollTo } from './timeline.js';
 import { pressPullModes, parseLen } from './presspull.js';
 import { changedIdsOf } from './bim/deps.js';
+import { rebarInspHtml, manualFromMin } from './rebarui.js';
 import { gridSvg, gridAxisKind, nextGridName, gridIntersections, gridArray, parseSpacing, isStruct, itemCorners, beamEnds, structSnapPts, moveByCorner, beamFromEnds, ANCHORS, anchorCenter, BEAM_ALIGNS, beamAlignOffset } from './grids.js';
 import { clsOfLegacy } from './bim/fields.js';
 import { newCabinet, autoFill, itemDims, planSymbol, runLength, FRONTS, pick as cabPick, MT as CAB_MT } from './cabinet.js';
@@ -2465,6 +2466,8 @@ export class PlanEditor {
     } else if (s.kind === 'label') {
       body = `<h4>Yazı</h4><label>Metin<input class="inp sm" data-k="text" value="${esc(o.text)}"></label>${num('size', 'Boyut', o.size || 25)}`;
     }
+    // betonarme kolon / kiriş / döşeme / perde: donatı bölümü (hata paneli bozmaz)
+    if (o && (s.kind === 'item' || s.kind === 'slab' || s.kind === 'wall')) { try { body += rebarInspHtml(this._root, o.id); } catch (e) { console.warn('Donatı paneli', e); } }
     let bimH = '';
     try { bimH = o ? bimInspHtml(this.bim, s, this._root) : ''; } catch (e) { console.warn('BIM paneli', e); }   // BIM bölümü hiçbir koşulda paneli bozmaz
     this.insp.innerHTML = `<div class="insp-body">${body}${bimH}</div>${o ? `<button class="btn btn-danger btn-xs del" data-act="del">${icon('trash')}Sil</button>` : ''}`;
@@ -2582,6 +2585,10 @@ export class PlanEditor {
           if (k === 'lv.slabComp') { const r = this.bimCommand({ op: 'syncLevelBindings' }); if (r.applied) toast('Kat bağlı elemanlar döşeme kalınlığına göre güncellendi (ayrı geri al adımı)'); }
           return;
         }
+        if (k === 'rb.mode') {   // donatı kaynağı: "elle" seçilince o anki minimum değerler açıkça kayda yazılır
+          x.rb = v === 'manual' ? (x.rb?.mode === 'manual' ? x.rb : manualFromMin(this._root, x.id) || { mode: 'manual' }) : { mode: v };
+          this.changed(); return;
+        }
         if (k.startsWith('lv.')) {
           const q = k.slice(3);
           if (this.lv) this.plan[q] = q === 'slab' ? Math.max(0, v) : v;
@@ -2684,6 +2691,7 @@ export class PlanEditor {
       if (a === 'dup' && this.sel.kind === 'stair') { const c = { ...x, id: uid('st'), x: x.x + 40, y: x.y + 40 }; P.stairs.push(c); this.sel = { kind: 'stair', id: c.id }; this.changed(); return; }
       if (a === 'lflip') x.lflip = !x.lflip;
       if (a === 'secFlip') x.side = -(x.side || 1);
+      if (a === 'rbManual') x.rb = manualFromMin(this._root, x.id) || x.rb;
       if (a === 'beamTop') x.z = (P.meta.wallH || 280) - x.h;
       if (a === 'slabOutline') { const pts = outlineOf({ ...P, meta: { ...this._root.meta, ...P.meta } }); if (pts) x.pts = pts; else toast('Dış hat bulunamadı', 'err'); }
       if (a === 'flip') x.flip = !x.flip;
