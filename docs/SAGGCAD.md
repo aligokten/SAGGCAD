@@ -20,8 +20,8 @@ kolon  v=1 tur=kolon ad=S1 b=300 h=500 H=2800 mat=betonarme rb=none|min|manual [
   (sonraki sürümde geometri ile eşitlenecek).
 
 ## Donatı hesabı
-`saggcad_bim::rebar` — web (`arsiv/web: js/bim/rebar.js`) ve FreeCAD (`arsiv/freecad: saggcad/core/rebar.py`)
-sürümleriyle birebir aynı kurallar ve aynı test değerleri: kolon 30×50 / H 280 → 10Ø14 + 23 etriye Ø8 = 54,397 kg;
+`saggcad_bim::rebar` — önceki web sürümüyle (`arsiv/web: js/bim/rebar.js`) birebir aynı kurallar ve aynı test
+değerleri: kolon 30×50 / H 280 → 10Ø14 + 23 etriye Ø8 = 54,397 kg;
 kiriş 25×50×500 → üst 2Ø12, alt 3Ø12, 31 etriye; döşeme 500×400 / t 15 → Ø8/19, 21 + 27 çubuk; perde 400×25 / H 280 →
 Ø10/25 iki yüz. "Minimum" her yerde tahmini olarak ayrı gösterilir.
 

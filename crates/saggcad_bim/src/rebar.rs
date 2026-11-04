@@ -6,9 +6,8 @@
 //!   hesabın yerini tutmaz, raporda ayrı sütunda ve "tahmini" etiketiyle.
 //! * `None` — tanımsız: metraja girmez (varsayım üretilmez).
 //!
-//! İç birimler: geometri cm, çap mm, boy cm (çıktıda m), ağırlık kg. Çelik 7850 kg/m³. Hesap, SAGGCAD'in önceki
-//! sürümlerindeki (web: `js/bim/rebar.js`, FreeCAD: `saggcad/core/rebar.py`) hesapla birebir aynıdır ve aynı elle
-//! hesaplanmış test değerlerini kullanır.
+//! İç birimler: geometri cm, çap mm, boy cm (çıktıda m), ağırlık kg. Çelik 7850 kg/m³. Hesap, SAGGCAD'in önceki web
+//! sürümündeki (`arsiv/web: js/bim/rebar.js`) hesapla birebir aynıdır ve aynı elle hesaplanmış test değerlerini kullanır.
 
 use std::collections::BTreeMap;
 

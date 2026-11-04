@@ -40,12 +40,10 @@ cargo run --release                       # masaüstü uygulama
 trunk serve                               # web sürümü (rustup target add wasm32-unknown-unknown)
 ```
 
-## Önceki sürümler
-- `arsiv/web` — tarayıcıda çalışan ilk SAGGCAD (JavaScript): rölöve editörü, BIM çekirdeği, revizyon karşılaştırması,
-  tadilat metrajı, proje sürümleri, aks, donatı.
-- `arsiv/freecad` — FreeCAD / UniCAD tezgâhı (Python): aks sistemi, donatı metrajı.
-
-Bu sürümlerdeki hesap mantığı Rust BIM çekirdeğine taşınıyor; donatı hesabı üç sürümde de aynı test değerlerini verir.
+## Önceki sürüm
+`arsiv/web` dalı — tarayıcıda çalışan ilk SAGGCAD (JavaScript): rölöve editörü, BIM çekirdeği, revizyon karşılaştırması,
+tadilat metrajı, proje sürümleri. Bu sürümdeki hesap mantığı Rust BIM çekirdeğine taşınıyor; donatı hesabı aynı test
+değerlerini verir.
 
 ## Lisans
 GPL-3.0 (OpenCAD Studio ile aynı) — [LICENSE](LICENSE). OpenCAD Studio © katkıcıları; SAGGCAD BIM modülü © SAGGCAD katkıcıları.

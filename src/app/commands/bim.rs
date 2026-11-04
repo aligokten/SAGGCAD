@@ -121,11 +121,15 @@ mod tests {
         assert_eq!(names, ["1", "2", "3", "A", "B"]);
         assert!(lines.iter().all(|e| e.common().layer == "S-AKS"));
         assert!(doc.app_ids.contains("SAGGCAD"), "XDATA uygulama adı kayıtlı");
-        // ad devamı
-        app.automation_op(r#"{"op":"run","cmd":"SAGG_AKS 3000  9000,0 "}"#);
+        // ad devamı: ikinci aks sistemi (düşey 3000, yatay 1000) mevcut adlardan devam eder
+        // (otomasyon girdileri boşlukla ayrılır; ardışık boşluk tek ayırıcıdır)
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_AKS 3000 1000 9000,0 "}"#);
         let i = app.active_tab;
         let names = existing_names(&app.tabs[i].scene.document, "aks");
-        assert!(names.contains(&"4".to_string()) && names.contains(&"5".to_string()), "{names:?}");
+        for n in ["4", "5", "C", "D"] {
+            assert!(names.contains(&n.to_string()), "{n} yok: {names:?}");
+        }
+        assert_eq!(names.len(), 9);
     }
 
     #[test]
