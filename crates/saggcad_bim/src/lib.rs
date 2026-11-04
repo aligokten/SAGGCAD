@@ -7,6 +7,7 @@
 //! Birimler: çizim birimi mm (DWG `$INSUNITS` 4). Donatı hesabı içeride cm ile çalışır; dönüşüm `rebar` modülündedir.
 
 pub mod axis;
+pub mod band;
 pub mod column;
 pub mod grids;
 pub mod rebar;
