@@ -1,4 +1,4 @@
-// SAGG_KIRIS / SAGG_PERDE — iki nokta + kesit + hiza (eksen / sol yüz / sağ yüz) → kapalı dış hat (çoklu çizgi)
+// SAGG_KIRIS / SAGG_PERDE / SAGG_DUVAR — iki nokta + kesit + hiza (eksen / sol yüz / sağ yüz) → kapalı dış hat (çoklu çizgi)
 // + XDATA. Zincirleme: bir sonraki eleman öncekinin bitişinden başlar; Enter bitirir.
 
 use codec::entities::{LwPolyline, LwVertex};
@@ -15,6 +15,7 @@ use saggcad_bim::rebar::Spec;
 pub enum BandKind {
     Kiris,
     Perde,
+    Duvar,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -42,6 +43,7 @@ impl BandCommand {
         let (width, height) = match kind {
             BandKind::Kiris => (250.0, 500.0),
             BandKind::Perde => (250.0, 2800.0),
+            BandKind::Duvar => (200.0, 2800.0),
         };
         Self { kind, step: Step::Size, width, height, align: Align::Axis, names }
     }
@@ -50,6 +52,7 @@ impl BandCommand {
         match self.kind {
             BandKind::Kiris => "K",
             BandKind::Perde => "P",
+            BandKind::Duvar => "DV",
         }
     }
 
@@ -70,6 +73,11 @@ impl BandCommand {
 
 pub fn make_band(kind: BandKind, a: [f64; 2], b: [f64; 2], width: f64, height: f64, align: Align, name: &str) -> Option<EntityType> {
     let o = outline(a, b, width, align)?;
+    if kind == BandKind::Duvar {
+        // boşluksuz duvar: tek parça; kapı / pencere eklenince SAGG_KAPI / SAGG_PENCERE parçalara böler
+        let wall = saggcad_bim::wall::Wall::new(name, a, b, width, height, align);
+        return super::wall_entities(&wall).into_iter().next();
+    }
     let len = ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt();
     let mut pl = LwPolyline::new();
     pl.is_closed = true;
@@ -77,6 +85,7 @@ pub fn make_band(kind: BandKind, a: [f64; 2], b: [f64; 2], width: f64, height: f
     let (layer, data) = match kind {
         BandKind::Kiris => (super::LAYER_KIRIS, saggcad_bim::xdata::kiris(name, len, width, height, &Spec::none())),
         BandKind::Perde => (super::LAYER_PERDE, saggcad_bim::xdata::perde(name, len, width, height, &Spec::none())),
+        BandKind::Duvar => unreachable!(),
     };
     pl.common.layer = layer.to_string();
     super::set_bim_data(&mut pl.common, data);
@@ -88,6 +97,7 @@ impl CadCommand for BandCommand {
         match self.kind {
             BandKind::Kiris => "SAGG_KIRIS",
             BandKind::Perde => "SAGG_PERDE",
+            BandKind::Duvar => "SAGG_DUVAR",
         }
     }
 
@@ -95,7 +105,7 @@ impl CadCommand for BandCommand {
         let n = self.name();
         match (self.kind, self.step) {
             (BandKind::Kiris, Step::Size) => format!("{n}  Kesit b x h, mm <{}x{}>:", self.width, self.height),
-            (BandKind::Perde, Step::Size) => format!("{n}  Kalınlık, mm <{}>:", self.width),
+            (BandKind::Perde | BandKind::Duvar, Step::Size) => format!("{n}  Kalınlık, mm <{}>:", self.width),
             (_, Step::Height) => format!("{n}  Yükseklik, mm <{}>:", self.height),
             (_, Step::Align) => format!("{n}  Çizgi nerede [E=eksen / S=sol yüz / G=sağ yüz] <E>:"),
             (_, Step::Start) => format!("{n}  {} başlangıç noktası:", self.next_name()),
@@ -122,7 +132,7 @@ impl CadCommand for BandCommand {
                     self.height = num(b)?;
                     self.step = Step::Align;
                 }
-                BandKind::Perde => {
+                BandKind::Perde | BandKind::Duvar => {
                     self.width = num(text)?;
                     self.step = Step::Height;
                 }
@@ -163,7 +173,7 @@ impl CadCommand for BandCommand {
 
     fn on_enter(&mut self) -> CmdResult {
         self.step = match self.step {
-            Step::Size if self.kind == BandKind::Perde => Step::Height,
+            Step::Size if self.kind != BandKind::Kiris => Step::Height,
             Step::Size | Step::Height => Step::Align,
             Step::Align => Step::Start,
             Step::Start | Step::End(_) => return CmdResult::Cancel,
@@ -180,4 +190,4 @@ impl CadCommand for BandCommand {
     }
 }
 
-inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_KIRIS", "SAGG_PERDE"] }); // BandCommand
+inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_KIRIS", "SAGG_PERDE", "SAGG_DUVAR"] }); // BandCommand

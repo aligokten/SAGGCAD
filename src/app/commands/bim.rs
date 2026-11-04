@@ -1,4 +1,4 @@
-//! SAGGCAD BIM komutları: SAGG_AKS, SAGG_KOLON, SAGG_DONATI (donatı metrajı raporu), SAGG_DONATIMIN (tanımsız
+//! SAGGCAD BIM komutları: SAGG_AKS, SAGG_KOLON, SAGG_KIRIS / SAGG_PERDE / SAGG_DUVAR, SAGG_KAPI / SAGG_PENCERE, SAGG_MAHAL, SAGG_DONATI (donatı metrajı raporu), SAGG_DONATIMIN (tanımsız
 //! kolonlara yönetmelik minimumu). Geometri ve hesap `saggcad_bim` crate'inde; BIM verisi nesne XDATA'sında.
 
 use super::{Message, OpenCADStudio};
@@ -30,9 +30,13 @@ impl OpenCADStudio {
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
-            "SAGG_KIRIS" | "SAGG_PERDE" => {
+            "SAGG_KIRIS" | "SAGG_PERDE" | "SAGG_DUVAR" => {
                 use crate::modules::bim::band::{BandCommand, BandKind};
-                let (kind, tur) = if cmd.trim().eq_ignore_ascii_case("SAGG_KIRIS") { (BandKind::Kiris, "kiris") } else { (BandKind::Perde, "perde") };
+                let (kind, tur) = match cmd.trim().to_ascii_uppercase().as_str() {
+                    "SAGG_KIRIS" => (BandKind::Kiris, "kiris"),
+                    "SAGG_PERDE" => (BandKind::Perde, "perde"),
+                    _ => (BandKind::Duvar, "duvar"),
+                };
                 let cmd = BandCommand::new(kind, existing_names(&self.tabs[i].scene.document, tur));
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
@@ -40,6 +44,40 @@ impl OpenCADStudio {
             "SAGG_DOSEME" => {
                 use crate::modules::bim::doseme::DosemeCommand;
                 let cmd = DosemeCommand::new(existing_names(&self.tabs[i].scene.document, "doseme"));
+                self.command_line.push_info(&cmd.prompt());
+                self.tabs[i].active_cmd = Some(Box::new(cmd));
+            }
+            "SAGG_KAPI" | "SAGG_PENCERE" => {
+                use crate::modules::bim::bosluk::BoslukCommand;
+                use saggcad_bim::wall::OpKind;
+                let kind = if cmd.trim().eq_ignore_ascii_case("SAGG_KAPI") { OpKind::Kapi } else { OpKind::Pencere };
+                // duvar parçaları ve boşluk sembolleri: eski hâli silmek ve ad devamı için
+                let related: Vec<(Handle, codec::EntityType)> = self.tabs[i]
+                    .scene
+                    .document
+                    .entities()
+                    .filter(|e| bim_data(e).is_some_and(|m| matches!(m.get("tur").map(String::as_str), Some("duvar" | "kapi" | "pencere"))))
+                    .map(|e| (e.common().handle, e.clone()))
+                    .collect();
+                if !related.iter().any(|(_, e)| bim_data(e).is_some_and(|m| m.get("tur").map(String::as_str) == Some("duvar"))) {
+                    self.command_line.push_output(&format!("{}  Çizimde SAGGCAD duvarı yok — önce SAGG_DUVAR ile duvar çizin.", cmd.trim().to_ascii_uppercase()));
+                    return Some(Task::none());
+                }
+                let cmd = BoslukCommand::new(kind, related);
+                self.command_line.push_info(&cmd.prompt());
+                self.tabs[i].active_cmd = Some(Box::new(cmd));
+            }
+            "SAGG_MAHAL" => {
+                use crate::modules::bim::mahal::MahalCommand;
+                let nos: Vec<String> = self.tabs[i]
+                    .scene
+                    .document
+                    .entities()
+                    .filter_map(bim_data)
+                    .filter(|m| m.get("tur").map(String::as_str) == Some("mahal"))
+                    .filter_map(|m| m.get("no").cloned())
+                    .collect();
+                let cmd = MahalCommand::new(nos);
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
@@ -231,5 +269,66 @@ mod tests {
         }
         let els = bim_elements(&app.tabs[i].scene.document);
         assert!(els.iter().any(|e| e.geom == Geom::Kiris { l: 600.0, b: 25.0, h: 50.0 }));
+    }
+
+    #[test]
+    fn duvar_kapi_mahal_ve_geri_al() {
+        use glam::DVec3;
+        let mut app = OpenCADStudio::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_DUVAR 200 2800 E 0,0 5000,0 5000,4000 "}"#);
+        assert_eq!(bim_count(&app, "duvar"), 2, "zincirleme iki duvar");
+        let i = app.active_tab;
+        assert_eq!(existing_names(&app.tabs[i].scene.document, "duvar"), ["DV1", "DV2"]);
+        assert!(app.tabs[i].scene.document.entities().filter(|e| bim_data(e).is_some()).all(|e| e.common().layer == "A-DUVAR"));
+
+        // kapı: otomasyonda nesne seçimi olmadığından seçilen duvar komuta doğrudan verilir
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_KAPI"}"#);
+        let i = app.active_tab;
+        let (h, e) = app.tabs[i]
+            .scene
+            .document
+            .entities()
+            .find(|e| bim_data(e).is_some_and(|m| m.get("ad").map(String::as_str) == Some("DV1")))
+            .map(|e| (e.common().handle, e.clone()))
+            .unwrap();
+        let result = {
+            let cmd = app.tabs[i].active_cmd.as_mut().expect("SAGG_KAPI etkin");
+            cmd.inject_picked_entity(e);
+            let _ = cmd.on_entity_pick(h, DVec3::ZERO);
+            let _ = cmd.on_enter(); // 900
+            let _ = cmd.on_enter(); // 2100
+            let _ = cmd.on_point(DVec3::new(1000.0, 0.0, 0.0));
+            cmd.on_point(DVec3::new(600.0, 700.0, 0.0))
+        };
+        let _ = app.apply_cmd_result(result);
+        let i = app.active_tab;
+        assert!(app.tabs[i].active_cmd.is_none());
+        assert_eq!(bim_count(&app, "duvar"), 3, "DV1 kapıyla iki parçaya bölündü");
+        assert_eq!(bim_count(&app, "kapi"), 2, "kanat + yay");
+        let walls: Vec<_> = app.tabs[i].scene.document.entities().filter_map(crate::modules::bim::wall_of).collect();
+        let (gross, net): (f64, f64) = walls.iter().filter(|w| w.name == "DV1").take(1).map(|w| w.areas()).next().unwrap();
+        assert!((gross - 14.0).abs() < 1e-9 && (net - (14.0 - 0.9 * 2.1)).abs() < 1e-9);
+        app.automation_op(r#"{"op":"undo"}"#);
+        assert_eq!((bim_count(&app, "duvar"), bim_count(&app, "kapi")), (2, 0), "kapı tek geri al");
+
+        // mahal etiketi (ad boşluk içerebilir; komuta doğrudan yazılır)
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_MAHAL"}"#);
+        let i = app.active_tab;
+        let result = {
+            let cmd = app.tabs[i].active_cmd.as_mut().expect("SAGG_MAHAL etkin");
+            let _ = cmd.on_text_input("YATAK ODASI");
+            let _ = cmd.on_enter(); // no 01
+            for (x, y) in [(0.0, 0.0), (5000.0, 0.0), (5000.0, 4000.0), (0.0, 4000.0)] {
+                let _ = cmd.on_point(DVec3::new(x, y, 0.0));
+            }
+            cmd.on_enter()
+        };
+        let _ = app.apply_cmd_result(result);
+        assert_eq!(bim_count(&app, "mahal"), 1);
+        assert_eq!(bim_count(&app, "mahal_etiket"), 2);
+        let i = app.active_tab;
+        let texts: Vec<String> = app.tabs[i].scene.document.entities().filter_map(|e| if let codec::EntityType::Text(t) = e { Some(t.value.clone()) } else { None }).collect();
+        assert!(texts.contains(&"01 YATAK ODASI".to_string()) && texts.contains(&"A = 20,00 m²".to_string()), "{texts:?}");
     }
 }

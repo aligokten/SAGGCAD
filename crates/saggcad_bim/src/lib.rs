@@ -11,6 +11,8 @@ pub mod band;
 pub mod column;
 pub mod grids;
 pub mod rebar;
+pub mod room;
+pub mod wall;
 pub mod xdata;
 
 /// XDATA uygulama adı (DWG APPID tablosu)

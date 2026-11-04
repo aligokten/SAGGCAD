@@ -4238,24 +4238,6 @@ fn start_page_content<'a>(
             })
     };
 
-    // Donate — the prominent call-to-action, using the theme's danger role.
-    let donate_btn = {
-        button(
-            row![
-                crate::ui::icons::themed_danger_text(crate::ui::icons::HEART, 14.0),
-                text(crate::tr!("start", "donate")).size(14),
-            ]
-            .spacing(5)
-            .align_y(iced::Center),
-        )
-        .on_press(Message::RibbonToolClick {
-            tool_id: "DONATE".to_string(),
-            event: crate::modules::ModuleEvent::Command("DONATE".to_string()),
-        })
-        .padding([10, 22])
-        .style(|theme: &Theme, status| start_action_shape(button::danger(theme, status)))
-    };
-
     let primary_row = WrapFlow::new(vec![
         outline_btn(crate::tr!("start", "new-drawing"), Message::TabNew).into(),
         // The templates beside the default one, then Browse (NEW asks for a
@@ -4307,7 +4289,6 @@ fn start_page_content<'a>(
             }
         },
         outline_btn(crate::tr!("start", "open-file"), Message::OpenFile).into(),
-        donate_btn.into(),
     ])
     .spacing_x(12.0)
     .row_h(48.0)
@@ -4392,26 +4373,6 @@ fn start_page_content<'a>(
         })
     });
 
-    let sponsors = column![
-        text(crate::tr!("start", "sponsors")).size(15),
-        mouse_area(
-            container(
-                iced::widget::svg(iced::widget::svg::Handle::from_memory(include_bytes!(
-                    "../../../assets/sponsors/openaec-logo-dark-on-light.svg"
-                )))
-                .width(Fill)
-                .height(iced::Length::Fixed(120.0))
-                .content_fit(iced::ContentFit::Contain),
-            )
-            .width(Fill.max(300.0)),
-        )
-        .interaction(iced::mouse::Interaction::Pointer)
-        .on_press(Message::OpenUrl("https://open-aec.com/".to_string())),
-    ]
-    .spacing(10)
-    .align_x(iced::alignment::Horizontal::Center)
-    .width(Fill);
-
     let content = column![
         Space::new().height(iced::Length::Fixed(28.0)),
         container(headline).center_x(Fill),
@@ -4421,8 +4382,6 @@ fn start_page_content<'a>(
         container(secondary_row).center_x(Fill),
         Space::new().height(iced::Length::Fixed(10.0)),
         container(reddit_btn).center_x(Fill),
-        Space::new().height(iced::Length::Fixed(20.0)),
-        sponsors,
         Space::new().height(iced::Length::Fixed(52.0)),
     ]
     .spacing(0)
@@ -4446,7 +4405,7 @@ fn start_page_content<'a>(
         f32::from_bits(action_width_out.load(std::sync::atomic::Ordering::Relaxed));
     let welcome_wide_min = measured_action_w.max(360.0);
     let avail = (avail_w - 16.0).max(0.0); // minus the page's l/r padding
-    let panel_widths = [panel_w; 4];
+    let panel_widths = [panel_w, panel_w, panel_w, 0.0]; // SAGGCAD: 4. panel (destekçiler) kaldırıldı
     let mut panel_visible = [true, true, true, true];
     let required_width = |visible: &[bool; 4]| {
         let visible_panels = visible.iter().filter(|&&shown| shown).count();
@@ -4702,104 +4661,23 @@ fn start_page_content<'a>(
         .into()
     };
 
-    // Right rail: Patreon supporters, fetched at boot. When the list is empty
-    // (no token configured / offline) only the "Support on Patreon" button
-    // shows, so the rail always invites support.
-    let supporters: Element<'a, Message> = {
-        let mut list = column![
-            text(crate::tr!("start", "supporters")).size(15),
-            Space::new().height(iced::Length::Fixed(12.0)),
-        ]
-        .spacing(6)
-        .padding(iced::Padding {
-            right: 12.0,
-            ..iced::Padding::ZERO
-        })
-        .width(Fill);
-        for (name, cents) in patrons {
-            // Patreon payments are normalized to USD cents while the list is
-            // generated; hand-maintained entries use USD cents as well.
-            let amount = format!("${:.2}", *cents as f64 / 100.0);
-            list = list.push(
-                iced::widget::row![
-                    text(name).size(12).style(start_muted_style).width(Fill),
-                    text(amount).size(12).style(start_muted_style),
-                ]
-                .spacing(6),
-            );
-        }
-        let support_btn = mouse_area(
-            container(
-                iced::widget::row![
-                    crate::ui::icons::themed_danger_text(crate::ui::icons::HEART, 13.0),
-                    text(crate::tr!("start", "support-on-patreon")).size(12),
-                ]
-                .spacing(6)
-                .align_y(iced::Center),
-            )
-            .padding([6, 10])
-            .width(Fill)
-            .center_x(Fill)
-            .style(|theme: &Theme| {
-                let pair = theme.palette().danger.base;
-                container::Style {
-                    background: Some(Background::Color(pair.color)),
-                    border: Border {
-                        color: Color::TRANSPARENT,
-                        width: 0.0,
-                        radius: 6.0.into(),
-                    },
-                    text_color: Some(pair.text),
-                    ..Default::default()
-                }
-            }),
-        )
-        .interaction(iced::mouse::Interaction::Pointer)
-        .on_press(Message::OpenUrl(
-            "https://patreon.com/HakanSeven12".to_string(),
-        ));
-        container(column![
-            iced::widget::scrollable(list).height(Fill),
-            Space::new().height(iced::Length::Fixed(12.0)),
-            support_btn,
-        ])
-        .width(match start_layout {
-            StartLayout::AllPanels
-            | StartLayout::WithoutVideos
-            | StartLayout::WithoutVideosAndDiscussions => iced::Length::Fixed(panel_w),
-            StartLayout::RecentAndWelcome | StartLayout::Compact => iced::Length::Fill,
-        })
-        .height(Fill)
-        .padding(20)
-        .style(|theme: &Theme| {
-            let palette = theme.palette();
-            container::Style {
-                background: Some(Background::Color(palette.background.weak.color)),
-                border: Border {
-                    color: palette.background.neutral.color,
-                    width: 1.0,
-                    radius: 8.0.into(),
-                },
-                ..Default::default()
-            }
-        })
-        .into()
-    };
+    // SAGGCAD: bağış / destekçi paneli kaldırıldı.
+    let _ = patrons;
 
     let body: Element<'a, Message> = match start_layout {
         StartLayout::AllPanels => {
-            iced::widget::row![recent, videos_panel, welcome, discussions_panel, supporters,]
+            iced::widget::row![recent, videos_panel, welcome, discussions_panel]
                 .spacing(16)
                 .height(Fill)
                 .into()
         }
         StartLayout::WithoutVideos => {
-            iced::widget::row![recent, welcome, discussions_panel, supporters]
+            iced::widget::row![recent, welcome, discussions_panel]
                 .spacing(16)
                 .height(Fill)
                 .into()
         }
-        StartLayout::WithoutVideosAndDiscussions => iced::widget::row![recent, welcome, supporters]
+        StartLayout::WithoutVideosAndDiscussions => iced::widget::row![recent, welcome]
             .spacing(16)
             .height(Fill)
             .into(),
@@ -4851,11 +4729,6 @@ fn start_page_content<'a>(
                     super::StartSection::Discussions,
                 )
                 .into(),
-                tab_btn(
-                    crate::tr!("start", "supporters"),
-                    super::StartSection::Supporters,
-                )
-                .into(),
             ])
             .spacing(6.0)
             .align_y(iced::Center)
@@ -4878,11 +4751,7 @@ fn start_page_content<'a>(
                     .height(Fill)
                     .center_x(Fill)
                     .into(),
-                super::StartSection::Supporters => container(supporters)
-                    .width(Fill)
-                    .height(Fill)
-                    .center_x(Fill)
-                    .into(),
+                super::StartSection::Supporters => welcome.into(),
             };
             column![
                 container(tab_bar).center_x(Fill),

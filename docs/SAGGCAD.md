@@ -29,13 +29,18 @@ kiriş 25×50×500 → üst 2Ø12, alt 3Ø12, 31 etriye; döşeme 500×400 / t 1
 Ø10/25 iki yüz. "Minimum" her yerde tahmini olarak ayrı gösterilir.
 
 ## Yol haritası
-1. **0.8 (bu sürüm)** — çatal, BIM sekmesi: aks sistemi, kolon (köşeden yerleştirme), donatı minimumu ve metrajı.
+1. **0.8 (tamamlandı)** — çatal, BIM sekmesi: aks sistemi, kolon (köşeden yerleştirme), donatı minimumu ve metrajı.
 2. **0.9 (tamamlandı)** — kiriş, perde ve döşeme komutları (hiza: eksen / sol yüz / sağ yüz, zincirleme), elle donatı
    girişi (`SAGG_DONATIGIR`), tüm betonarme elemanlara minimum, CSV dışa aktarma, ölçülerin çizimden okunması.
-2b. **sonraki küçük adım** — proje kuralları (beton / çelik sınıfı, paspayı) belgede; donatı için özellik paneli.
-3. **0.10** — duvar / kapı / pencere BIM elemanları, mahal (oda) alanları, imalat metrajı tabloları; web sürümündeki
-   (arsiv/web) rölöve editörü ve revizyon karşılaştırması mantığının taşınması.
-4. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
+3. **0.10 (tamamlandı)** — mimari elemanlar: `SAGG_DUVAR` (kalınlık, yükseklik, hiza, zincirleme), `SAGG_KAPI` /
+   `SAGG_PENCERE` (duvarı seç → ölçüler → yer; kapıda kanadın açılacağı taraf; duvar boşluklar arasındaki dolu
+   parçalara bölünür, tek geri al), `SAGG_MAHAL` (ad, numara, sınır → alan etiketi "A = 24,50 m²"). Başlangıç
+   ekranındaki bağış / destekçi bölümleri ve bağış istemi kaldırıldı.
+4. **0.11 — imar uygunluğu (Planlı Alanlar İmar Yönetmeliği)** — parsel ve imar durumu girdileri (TAKS, KAKS / emsal,
+   çekme mesafeleri, kat adedi / Hmax), emsal alanı hesabı ve emsal dışı alanlar, mahal minimum alan / boyut
+   kontrolleri, sığınak hesabı, yağmur suyu deposu hesabı ve rapor. Mahal kayıtları (alan çokgenden) bu hesapların
+   girdisidir.
+5. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
    3D BIM görünümü (OpenCAD Studio çekirdeğinin katı modellemesiyle ekstrüzyon), eleman türleri ve kompozit katmanlar.
 
 ## Yukarı akımla eşitleme
