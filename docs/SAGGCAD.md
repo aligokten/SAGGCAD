@@ -36,10 +36,21 @@ kiriş 25×50×500 → üst 2Ø12, alt 3Ø12, 31 etriye; döşeme 500×400 / t 1
    `SAGG_PENCERE` (duvarı seç → ölçüler → yer; kapıda kanadın açılacağı taraf; duvar boşluklar arasındaki dolu
    parçalara bölünür, tek geri al), `SAGG_MAHAL` (ad, numara, sınır → alan etiketi "A = 24,50 m²"). Başlangıç
    ekranındaki bağış / destekçi bölümleri ve bağış istemi kaldırıldı.
-4. **0.11 — imar uygunluğu (Planlı Alanlar İmar Yönetmeliği)** — parsel ve imar durumu girdileri (TAKS, KAKS / emsal,
-   çekme mesafeleri, kat adedi / Hmax), emsal alanı hesabı ve emsal dışı alanlar, mahal minimum alan / boyut
-   kontrolleri, sığınak hesabı, yağmur suyu deposu hesabı ve rapor. Mahal kayıtları (alan çokgenden) bu hesapların
-   girdisidir.
+4. **0.11 (tamamlandı) — imar ön kontrolü** — `SAGG_PARSEL` (imar durumu: TAKS, KAKS, kat adedi + parsel sınırı),
+   `SAGG_KAT` (brüt kat dış hattı, tip B/Z/N/C, tekrar), `SAGG_IMARVERI` (sığınak: oda sayısına göre konut BB adetleri,
+   konut dışı alan; yağmur suyu: il yıllık yağışı, yüzey katsayısı), `SAGG_IMAR` (rapor). Hesaplar `saggcad_bim::imar`:
+   - TAKS = zemin kat oturumu / parsel; emsal = Σ brüt kat × tekrar − emsal dışı mahaller (PAİY md. 22 başlıkları, mahal
+     adından: sığınak, otopark, merdiven, asansör, teknik hacimler…), emsal dışı toplamı izin verilen emsalin %30'uyla sınırlı;
+   - konut piyes asgari ölçüleri (PAİY md. 29): oturma 12 m² / 3,00 m, yatak 9 m² / 2,50 m, mutfak 3,30 m² / 1,50 m,
+     banyo 3,00 m² / 1,50 m, tuvalet 1,20 m² / 1,00 m, hol / koridor 1,20 m; dar kenar en küçük çevreleyen dikdörtgenden
+     (dikdörtgen olmayan mahalde yaklaşık olarak işaretlenir);
+   - sığınak (Sığınak Yönetmeliği, RG 07.11.2025): kişi = 1 oda 2, 2 oda 3, 3+ oda 4; konut dışı alan / 20; kişi başına
+     1 m², en az 20 m²; zorunluluk eşiği 10 konut BB;
+   - yağmur suyu deposu (PAİY 57/A): çatı izdüşümü × yıllık yağış × katsayı; depo ≥ %6; zorunlu: (parsel > 2.000 m² ya
+     da çatı > 1.000 m²) ve depo > 7 m³.
+   Kaynaklarda birbirini tutmayan değerler (tuvalet ölçüsü, sığınak eşiğinin "10 ve üzeri" / "10'dan fazla" yorumu,
+   %30 sınırının dayanağı) raporda "doğrulayın" notuyla gösterilir; girdi yoksa hesap yapılmaz ("VERİ EKSİK").
+   Rapor bir ön kontroldür: plan notlarının, idarenin yerel imar yönetmeliğinin ve ruhsat incelemesinin yerini tutmaz.
 5. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
    3D BIM görünümü (OpenCAD Studio çekirdeğinin katı modellemesiyle ekstrüzyon), eleman türleri ve kompozit katmanlar.
 

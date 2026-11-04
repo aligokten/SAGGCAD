@@ -81,6 +81,40 @@ impl OpenCADStudio {
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
+            "SAGG_PARSEL" | "SAGG_KAT" => {
+                use crate::modules::bim::imar::{AlanCommand, AlanTur};
+                let (tur, key) = if cmd.trim().eq_ignore_ascii_case("SAGG_PARSEL") { (AlanTur::Parsel, "parsel") } else { (AlanTur::Kat, "kat") };
+                // önceki parselin imar durumu / önceki kat öneri olarak gelir
+                let prev = self.tabs[i].scene.document.entities().filter_map(bim_data).filter(|m| m.get("tur").map(String::as_str) == Some(key)).last();
+                let cmd = AlanCommand::new(tur, prev);
+                self.command_line.push_info(&cmd.prompt());
+                self.tabs[i].active_cmd = Some(Box::new(cmd));
+            }
+            "SAGG_IMARVERI" => {
+                use crate::modules::bim::imar::ImarVeriCommand;
+                let parsels: Vec<(Handle, codec::EntityType)> = self.tabs[i]
+                    .scene
+                    .document
+                    .entities()
+                    .filter(|e| bim_data(e).is_some_and(|m| m.get("tur").map(String::as_str) == Some("parsel")))
+                    .map(|e| (e.common().handle, e.clone()))
+                    .collect();
+                let Some((h, e)) = parsels.first().cloned() else {
+                    self.command_line.push_output("SAGG_IMARVERI  Çizimde parsel yok — önce SAGG_PARSEL ile parseli çizin.");
+                    return Some(Task::none());
+                };
+                if parsels.len() > 1 {
+                    self.command_line.push_output("SAGG_IMARVERI  Çizimde birden çok parsel var; ilk çizilen kullanılıyor.");
+                }
+                let cmd = ImarVeriCommand::new(h, e);
+                self.command_line.push_info(&cmd.prompt());
+                self.tabs[i].active_cmd = Some(Box::new(cmd));
+            }
+            "SAGG_IMAR" => {
+                for line in imar_lines(&self.tabs[i].scene.document) {
+                    self.command_line.push_output(&line);
+                }
+            }
             "SAGG_DONATIGIR" => {
                 use crate::modules::bim::donatigir::DonatiGirCommand;
                 let cmd = DonatiGirCommand::new();
@@ -150,6 +184,39 @@ impl OpenCADStudio {
     }
 }
 
+/// SAGG_IMAR raporu: belgedeki parsel, kat dış hatları ve mahallerden imar ön kontrolü
+pub(crate) fn imar_lines(doc: &codec::Document) -> Vec<String> {
+    use crate::modules::bim::outline_of;
+    use saggcad_bim::imar::{self, from_mm};
+    let mut parsel: Option<imar::Parsel> = None;
+    let mut parsel_say = 0;
+    let mut katlar = Vec::new();
+    let mut mahaller = Vec::new();
+    for e in doc.entities() {
+        let (Some(map), Some(poly)) = (bim_data(e), outline_of(e)) else { continue };
+        let poly = from_mm(&poly);
+        match map.get("tur").map(String::as_str) {
+            Some("parsel") => {
+                parsel_say += 1;
+                if parsel.is_none() {
+                    parsel = Some(imar::parsel_from(&map, poly));
+                }
+            }
+            Some("kat") => katlar.extend(imar::kat_from(&map, poly)),
+            Some("mahal") => mahaller.push(imar::Mahal { ad: map.get("ad").cloned().unwrap_or_default(), no: map.get("no").cloned().unwrap_or_default(), poly }),
+            _ => {}
+        }
+    }
+    let Some(parsel) = parsel else {
+        return vec!["SAGG_IMAR  Çizimde parsel yok — önce SAGG_PARSEL ile parseli ve imar durumunu girin.".into()];
+    };
+    let mut out = imar::rapor_satirlari(&imar::hesapla(&parsel, &katlar, &mahaller, &imar::Kurallar::default()));
+    if parsel_say > 1 {
+        out.insert(1, "  Çizimde birden çok parsel var; ilk çizilen kullanıldı.".into());
+    }
+    out
+}
+
 /// komut satırı raporu: kesin (statik projeden) ve tahmini (minimum) ayrı
 pub(crate) fn report_lines(rep: &rebar::Report) -> Vec<String> {
     let t = &rep.totals;
@@ -172,7 +239,7 @@ pub(crate) fn report_lines(rep: &rebar::Report) -> Vec<String> {
     out
 }
 
-inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_DONATI", "SAGG_DONATIMIN", "SAGG_DONATICSV"] });
+inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_DONATI", "SAGG_DONATIMIN", "SAGG_DONATICSV", "SAGG_IMAR"] });
 
 #[cfg(test)]
 mod tests {
@@ -330,5 +397,51 @@ mod tests {
         let i = app.active_tab;
         let texts: Vec<String> = app.tabs[i].scene.document.entities().filter_map(|e| if let codec::EntityType::Text(t) = e { Some(t.value.clone()) } else { None }).collect();
         assert!(texts.contains(&"01 YATAK ODASI".to_string()) && texts.contains(&"A = 20,00 m²".to_string()), "{texts:?}");
+    }
+
+    #[test]
+    fn imar_kontrolu_parsel_kat_mahal() {
+        use glam::DVec3;
+        let mut app = OpenCADStudio::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        // girdiler yokken
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_IMAR"}"#);
+        let i = app.active_tab;
+        assert!(imar_lines(&app.tabs[i].scene.document)[0].contains("parsel yok"));
+        // parsel 20×25 m, TAKS 0,40, KAKS 1,20, kat adedi 4
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_PARSEL 0.40 1.20 4 0,0 20000,0 20000,25000 0,25000 "}"#);
+        assert_eq!(bim_count(&app, "parsel"), 1);
+        // zemin kat 12×15 m (tip/ad komuta doğrudan; ad boşluk içerebilir)
+        for (tip, tekrar) in [("Z", "1"), ("N", "2")] {
+            app.automation_op(r#"{"op":"run","cmd":"SAGG_KAT"}"#);
+            let i = app.active_tab;
+            let result = {
+                let cmd = app.tabs[i].active_cmd.as_mut().expect("SAGG_KAT etkin");
+                let _ = cmd.on_text_input(if tip == "Z" { "ZEMİN KAT" } else { "NORMAL KAT" });
+                let _ = cmd.on_text_input(tip);
+                let _ = cmd.on_text_input(tekrar);
+                for (x, y) in [(3000.0, 5000.0), (15000.0, 5000.0), (15000.0, 20000.0), (3000.0, 20000.0)] {
+                    let _ = cmd.on_point(DVec3::new(x, y, 0.0));
+                }
+                cmd.on_enter()
+            };
+            let _ = app.apply_cmd_result(result);
+        }
+        assert_eq!(bim_count(&app, "kat"), 2);
+        let i = app.active_tab;
+        let lines = imar_lines(&app.tabs[i].scene.document);
+        let all = lines.join("\n");
+        assert!(lines[0].contains("parsel 500,00 m²") && lines[0].contains("brüt inşaat 540,00 m²"), "{all}");
+        assert!(all.contains("[UYGUN] TAKS") && all.contains("[UYGUN] Emsal (KAKS)") && all.contains("[UYGUN] Kat adedi"), "{all}");
+        assert!(all.contains("[VERİ EKSİK] Sığınak") && all.contains("[VERİ EKSİK] Yağmur"), "{all}");
+        // sığınak / yağmur girdileri: 12 adet 3+ odalı konut, yağış 600 mm, katsayı 0,8
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_IMARVERI 0 0 12 0 600 0.8"}"#);
+        let i = app.active_tab;
+        let all = imar_lines(&app.tabs[i].scene.document).join("\n");
+        assert!(all.contains("[AYKIRI] Sığınak") && all.contains("48 kişi"), "çizimde sığınak yok: {all}");
+        assert!(all.contains("Yağmur suyu deposu") && all.contains("Zorunlu değil"), "{all}");
+        app.automation_op(r#"{"op":"undo"}"#);
+        let i = app.active_tab;
+        assert!(imar_lines(&app.tabs[i].scene.document).join("\n").contains("[VERİ EKSİK] Sığınak"), "imar verisi tek geri al");
     }
 }

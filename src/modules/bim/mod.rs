@@ -8,6 +8,7 @@ pub mod aks;
 pub mod band;
 pub mod bosluk;
 pub mod doseme;
+pub mod imar;
 pub mod donatigir;
 pub mod kolon;
 pub mod mahal;
@@ -27,6 +28,8 @@ pub const LAYER_DUVAR: &str = "A-DUVAR";
 pub const LAYER_KAPI: &str = "A-KAPI";
 pub const LAYER_PENCERE: &str = "A-PENCERE";
 pub const LAYER_MAHAL: &str = "A-MAHAL";
+pub const LAYER_PARSEL: &str = "A-PARSEL";
+pub const LAYER_KAT: &str = "A-KAT";
 
 fn tool(id: &'static str, label: &'static str, icon: &'static [u8]) -> ToolDef {
     ToolDef { id, label, icon: IconKind::Svg(icon), event: ModuleEvent::Command(id.to_string()) }
@@ -64,6 +67,15 @@ impl CadModule for BimModule {
                         RibbonItem::LargeTool(tool("SAGG_KAPI", "Kapı", include_bytes!("../../../assets/icons/saggcad_kapi.svg"))),
                         RibbonItem::LargeTool(tool("SAGG_PENCERE", "Pencere", include_bytes!("../../../assets/icons/saggcad_pencere.svg"))),
                         RibbonItem::LargeTool(tool("SAGG_MAHAL", "Mahal\netiketi", include_bytes!("../../../assets/icons/saggcad_mahal.svg"))),
+                    ],
+                },
+                RibbonGroup {
+                    title: "İmar",
+                    tools: vec![
+                        RibbonItem::LargeTool(tool("SAGG_PARSEL", "Parsel", include_bytes!("../../../assets/icons/saggcad_parsel.svg"))),
+                        RibbonItem::LargeTool(tool("SAGG_KAT", "Kat\nalanı", include_bytes!("../../../assets/icons/saggcad_kat.svg"))),
+                        RibbonItem::Tool(tool("SAGG_IMARVERI", "Sığınak / yağmur", include_bytes!("../../../assets/icons/saggcad_imar.svg"))),
+                        RibbonItem::LargeTool(tool("SAGG_IMAR", "İmar\nkontrolü", include_bytes!("../../../assets/icons/saggcad_imar.svg"))),
                     ],
                 },
                 RibbonGroup {
