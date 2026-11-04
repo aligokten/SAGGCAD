@@ -10,6 +10,7 @@ pub mod axis;
 pub mod band;
 pub mod column;
 pub mod grids;
+pub mod imar;
 pub mod rebar;
 pub mod room;
 pub mod wall;
