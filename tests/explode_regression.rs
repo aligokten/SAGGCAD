@@ -120,7 +120,9 @@ fn explode_mline_golden_three_lines_per_segment() {
         Vector3::new(8.0, 4.0, 0.0),
     ]);
     let pieces = explode_entity(&EntityType::MLine(ml), &doc);
-    assert_eq!(pieces.len(), 9, "3 segments × (spine + 2 offsets)");
+    // EXPLODE builds the lines the multiline draws (#2538): the Standard style has two elements,
+    // so three segments give six lines (no separate centre spine).
+    assert_eq!(pieces.len(), 6, "3 segments × 2 Standard style elements");
     assert!(pieces.iter().all(|p| matches!(p, EntityType::Line(_))));
 }
 
