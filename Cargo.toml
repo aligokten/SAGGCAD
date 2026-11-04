@@ -366,3 +366,8 @@ harness = false
 [[test]]
 name = "integration"
 path = "tests/integration.rs"
+
+# SAGGCAD: acadrust deposu HakanSeven12 hesabından hakanaktt/acadrust'a taşındı; eski adres artık klonlanamıyor
+# (CI: "revision not found / failed to authenticate"). Aynı commit (beec5a56) yeni depodan alınır.
+[patch."https://github.com/HakanSeven12/acadrust.git"]
+acadrust = { git = "https://github.com/hakanaktt/acadrust.git", rev = "beec5a56" }
