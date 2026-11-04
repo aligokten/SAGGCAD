@@ -5,6 +5,9 @@
 // kaydedip açınca korunur ve başka CAD programları bu nesneleri sıradan çizgi / çoklu çizgi olarak görür.
 
 pub mod aks;
+pub mod band;
+pub mod doseme;
+pub mod donatigir;
 pub mod kolon;
 
 use crate::modules::{CadModule, IconKind, ModuleEvent, RibbonGroup, RibbonItem, ToolDef};
@@ -15,6 +18,9 @@ pub struct BimModule;
 pub const APP: &str = saggcad_bim::APP;
 pub const LAYER_AKS: &str = "S-AKS";
 pub const LAYER_KOLON: &str = "S-KOLON";
+pub const LAYER_KIRIS: &str = "S-KIRIS";
+pub const LAYER_PERDE: &str = "S-PERDE";
+pub const LAYER_DOSEME: &str = "S-DOSEME";
 
 fn tool(id: &'static str, label: &'static str, icon: &'static [u8]) -> ToolDef {
     ToolDef { id, label, icon: IconKind::Svg(icon), event: ModuleEvent::Command(id.to_string()) }
@@ -38,13 +44,20 @@ impl CadModule for BimModule {
                 },
                 RibbonGroup {
                     title: "Yapı",
-                    tools: vec![RibbonItem::LargeTool(tool("SAGG_KOLON", "Kolon", include_bytes!("../../../assets/icons/saggcad_kolon.svg")))],
+                    tools: vec![
+                        RibbonItem::LargeTool(tool("SAGG_KOLON", "Kolon", include_bytes!("../../../assets/icons/saggcad_kolon.svg"))),
+                        RibbonItem::LargeTool(tool("SAGG_KIRIS", "Kiriş", include_bytes!("../../../assets/icons/saggcad_kiris.svg"))),
+                        RibbonItem::LargeTool(tool("SAGG_PERDE", "Perde", include_bytes!("../../../assets/icons/saggcad_perde.svg"))),
+                        RibbonItem::LargeTool(tool("SAGG_DOSEME", "Döşeme", include_bytes!("../../../assets/icons/saggcad_doseme.svg"))),
+                    ],
                 },
                 RibbonGroup {
                     title: "Donatı",
                     tools: vec![
                         RibbonItem::LargeTool(tool("SAGG_DONATI", "Donatı\nmetrajı", include_bytes!("../../../assets/icons/saggcad_donati.svg"))),
+                        RibbonItem::Tool(tool("SAGG_DONATIGIR", "Elle gir", include_bytes!("../../../assets/icons/saggcad_donati.svg"))),
                         RibbonItem::Tool(tool("SAGG_DONATIMIN", "Minimum ata", include_bytes!("../../../assets/icons/saggcad_donati_min.svg"))),
+                        RibbonItem::Tool(tool("SAGG_DONATICSV", "CSV", include_bytes!("../../../assets/icons/saggcad_csv.svg"))),
                     ],
                 },
             ]
@@ -82,4 +95,20 @@ pub fn existing_names(doc: &codec::Document, tur: &str) -> Vec<String> {
         .filter(|m| m.get("tur").map(String::as_str) == Some(tur))
         .filter_map(|m| m.get("ad").cloned())
         .collect()
+}
+
+/// nesnenin dış hattı (mm): kapalı çoklu çizginin köşeleri
+pub fn outline_of(entity: &codec::EntityType) -> Option<Vec<[f64; 2]>> {
+    match entity {
+        codec::EntityType::LwPolyline(pl) => Some(pl.vertices.iter().map(|v| [v.location.x, v.location.y]).collect()),
+        _ => None,
+    }
+}
+
+/// nesne → donatı hesabının elemanı. Düzlem ölçüleri (kolon kesiti, kiriş / perde boyu ve kalınlığı, döşeme çokgeni)
+/// çizimdeki çoklu çizgiden okunur — çizim elle değiştirilse de metraj güncel kalır; yükseklikler XDATA'dan.
+pub fn element_of(entity: &codec::EntityType) -> Option<saggcad_bim::rebar::Element> {
+    let map = bim_data(entity)?;
+    let outline = outline_of(entity);
+    saggcad_bim::xdata::element_from_outline(&format!("{:X}", entity.common().handle.value()), &map, outline.as_deref(), "")
 }

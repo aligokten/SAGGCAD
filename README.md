@@ -10,13 +10,21 @@ BIM uygulamasına doğru geliştirir.
 - **Tanıtım sayfası:** https://aligokten.github.io/SAGGCAD/
 - OpenCAD Studio'nun kendi belgesi: [docs/readme/README.opencadstudio.md](docs/readme/README.opencadstudio.md)
 
-## BIM sekmesi (0.8)
+## BIM sekmesi (0.9)
 | Komut | Ne yapar |
 |---|---|
 | `SAGG_AKS` | Aralıkları yazarak (`4000;5000`, `3x4000`) düşey 1, 2, 3… ve yatay A, B, C… aks sistemi; uçlarda baloncuk ve ad (S-AKS katmanı). Adlar mevcut akslardan devam eder. |
 | `SAGG_KOLON` | Betonarme kolon: kesit (`300x500`), yükseklik, yerleştirme noktası (`M` merkez, `SA` sol alt, `GA` sağ alt, `GU` sağ üst, `SU` sol üst) — kolonun köşesi doğrudan aks kesişimine / köşeye oturur. Art arda yerleştirilir (S-KOLON katmanı). |
-| `SAGG_DONATIMIN` | Donatısı tanımsız kolonlara yönetmelik minimumu (TS 500 / TBDY 2018 en az koşullarından **tahmini**). Tek geri al. |
+| `SAGG_KIRIS` | Kiriş: kesit (`250x500`), hiza (`E` eksen / `S` çizgi sol yüzde / `G` sağ yüzde), iki nokta; zincirleme (bir sonraki öncekinin bitişinden). S-KIRIS katmanı. |
+| `SAGG_PERDE` | Betonarme perde: kalınlık, yükseklik, hiza, iki nokta; zincirleme. S-PERDE katmanı. |
+| `SAGG_DOSEME` | Döşeme: kalınlık, köşe noktaları; Enter ya da `K` kapatır. S-DOSEME katmanı. |
+| `SAGG_DONATIGIR` | Statik projedeki donatıyı elle gir: elemanı seç, alanları sırayla yaz (Enter: önerilen değer — kayıtlı tanım ya da yönetmelik minimumu). Sınır dışı değerler uyarılır. |
+| `SAGG_DONATIMIN` | Donatısı tanımsız tüm betonarme elemanlara yönetmelik minimumu (TS 500 / TBDY 2018 en az koşullarından **tahmini**). Tek geri al. |
 | `SAGG_DONATI` | Donatı metrajı: çap toplamları (m, kg, ton), beton m³, kg/m³; statik projeden girilen (kesin) ve minimum (tahmini) ayrı. |
+| `SAGG_DONATICSV` | Metraj CSV'si (Excel TR): web'de indirilir, masaüstünde Belgeler klasörüne yazılır. |
+
+Düzlem ölçüleri (kolon kesiti, kiriş / perde boyu ve kalınlığı, döşeme çokgeni) çizimdeki çoklu çizgiden okunur:
+çizim elle değiştirilse de metraj güncel kalır. Yükseklikler XDATA'dadır.
 
 BIM verisi nesnelerin **XDATA**'sında (`SAGGCAD` uygulama adı, "anahtar=değer") saklanır: DWG / DXF kaydedip açınca
 korunur; başka CAD programları nesneleri sıradan çizgi / çoklu çizgi olarak görür. Biçim: [docs/SAGGCAD.md](docs/SAGGCAD.md).
@@ -25,8 +33,8 @@ korunur; başka CAD programları nesneleri sıradan çizgi / çoklu çizgi olara
 ```
 crates/saggcad_bim/     BIM çekirdeği — saf Rust, bağımlılıksız (WASM'da da çalışır): aks, kolon yerleşimi,
                         donatı hesabı / metrajı, XDATA şeması; birim testleri elle hesaplanmış değerlerle
-src/modules/bim/        BIM şerit sekmesi ve komutları (SAGG_AKS, SAGG_KOLON)
-src/app/commands/bim.rs komut dağıtımı, donatı raporu, SAGG_DONATIMIN; uygulama içi otomasyon testleri
+src/modules/bim/        BIM şerit sekmesi ve komutları (aks, kolon, kiriş, perde, döşeme, elle donatı)
+src/app/commands/bim.rs komut dağıtımı, donatı raporu, minimum atama, CSV; uygulama içi otomasyon testleri
 saggcad-site/           tanıtım sayfası (GitHub Pages kökü)
 ```
 Geri kalan her şey OpenCAD Studio'nundur; yukarı akım güncellemeleri `upstream` uzak deposundan birleştirilir

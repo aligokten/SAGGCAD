@@ -12,12 +12,15 @@
 ```
 aks    v=1 tur=aks ad=A yon=letter
 kolon  v=1 tur=kolon ad=S1 b=300 h=500 H=2800 mat=betonarme rb=none|min|manual [rb.n=12 rb.d=16 rb.sd=8 rb.sc=100 rb.s=150 rb.lc=500]
+kiris  v=1 tur=kiris ad=K1 L=5000 b=250 h=500 mat=betonarme rb=… [rb.nt rb.dt rb.nb rb.db rb.sd rb.sc rb.s rb.lc]
+perde  v=1 tur=perde ad=P1 L=4000 t=250 H=2800 mat=betonarme rb=… [rb.dv rb.sv rb.dh rb.sh]
+doseme v=1 tur=doseme ad=D1 t=150 mat=betonarme rb=… [rb.dx rb.sx rb.dy rb.sy rb.top]
 ```
 - `rb=none` donatı tanımsız (metraja girmez), `rb=min` yönetmelik minimumu (kesitten her seferinde yeniden hesaplanır),
   `rb=manual` statik projeden girilen değerler.
 - Bilinmeyen anahtarlar korunur; `v` biçim sürümüdür.
-- Bilinen sınır (0.8): kolon ölçüleri XDATA'dan okunur; çoklu çizgi elle uzatılırsa metraj eski ölçüyle kalır
-  (sonraki sürümde geometri ile eşitlenecek).
+- Düzlem ölçüleri nesnenin kendisinden (kapalı çoklu çizginin köşeleri) okunur; XDATA'daki `b/h/L/t` yalnız ilk
+  değerdir. Yükseklik (`H`, kiriş `h`) XDATA'dadır.
 
 ## Donatı hesabı
 `saggcad_bim::rebar` — önceki web sürümüyle (`arsiv/web: js/bim/rebar.js`) birebir aynı kurallar ve aynı test
@@ -27,8 +30,9 @@ kiriş 25×50×500 → üst 2Ø12, alt 3Ø12, 31 etriye; döşeme 500×400 / t 1
 
 ## Yol haritası
 1. **0.8 (bu sürüm)** — çatal, BIM sekmesi: aks sistemi, kolon (köşeden yerleştirme), donatı minimumu ve metrajı.
-2. **0.9** — kiriş (`SAGG_KIRIS`, aks / kolon yüzüne yaslı), perde ve döşeme komutları; elle donatı girişi için özellik
-   paneli; metraj CSV dışa aktarma (web: indirme); geometri ↔ XDATA eşitleme.
+2. **0.9 (tamamlandı)** — kiriş, perde ve döşeme komutları (hiza: eksen / sol yüz / sağ yüz, zincirleme), elle donatı
+   girişi (`SAGG_DONATIGIR`), tüm betonarme elemanlara minimum, CSV dışa aktarma, ölçülerin çizimden okunması.
+2b. **sonraki küçük adım** — proje kuralları (beton / çelik sınıfı, paspayı) belgede; donatı için özellik paneli.
 3. **0.10** — duvar / kapı / pencere BIM elemanları, mahal (oda) alanları, imalat metrajı tabloları; web sürümündeki
    (arsiv/web) rölöve editörü ve revizyon karşılaştırması mantığının taşınması.
 4. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
