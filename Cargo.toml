@@ -13,6 +13,7 @@ members = [
     "crates/ocs_web_worker",
     "crates/dwg-thumbnailer",
     "crates/dwg-thumbnailer-win",
+    "crates/saggcad_bim",
 ]
 
 [target.'cfg(windows)'.build-dependencies]
@@ -45,6 +46,8 @@ dwg-thumbnailer = { path = "crates/dwg-thumbnailer" }
 # Shared SAVE serialization dispatch + web-worker wire format: one
 # implementation for the inline (fallback/native) path and the worker path.
 ocs_save = { path = "crates/ocs_save" }
+# SAGGCAD BIM çekirdeği: aks sistemi, betonarme elemanlar, donatı hesabı ve metrajı (saf Rust, WASM uyumlu).
+saggcad_bim = { path = "crates/saggcad_bim" }
 flate2 = "1"
 # Raster decode set: png/jpeg/bmp/tiff plus webp/gif (both pure-Rust in
 # image 0.25, so the wasm target stays C-free). Every format named here must

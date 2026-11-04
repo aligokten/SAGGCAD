@@ -23,6 +23,8 @@ pub fn all_modules() -> Vec<Box<dyn CadModule>> {
         Box::new(super::view::ViewModule),
         Box::new(super::manage::ManageModule),
         Box::new(super::layout::LayoutModule),
+        // SAGGCAD: BIM sekmesi (aks sistemi, kolon, donatı metrajı) — crates/saggcad_bim
+        Box::new(super::bim::BimModule),
         Box::new(super::block_editor::BlockEditorModule),
     ]
 }

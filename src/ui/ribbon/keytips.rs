@@ -284,6 +284,7 @@ fn tab_code(module: &str) -> Option<&'static str> {
         "view" => "VI",
         "manage" => "MA",
         "block_editor" => "BE",
+        "bim" => "BI",
         _ => return None,
     })
 }

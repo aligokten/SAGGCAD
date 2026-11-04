@@ -1,0 +1,153 @@
+//! SAGGCAD BIM komutları: SAGG_AKS, SAGG_KOLON, SAGG_DONATI (donatı metrajı raporu), SAGG_DONATIMIN (tanımsız
+//! kolonlara yönetmelik minimumu). Geometri ve hesap `saggcad_bim` crate'inde; BIM verisi nesne XDATA'sında.
+
+use super::{Message, OpenCADStudio};
+use crate::command::CadCommand;
+use crate::modules::bim::{bim_data, existing_names, set_bim_data};
+use codec::Handle;
+use iced::Task;
+use saggcad_bim::rebar::{self, Rules};
+
+/// belgedeki SAGGCAD BIM elemanları (donatı hesabının biçiminde)
+pub(crate) fn bim_elements(doc: &codec::Document) -> Vec<rebar::Element> {
+    doc.entities()
+        .filter_map(|e| {
+            let map = bim_data(e)?;
+            saggcad_bim::xdata::element_from(&format!("{:X}", e.common().handle.value()), &map, "")
+        })
+        .collect()
+}
+
+impl OpenCADStudio {
+    pub(super) fn dispatch_bim(&mut self, cmd: &str, i: usize) -> Option<Task<Message>> {
+        match cmd.trim().to_ascii_uppercase().as_str() {
+            "SAGG_AKS" => {
+                use crate::modules::bim::aks::AksCommand;
+                let cmd = AksCommand::new(existing_names(&self.tabs[i].scene.document, "aks"));
+                self.command_line.push_info(&cmd.prompt());
+                self.tabs[i].active_cmd = Some(Box::new(cmd));
+            }
+            "SAGG_KOLON" => {
+                use crate::modules::bim::kolon::KolonCommand;
+                let cmd = KolonCommand::new(existing_names(&self.tabs[i].scene.document, "kolon"));
+                self.command_line.push_info(&cmd.prompt());
+                self.tabs[i].active_cmd = Some(Box::new(cmd));
+            }
+            "SAGG_DONATI" => {
+                let rep = rebar::report(&bim_elements(&self.tabs[i].scene.document), &Rules::default());
+                for line in report_lines(&rep) {
+                    self.command_line.push_output(&line);
+                }
+            }
+            "SAGG_DONATIMIN" => {
+                let handles: Vec<Handle> = self.tabs[i]
+                    .scene
+                    .document
+                    .entities()
+                    .filter(|e| bim_data(e).is_some_and(|m| m.get("tur").map(String::as_str) == Some("kolon") && m.get("rb").map_or(true, |r| r == "none")))
+                    .map(|e| e.common().handle)
+                    .collect();
+                if handles.is_empty() {
+                    self.command_line.push_output("SAGG_DONATIMIN  Donatısı tanımsız betonarme kolon yok.");
+                    return Some(Task::none());
+                }
+                self.push_undo_snapshot(i, "SAGG_DONATIMIN");
+                for h in &handles {
+                    if let Some(e) = self.tabs[i].scene.document.get_entity_mut(*h) {
+                        let Some(mut map) = bim_data(e) else { continue };
+                        map.insert("rb".into(), "min".into());
+                        let values: Vec<String> = std::iter::once(format!("v={}", saggcad_bim::SCHEMA))
+                            .chain(map.iter().filter(|(k, _)| k.as_str() != "v").map(|(k, v)| format!("{k}={v}")))
+                            .collect();
+                        set_bim_data(e.common_mut(), values);
+                    }
+                }
+                self.tabs[i].dirty = true;
+                self.command_line.push_output(&format!(
+                    "SAGG_DONATIMIN  {} kolona yönetmelik minimumu (TS 500 / TBDY 2018 — tahmini) atandı. Geri almak için U.",
+                    handles.len()
+                ));
+            }
+            _ => return None,
+        }
+        Some(Task::none())
+    }
+}
+
+/// komut satırı raporu: kesin (statik projeden) ve tahmini (minimum) ayrı
+pub(crate) fn report_lines(rep: &rebar::Report) -> Vec<String> {
+    let t = &rep.totals;
+    let mut out = vec![format!(
+        "SAGG_DONATI  {} betonarme eleman · toplam {:.1} kg ({:.3} t) · statik projeden {:.1} kg · minimum tahmini {:.1} kg · beton {:.2} m³ · {:.0} kg/m³",
+        t.count, t.total, t.total / 1000.0, t.manual, t.min, t.concrete_defined, t.ratio
+    )];
+    for x in &rep.by_diameter {
+        out.push(format!("  Ø{:<2}  {:>9.1} m  {:>9.1} kg  (statik projeden {:.1} · minimum {:.1})", x.d, x.m, x.kg, x.kg_manual, x.kg_min));
+    }
+    if t.undefined > 0 {
+        out.push(format!("  {} elemanın donatısı tanımsız — metraja girmedi.", t.undefined));
+    }
+    if t.invalid > 0 {
+        out.push(format!("  {} elemanın elle girilen donatısı eksik — metraja girmedi.", t.invalid));
+    }
+    if t.min > 0.0 {
+        out.push("  Minimum tahmini, yönetmelik en az koşullarından türetilen ön tahmindir; statik projenin yerini tutmaz.".into());
+    }
+    out
+}
+
+inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_DONATI", "SAGG_DONATIMIN"] });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bim_count(app: &OpenCADStudio, tur: &str) -> usize {
+        let i = app.active_tab;
+        app.tabs[i].scene.document.entities().filter_map(bim_data).filter(|m| m.get("tur").map(String::as_str) == Some(tur)).count()
+    }
+
+    #[test]
+    fn aks_sistemi_komutu_dwg_nesneleri_ve_xdata() {
+        let mut app = OpenCADStudio::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_AKS 4000;5000 3500 0,0 "}"#);
+        let i = app.active_tab;
+        let doc = &app.tabs[i].scene.document;
+        let lines: Vec<&codec::EntityType> = doc.entities().filter(|e| matches!(e, codec::EntityType::Line(_))).collect();
+        assert_eq!(lines.len(), 5, "3 düşey + 2 yatay aks");
+        assert_eq!(doc.entities().filter(|e| matches!(e, codec::EntityType::Circle(_))).count(), 10, "her aksın iki ucunda baloncuk");
+        let names: Vec<String> = existing_names(doc, "aks");
+        assert_eq!(names, ["1", "2", "3", "A", "B"]);
+        assert!(lines.iter().all(|e| e.common().layer == "S-AKS"));
+        assert!(doc.app_ids.contains("SAGGCAD"), "XDATA uygulama adı kayıtlı");
+        // ad devamı
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_AKS 3000  9000,0 "}"#);
+        let i = app.active_tab;
+        let names = existing_names(&app.tabs[i].scene.document, "aks");
+        assert!(names.contains(&"4".to_string()) && names.contains(&"5".to_string()), "{names:?}");
+    }
+
+    #[test]
+    fn kolon_ve_donati_minimum_metraj_geri_al() {
+        let mut app = OpenCADStudio::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_KOLON 300x500 2800 SA 1000,0 5000,0 "}"#);
+        assert_eq!(bim_count(&app, "kolon"), 2);
+        let i = app.active_tab;
+        let els = bim_elements(&app.tabs[i].scene.document);
+        assert_eq!(els.len(), 2);
+        assert_eq!(rebar::report(&els, &Rules::default()).totals.undefined, 2, "yerleştirilen kolonun donatısı tanımsız");
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_DONATIMIN"}"#);
+        let i = app.active_tab;
+        let rep = rebar::report(&bim_elements(&app.tabs[i].scene.document), &Rules::default());
+        assert_eq!(rep.totals.undefined, 0);
+        assert!((rep.totals.min - 2.0 * 54.397).abs() < 2e-3, "{}", rep.totals.min);
+        assert_eq!(rep.totals.manual, 0.0);
+        let lines = report_lines(&rep);
+        assert!(lines[0].contains("minimum tahmini") && lines.iter().any(|l| l.contains("Ø14")));
+        app.automation_op(r#"{"op":"undo"}"#);
+        let i = app.active_tab;
+        assert_eq!(rebar::report(&bim_elements(&app.tabs[i].scene.document), &Rules::default()).totals.undefined, 2, "minimum atama tek geri al");
+    }
+}

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAGGCAD — açık kaynak CAD ve BIM</title>
+<meta name="description" content="SAGGCAD: tarayıcıda ve masaüstünde çalışan açık kaynak CAD ve BIM uygulaması — DWG/DXF, 2D çizim, 3D modelleme, aks sistemi, betonarme kolon ve donatı metrajı. OpenCAD Studio tabanlı.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F6F8FB;--panel:#FFFFFF;--ink:#0F1B2D;--ink2:#2C3849;--muted:#66758A;--line:#DFE5EC;--accent:#1786FF;--accent50:#E8F2FF;--warn:#B45309;--code:#EEF2F6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0B1522;--panel:#131E2C;--ink:#E6EDF6;--ink2:#C3CEDB;--muted:#8D9BAD;--line:#26313D;--accent50:rgba(23,134,255,.16);--warn:#F59E0B;--code:#1D2631}}
+:root[data-theme="dark"]{--bg:#0B1522;--panel:#131E2C;--ink:#E6EDF6;--ink2:#C3CEDB;--muted:#8D9BAD;--line:#26313D;--accent50:rgba(23,134,255,.16);--warn:#F59E0B;--code:#1D2631}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 16px}
+header{background:#0F1B2D;color:#E6EDF6}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font:700 20px "Inter Tight",Inter,sans-serif;letter-spacing:.02em;color:#E6EDF6}
+.brand img{width:28px;height:28px}.brand b{color:var(--accent)}
+header nav a{color:#8FA0B6;font-size:14px;margin-left:16px}
+h1,h2,h3{font-family:"Inter Tight",Inter,sans-serif;line-height:1.2;margin:0}
+.hero{padding:56px 0 40px;border-bottom:1px solid var(--line)}
+.hero h1{font-size:clamp(30px,6vw,48px);letter-spacing:-.01em}
+.hero p{font-size:18px;color:var(--ink2);max-width:640px;margin:16px 0 24px}
+.btns{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 18px;border-radius:6px;font-weight:600;font-size:15px;border:1px solid var(--line);color:var(--ink);background:var(--panel)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:hover{text-decoration:none;border-color:var(--accent)}
+.note{margin-top:20px;padding:12px 14px;border-left:3px solid var(--warn);background:var(--panel);font-size:14px;color:var(--ink2)}
+section{padding:40px 0;border-bottom:1px solid var(--line)}
+section h2{font-size:24px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px}
+.card h3{font-size:17px;margin-bottom:8px}.card p{margin:0;font-size:14.5px;color:var(--ink2)}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--accent50);color:var(--accent);margin-left:6px;vertical-align:2px}
+ol.steps{margin:0;padding-left:22px}ol.steps li{margin-bottom:14px}
+code,pre{font:13.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);border-radius:4px}
+code{padding:1px 5px;overflow-wrap:anywhere}
+pre{padding:12px 14px;overflow-x:auto;margin:8px 0 0}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:13px}
+.tw{overflow-x:auto}
+footer{padding:28px 0 40px;color:var(--muted);font-size:14px}
+.theme{background:none;border:1px solid #2C3A4F;color:#E6EDF6;border-radius:6px;height:32px;padding:0 10px;cursor:pointer;font:inherit;font-size:13px}
+@media (max-width:560px){header nav a.hm{display:none}.hero{padding:36px 0 28px}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="./"><img src="icon.svg" alt=""><span>SAGG<b>CAD</b></span></a>
+  <nav><a class="hm" href="#bim">BIM</a><a class="hm" href="#yol">Yol haritası</a><a href="https://github.com/aligokten/SAGGCAD">GitHub</a>
+    <button class="theme" id="theme" type="button" aria-label="Açık / koyu tema">Tema</button></nav>
+</div></header>
+
+<main>
+<div class="hero"><div class="wrap">
+  <h1>Tarayıcıda çalışan açık kaynak CAD + BIM</h1>
+  <p>DWG ve DXF dosyalarını doğrudan açın, 2D çizin, 3D modelleyin; aks sistemi, betonarme kolon ve donatı metrajıyla BIM'e doğru büyüyen bir uygulama. Kurulum gerekmez — tarayıcıda açılır.</p>
+  <div class="btns">
+    <a class="btn primary" href="app/">Uygulamayı aç</a>
+    <a class="btn" href="#bim">BIM özellikleri</a>
+    <a class="btn" href="https://github.com/aligokten/SAGGCAD">Kaynak kod</a>
+  </div>
+  <div class="note">SAGGCAD, açık kaynak <a href="https://github.com/HakanSeven12/OpenCADStudio">OpenCAD Studio</a>'nun (Rust, GPL-3.0) çatalıdır; çizim çekirdeği, DWG/DXF desteği ve 3D modelleme oradan gelir, BIM modülü SAGGCAD'e aittir. Önceki sürümler GitHub'da <a href="https://github.com/aligokten/SAGGCAD/tree/arsiv/web"><code>arsiv/web</code></a> ve <a href="https://github.com/aligokten/SAGGCAD/tree/arsiv/freecad"><code>arsiv/freecad</code></a> dallarında saklanıyor.</div>
+</div></div>
+
+<section id="bim"><div class="wrap">
+  <h2>BIM sekmesi <span class="tag">0.8</span></h2>
+  <div class="grid">
+    <div class="card"><h3>Aks sistemi</h3><p><code>SAGG_AKS</code> — aralıkları yazarak (<code>4000;5000</code>, <code>3x4000</code>) düşey 1, 2, 3… ve yatay A, B, C… akslar; uçlarda baloncuk ve ad. Adlar mevcut akslardan devam eder.</p></div>
+    <div class="card"><h3>Betonarme kolon</h3><p><code>SAGG_KOLON</code> — kesit, yükseklik ve yerleştirme noktası (merkez ya da bir köşe): kolonun köşesini doğrudan aks kesişimine ya da duvar köşesine oturtun. Art arda yerleştirilir.</p></div>
+    <div class="card"><h3>Donatı metrajı</h3><p><code>SAGG_DONATI</code> — çap toplamları (m, kg, ton), beton m³ ve kg/m³; statik projeden girilen (kesin) ve yönetmelik minimumu (tahmini) ayrı.</p></div>
+    <div class="card"><h3>Yönetmelik minimumu</h3><p><code>SAGG_DONATIMIN</code> — donatısı tanımsız kolonlara TS 500 / TBDY 2018 en az koşullarından ön tahmin (ör. %1 boyuna, sarılma bölgesi). Statik projenin yerini tutmaz.</p></div>
+    <div class="card"><h3>DWG içinde BIM verisi</h3><p>BIM bilgisi nesnelerin XDATA'sında (<code>SAGGCAD</code>) saklanır: DWG / DXF kaydedip açınca korunur, başka CAD programları nesneleri sıradan çizim olarak görür.</p></div>
+    <div class="card"><h3>Test edilmiş</h3><p>Hesaplar elle doğrulanmış değerlerle test edilir; komutlar uygulamanın içinde, gerçek belge üzerinde otomatik testlerle denetlenir.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Kullanım</h2>
+  <ol class="steps">
+    <li><a href="app/">Uygulamayı açın</a> ve şeritte <b>BIM</b> sekmesine geçin (ya da komut satırına <code>SAGG_AKS</code>, <code>SAGG_KOLON</code>… yazın).</li>
+    <li><b>Aks sistemi</b>: aralıkları noktalı virgülle girin (<code>4000;5000;4000</code>), sonra ilk kesişim noktasını tıklayın.</li>
+    <li><b>Kolon</b>: kesiti (<code>300x500</code>), yüksekliği ve yerleştirme noktasını (<code>M</code>, <code>SA</code>, <code>GA</code>, <code>GU</code>, <code>SU</code>) seçin; aks kesişimlerine tıklayın.</li>
+    <li><b>Donatı</b>: <code>SAGG_DONATIMIN</code> ile ön tahmin atayın, <code>SAGG_DONATI</code> ile metrajı komut satırında görün.</li>
+    <li>Çizimi DWG ya da DXF olarak kaydedin; BIM verisi dosyada kalır.</li>
+  </ol>
+</div></section>
+
+<section id="yol"><div class="wrap">
+  <h2>Yol haritası</h2>
+  <div class="tw"><table>
+    <tr><th>Aşama</th><th>İçerik</th></tr>
+    <tr><td>0.8 (şimdi)</td><td>OpenCAD Studio çatalı, BIM sekmesi: aks sistemi, kolon, donatı metrajı</td></tr>
+    <tr><td>Sonraki</td><td>Kiriş, perde, döşeme komutları; elle donatı girişi için özellik paneli; CSV dışa aktarma</td></tr>
+    <tr><td>Sonra</td><td>Duvar / kapı / pencere BIM elemanları, mahal ve metraj tabloları, rölöve ↔ proje karşılaştırması</td></tr>
+    <tr><td>BIM</td><td>IFC / IFCX dışa ve içe aktarma (OpenAEC <code>ifccad</code>), kat yönetimi, 3D BIM görünümü</td></tr>
+  </table></div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  SAGGCAD · GPL-3.0 · <a href="https://github.com/aligokten/SAGGCAD">GitHub</a> · OpenCAD Studio tabanlı (<a href="https://github.com/HakanSeven12/OpenCADStudio">HakanSeven12/OpenCADStudio</a>)<br>
+  "Minimum tahmini" değerler statik projenin yerini tutmaz.
+</div></footer>
+<script>
+// tema: kullanıcının seçimi bu cihazda hatırlanır
+(function () {
+  var root = document.documentElement, key = 'saggcad-theme';
+  try { var t = localStorage.getItem(key); if (t) root.dataset.theme = t; } catch (e) {}
+  document.getElementById('theme').onclick = function () {
+    var dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem(key, root.dataset.theme); } catch (e) {}
+  };
+})();
+// eski web uygulamasının çevrimdışı önbelleğini (service worker) kaldır
+// yalnız kök kapsamdaki eski kaydı kaldır; uygulamanın kendi önbelleği (app/) korunur
+if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { if (!/\/app\/$/.test(r.scope)) r.unregister(); }); }).catch(function () {});
+if (window.caches) caches.keys().then(function (ks) { ks.filter(function (k) { return k.indexOf('saggcad-') === 0; }).forEach(function (k) { caches.delete(k); }); }).catch(function () {});
+</script>
+</body>
+</html>

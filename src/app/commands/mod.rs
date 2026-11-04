@@ -8,6 +8,7 @@ mod attman;
 mod block_cmdline;
 mod blocks;
 mod blockvars;
+mod bim;
 mod center_vars;
 mod revcloud_vars;
 mod purge;
@@ -770,6 +771,10 @@ impl OpenCADStudio {
             return Some(t);
         }
         if let Some(t) = self.dispatch_count(cmd, i) {
+            return Some(t);
+        }
+        // SAGGCAD BIM komutları (SAGG_AKS, SAGG_KOLON, SAGG_DONATI, SAGG_DONATIMIN)
+        if let Some(t) = self.dispatch_bim(cmd, i) {
             return Some(t);
         }
         if let Some(t) = self.dispatch_draw(cmd, i) {
