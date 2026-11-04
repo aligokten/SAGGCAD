@@ -1,0 +1,8 @@
+[package]
+name = "saggcad_bim"
+version = "0.8.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "SAGGCAD BIM çekirdeği: aks sistemi, betonarme elemanlar, donatı hesabı ve metrajı (saf Rust, bağımlılıksız; WASM'da da çalışır)"
+
+[dependencies]

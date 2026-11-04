@@ -1,10 +1,11 @@
-name: GitHub Pages
+name: SAGGCAD web (GitHub Pages)
 
-# Tanıtım / kurulum sayfası (site/). SAGGCAD bir FreeCAD masaüstü eklentisidir; site yalnız bilgi ve indirme sağlar.
+# SAGGCAD = OpenCAD Studio çatalı + BIM modülü. main'e her push'ta web (WebAssembly) sürümü derlenir:
+#   aligokten.github.io/SAGGCAD/      tanıtım sayfası (saggcad-site/)
+#   aligokten.github.io/SAGGCAD/app/  uygulama
 on:
   push:
     branches: [main]
-    paths: [site/**, .github/workflows/pages.yml]
   workflow_dispatch:
 
 permissions:
@@ -18,24 +19,63 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Yayın klasörünü hazırla
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install trunk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
+
+      - name: Read wasm-bindgen version
+        id: wasm-bindgen-version
+        shell: bash
         run: |
-          mkdir _site
-          cp -r site/. _site/
-          touch _site/.nojekyll
+          VERSION=$(sed -n '/name = "wasm-bindgen"/{n;s/version = "\(.*\)"/\1/p;q;}' Cargo.lock)
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install wasm-bindgen CLI
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ steps.wasm-bindgen-version.outputs.version }}
+
+      - name: Build web bundle
+        run: trunk build --locked --release --public-url /SAGGCAD/app/ --dist dist/app --html-output index.html web-app.html
+
+      - name: Stamp the service worker cache version
+        run: |
+          test -f dist/app/sw.js
+          hash=$(find dist/app -type f ! -name sw.js -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c 1-12)
+          sed -i "s/^const CACHE_VERSION = \"[^\"]*\";/const CACHE_VERSION = \"$hash\";/" dist/app/sw.js
+          grep -q "^const CACHE_VERSION = \"$hash\";" dist/app/sw.js
+
+      - name: Landing page and metadata
+        run: |
+          cp -r saggcad-site/. dist/
+          VERSION=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
+          jq -n --arg version "$VERSION" --arg commit "$GITHUB_SHA" '{version: $version, commit: $commit}' > dist/app/release.json
+          echo "[]" > dist/app/supporters.json
+          touch dist/.nojekyll
+
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: dist
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

@@ -1,45 +1,80 @@
-name: CI
+name: Tests
+
+# Runs the workspace tests on every push to main and on every pull request,
+# on Linux, Windows and macOS. A separate lint job reports rustfmt and clippy
+# results without blocking merges until the existing tree has been cleaned up.
 
 on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  cekirdek:
-    name: Çekirdek (pytest, FreeCAD'siz)
-    runs-on: ubuntu-latest
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-15]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install pytest
-      - run: python -m pytest -v tests
 
-  freecad:
-    name: FreeCAD bütünleşik test (conda-forge FreeCAD, arayüzsüz)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash -el {0}
+      # The same libraries the Linux release build needs (windowing, GL,
+      # fonts); the packaging tools are left out.
+      - name: System libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev \
+            libxkbcommon-dev libwayland-dev libfontconfig1-dev libfreetype6-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # LC_ALL=C: a few tests compare English message text. The GPU-backed
+      # tests are #[ignore]d and need an adapter, so they do not run here.
+      - name: cargo test
+        env:
+          LC_ALL: C
+        run: cargo test --workspace --locked
+
+  lint:
+    name: lint (informational)
+    runs-on: ubuntu-22.04
+    # Non-blocking until the existing tree is cleaned up. The tree currently has
+    # thousands of rustfmt diffs and several clippy warnings and errors, so
+    # these checks report in the log without failing the job: a job-level
+    # continue-on-error still shows a red check on every pull request.
     steps:
       - uses: actions/checkout@v4
-      - uses: mamba-org/setup-micromamba@v2
+
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev \
+            libxkbcommon-dev libwayland-dev libfontconfig1-dev libfreetype6-dev
+
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          environment-name: fc
-          create-args: >-
-            python=3.11
-            freecad=1.0
-          init-shell: bash
-          cache-environment: true
-      - name: FreeCAD sürümü
-        run: freecadcmd --version || true
-      - name: Bütünleşik test
-        env:
-          QT_QPA_PLATFORM: offscreen
-          SAGGCAD_FC_OUT: fc-results.json
-        run: freecadcmd tests/freecad/run_fc_tests.py
-      - name: Sonuç denetimi
-        run: python tests/freecad/check_results.py fc-results.json
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt --check
+        continue-on-error: true
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        continue-on-error: true
+        run: cargo clippy --workspace --all-targets --locked
