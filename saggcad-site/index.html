@@ -71,11 +71,13 @@ footer{padding:28px 0 40px;color:var(--muted);font-size:14px}
 </div></div>
 
 <section id="bim"><div class="wrap">
-  <h2>BIM sekmesi <span class="tag">0.9</span></h2>
+  <h2>BIM sekmesi <span class="tag">0.10</span></h2>
   <div class="grid">
     <div class="card"><h3>Aks sistemi</h3><p><code>SAGG_AKS</code> — aralıkları yazarak (<code>4000;5000</code>, <code>3x4000</code>) düşey 1, 2, 3… ve yatay A, B, C… akslar; uçlarda baloncuk ve ad. Adlar mevcut akslardan devam eder.</p></div>
     <div class="card"><h3>Betonarme kolon</h3><p><code>SAGG_KOLON</code> — kesit, yükseklik ve yerleştirme noktası (merkez ya da bir köşe): kolonun köşesini doğrudan aks kesişimine ya da duvar köşesine oturtun. Art arda yerleştirilir.</p></div>
     <div class="card"><h3>Kiriş, perde, döşeme</h3><p><code>SAGG_KIRIS</code>, <code>SAGG_PERDE</code> — iki nokta, kesit ve hiza (eksen / sol yüz / sağ yüz), zincirleme; <code>SAGG_DOSEME</code> — köşe noktalarıyla. Ölçüler çizimden okunur: çizimi değiştirince metraj güncellenir.</p></div>
+    <div class="card"><h3>Duvar, kapı, pencere</h3><p><code>SAGG_DUVAR</code> — kalınlık, yükseklik, hiza; zincirleme. <code>SAGG_KAPI</code> / <code>SAGG_PENCERE</code> — duvarı seçin, ölçüleri yazın, yerini tıklayın (kapıda açılış tarafı da): duvar boşlukta kesilir, sembol çizilir, net duvar alanı boşluklar düşülerek hesaplanır.</p></div>
+    <div class="card"><h3>Mahal etiketi</h3><p><code>SAGG_MAHAL</code> — ad ("YATAK ODASI"), numara ve sınır köşeleri: alan çokgenden hesaplanır, ortaya "01 YATAK ODASI / A = 14,00 m²" etiketi konur. İmar hesaplarının girdisi.</p></div>
     <div class="card"><h3>Elle donatı</h3><p><code>SAGG_DONATIGIR</code> — elemanı seçin, statik projedeki adet / çap / aralığı sırayla yazın; Enter önerilen değeri alır. Sınır dışı değerler uyarılır. <code>SAGG_DONATICSV</code> metrajı Excel'e verir.</p></div>
     <div class="card"><h3>Donatı metrajı</h3><p><code>SAGG_DONATI</code> — çap toplamları (m, kg, ton), beton m³ ve kg/m³; statik projeden girilen (kesin) ve yönetmelik minimumu (tahmini) ayrı.</p></div>
     <div class="card"><h3>Yönetmelik minimumu</h3><p><code>SAGG_DONATIMIN</code> — donatısı tanımsız kolonlara TS 500 / TBDY 2018 en az koşullarından ön tahmin (ör. %1 boyuna, sarılma bölgesi). Statik projenin yerini tutmaz.</p></div>
@@ -100,9 +102,9 @@ footer{padding:28px 0 40px;color:var(--muted);font-size:14px}
   <div class="tw"><table>
     <tr><th>Aşama</th><th>İçerik</th></tr>
     <tr><td>0.8</td><td>OpenCAD Studio çatalı, BIM sekmesi: aks sistemi, kolon, donatı metrajı</td></tr>
-    <tr><td>0.9 (şimdi)</td><td>Kiriş, perde, döşeme; elle donatı girişi; CSV; ölçüler çizimden</td></tr>
-    <tr><td>Sonraki</td><td>Proje kuralları belgede, donatı özellik paneli</td></tr>
-    <tr><td>Sonra</td><td>Duvar / kapı / pencere BIM elemanları, mahal ve metraj tabloları, rölöve ↔ proje karşılaştırması</td></tr>
+    <tr><td>0.9</td><td>Kiriş, perde, döşeme; elle donatı girişi; CSV; ölçüler çizimden</td></tr>
+    <tr><td>0.10 (şimdi)</td><td>Duvar, duvara kapı ve pencere, mahal etiketi ve alanı</td></tr>
+    <tr><td>Sonraki</td><td>Planlı Alanlar İmar Yönetmeliği: emsal (KAKS) ve TAKS, emsal dışı alanlar, minimum mahal alanı kontrolleri, sığınak ve yağmur suyu deposu hesabı</td></tr>
     <tr><td>BIM</td><td>IFC / IFCX dışa ve içe aktarma (OpenAEC <code>ifccad</code>), kat yönetimi, 3D BIM görünümü</td></tr>
   </table></div>
 </div></section>

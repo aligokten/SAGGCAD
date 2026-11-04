@@ -1,4 +1,4 @@
-// SAGGCAD BIM modülü — "BIM" şerit sekmesi: aks sistemi, betonarme kolon, donatı metrajı.
+// SAGGCAD BIM modülü — "BIM" şerit sekmesi: aks sistemi, betonarme elemanlar, duvar / kapı / pencere, mahal, donatı metrajı.
 //
 // Hesap ve geometri `crates/saggcad_bim` (saf Rust, WASM'da da çalışır) içindedir; bu modül yalnız komutları ve
 // DWG nesnelerine çeviriyi içerir. BIM verisi nesnelerin XDATA'sında, `SAGGCAD` uygulama adıyla saklanır — DWG / DXF
@@ -6,9 +6,11 @@
 
 pub mod aks;
 pub mod band;
+pub mod bosluk;
 pub mod doseme;
 pub mod donatigir;
 pub mod kolon;
+pub mod mahal;
 
 use crate::modules::{CadModule, IconKind, ModuleEvent, RibbonGroup, RibbonItem, ToolDef};
 
@@ -21,6 +23,10 @@ pub const LAYER_KOLON: &str = "S-KOLON";
 pub const LAYER_KIRIS: &str = "S-KIRIS";
 pub const LAYER_PERDE: &str = "S-PERDE";
 pub const LAYER_DOSEME: &str = "S-DOSEME";
+pub const LAYER_DUVAR: &str = "A-DUVAR";
+pub const LAYER_KAPI: &str = "A-KAPI";
+pub const LAYER_PENCERE: &str = "A-PENCERE";
+pub const LAYER_MAHAL: &str = "A-MAHAL";
 
 fn tool(id: &'static str, label: &'static str, icon: &'static [u8]) -> ToolDef {
     ToolDef { id, label, icon: IconKind::Svg(icon), event: ModuleEvent::Command(id.to_string()) }
@@ -49,6 +55,15 @@ impl CadModule for BimModule {
                         RibbonItem::LargeTool(tool("SAGG_KIRIS", "Kiriş", include_bytes!("../../../assets/icons/saggcad_kiris.svg"))),
                         RibbonItem::LargeTool(tool("SAGG_PERDE", "Perde", include_bytes!("../../../assets/icons/saggcad_perde.svg"))),
                         RibbonItem::LargeTool(tool("SAGG_DOSEME", "Döşeme", include_bytes!("../../../assets/icons/saggcad_doseme.svg"))),
+                    ],
+                },
+                RibbonGroup {
+                    title: "Mimari",
+                    tools: vec![
+                        RibbonItem::LargeTool(tool("SAGG_DUVAR", "Duvar", include_bytes!("../../../assets/icons/saggcad_duvar.svg"))),
+                        RibbonItem::LargeTool(tool("SAGG_KAPI", "Kapı", include_bytes!("../../../assets/icons/saggcad_kapi.svg"))),
+                        RibbonItem::LargeTool(tool("SAGG_PENCERE", "Pencere", include_bytes!("../../../assets/icons/saggcad_pencere.svg"))),
+                        RibbonItem::LargeTool(tool("SAGG_MAHAL", "Mahal\netiketi", include_bytes!("../../../assets/icons/saggcad_mahal.svg"))),
                     ],
                 },
                 RibbonGroup {
@@ -111,4 +126,54 @@ pub fn element_of(entity: &codec::EntityType) -> Option<saggcad_bim::rebar::Elem
     let map = bim_data(entity)?;
     let outline = outline_of(entity);
     saggcad_bim::xdata::element_from_outline(&format!("{:X}", entity.common().handle.value()), &map, outline.as_deref(), "")
+}
+
+/// duvar → DWG nesneleri: dolu parçalar (kapalı çoklu çizgi, A-DUVAR, tüm duvar tanımı XDATA'da) ve boşluk sembolleri
+/// (kapı: kanat çizgisi + açılma yayı, A-KAPI; pencere: üç çizgi, A-PENCERE; XDATA: tur=kapi|pencere, duvar=ad)
+pub fn wall_entities(wall: &saggcad_bim::wall::Wall) -> Vec<codec::EntityType> {
+    use codec::entities::{Arc, Line, LwPolyline, LwVertex};
+    use codec::types::{Vector2, Vector3};
+    use saggcad_bim::wall::{Mark, OpKind};
+    let mut out = Vec::new();
+    for (o, s, e) in wall.pieces() {
+        let mut pl = LwPolyline::new();
+        pl.is_closed = true;
+        pl.vertices = o.iter().map(|q| LwVertex::new(Vector2::new(q[0], q[1]))).collect();
+        pl.common.layer = LAYER_DUVAR.to_string();
+        set_bim_data(&mut pl.common, wall.piece_xdata(s, e));
+        out.push(codec::EntityType::LwPolyline(pl));
+    }
+    for op in &wall.openings {
+        let layer = match op.kind {
+            OpKind::Kapi => LAYER_KAPI,
+            OpKind::Pencere => LAYER_PENCERE,
+        };
+        let data = wall.opening_xdata(op);
+        for m in wall.marks(op) {
+            let mut e = match m {
+                Mark::Line(p, q) => codec::EntityType::Line(Line::from_points(Vector3::new(p[0], p[1], 0.0), Vector3::new(q[0], q[1], 0.0))),
+                Mark::Arc { center, r, start, end } => codec::EntityType::Arc(Arc::from_center_radius_angles(Vector3::new(center[0], center[1], 0.0), r, start.to_radians(), end.to_radians())),
+            };
+            e.common_mut().layer = layer.to_string();
+            set_bim_data(e.common_mut(), data.clone());
+            out.push(e);
+        }
+    }
+    out
+}
+
+/// nesnenin temsilî noktası (boşluk sembolünün hangi duvara ait olduğunu bulmak için)
+pub fn anchor_point(entity: &codec::EntityType) -> Option<[f64; 2]> {
+    match entity {
+        codec::EntityType::Line(l) => Some([l.start.x, l.start.y]),
+        codec::EntityType::Arc(a) => Some([a.center.x, a.center.y]),
+        codec::EntityType::LwPolyline(pl) => pl.vertices.first().map(|v| [v.location.x, v.location.y]),
+        _ => None,
+    }
+}
+
+/// duvar parçası nesnesi → duvar tanımı (parçanın gerçek köşelerinden)
+pub fn wall_of(entity: &codec::EntityType) -> Option<saggcad_bim::wall::Wall> {
+    let map = bim_data(entity)?;
+    saggcad_bim::wall::Wall::from_piece(&map, &outline_of(entity)?)
 }
