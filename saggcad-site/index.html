@@ -71,14 +71,14 @@ footer{padding:28px 0 40px;color:var(--muted);font-size:14px}
 </div></div>
 
 <section id="bim"><div class="wrap">
-  <h2>BIM sekmesi <span class="tag">0.11</span></h2>
+  <h2>BIM sekmesi <span class="tag">0.12</span></h2>
   <div class="grid">
     <div class="card"><h3>Aks sistemi</h3><p><code>SAGG_AKS</code> — aralıkları yazarak (<code>4000;5000</code>, <code>3x4000</code>) düşey 1, 2, 3… ve yatay A, B, C… akslar; uçlarda baloncuk ve ad. Adlar mevcut akslardan devam eder.</p></div>
     <div class="card"><h3>Betonarme kolon</h3><p><code>SAGG_KOLON</code> — kesit, yükseklik ve yerleştirme noktası (merkez ya da bir köşe): kolonun köşesini doğrudan aks kesişimine ya da duvar köşesine oturtun. Art arda yerleştirilir.</p></div>
     <div class="card"><h3>Kiriş, perde, döşeme</h3><p><code>SAGG_KIRIS</code>, <code>SAGG_PERDE</code> — iki nokta, kesit ve hiza (eksen / sol yüz / sağ yüz), zincirleme; <code>SAGG_DOSEME</code> — köşe noktalarıyla. Ölçüler çizimden okunur: çizimi değiştirince metraj güncellenir.</p></div>
     <div class="card"><h3>Duvar, kapı, pencere</h3><p><code>SAGG_DUVAR</code> — kalınlık, yükseklik, hiza; zincirleme. <code>SAGG_KAPI</code> / <code>SAGG_PENCERE</code> — duvarı seçin, ölçüleri yazın, yerini tıklayın (kapıda açılış tarafı da): duvar boşlukta kesilir, sembol çizilir, net duvar alanı boşluklar düşülerek hesaplanır.</p></div>
     <div class="card"><h3>Mahal etiketi</h3><p><code>SAGG_MAHAL</code> — ad ("YATAK ODASI"), numara ve sınır köşeleri: alan çokgenden hesaplanır, ortaya "01 YATAK ODASI / A = 14,00 m²" etiketi konur. İmar hesaplarının girdisi.</p></div>
-    <div class="card"><h3>İmar ön kontrolü</h3><p><code>SAGG_PARSEL</code> (TAKS, KAKS, kat adedi), <code>SAGG_KAT</code> (brüt kat dış hattı), <code>SAGG_IMARVERI</code> (sığınak ve yağmur suyu girdileri), <code>SAGG_IMAR</code>: TAKS, emsal ve emsal dışı alanlar (%30 sınırı), konut piyes asgari ölçüleri, sığınak alanı, yağmur suyu deposu hacmi. Her satır dayandığı maddeyi gösterir; tutarsız kaynaklar "doğrulayın" diye işaretlenir.</p></div>
+    <div class="card"><h3>İmar ön kontrolü</h3><p><code>SAGG_PARSEL</code> (TAKS, KAKS, kat adedi, Hmax, plan notu bahçe mesafeleri), <code>SAGG_CEPHE</code> (ön / yan / arka kenarlar), <code>SAGG_KAT</code> (brüt kat dış hattı, kat yüksekliği), <code>SAGG_IMARVERI</code> (sığınak, otopark, yağmur suyu girdileri), <code>SAGG_IMAR</code> / <code>SAGG_IMARCSV</code>: TAKS, emsal ve emsal dışı alanlar, bahçe mesafeleri, bina ve kat yüksekliği, piyes ölçüleri, sığınak, su deposu, yağmur suyu deposu, otopark. Değerler mevzuat.gov.tr resmî metinlerinden; her satır maddesini gösterir.</p></div>
     <div class="card"><h3>Elle donatı</h3><p><code>SAGG_DONATIGIR</code> — elemanı seçin, statik projedeki adet / çap / aralığı sırayla yazın; Enter önerilen değeri alır. Sınır dışı değerler uyarılır. <code>SAGG_DONATICSV</code> metrajı Excel'e verir.</p></div>
     <div class="card"><h3>Donatı metrajı</h3><p><code>SAGG_DONATI</code> — çap toplamları (m, kg, ton), beton m³ ve kg/m³; statik projeden girilen (kesin) ve yönetmelik minimumu (tahmini) ayrı.</p></div>
     <div class="card"><h3>Yönetmelik minimumu</h3><p><code>SAGG_DONATIMIN</code> — donatısı tanımsız kolonlara TS 500 / TBDY 2018 en az koşullarından ön tahmin (ör. %1 boyuna, sarılma bölgesi). Statik projenin yerini tutmaz.</p></div>
@@ -105,8 +105,9 @@ footer{padding:28px 0 40px;color:var(--muted);font-size:14px}
     <tr><td>0.8</td><td>OpenCAD Studio çatalı, BIM sekmesi: aks sistemi, kolon, donatı metrajı</td></tr>
     <tr><td>0.9</td><td>Kiriş, perde, döşeme; elle donatı girişi; CSV; ölçüler çizimden</td></tr>
     <tr><td>0.10</td><td>Duvar, duvara kapı ve pencere, mahal etiketi ve alanı</td></tr>
-    <tr><td>0.11 (şimdi)</td><td>İmar ön kontrolü: TAKS, emsal (KAKS) ve emsal dışı alanlar, konut piyes asgari ölçüleri, sığınak ve yağmur suyu deposu hesabı</td></tr>
-    <tr><td>Sonraki</td><td>Çekme mesafeleri ve bina yüksekliği, otopark ihtiyacı, imar raporunun CSV / pafta tablosu olarak dışa verilmesi</td></tr>
+    <tr><td>0.11</td><td>İmar ön kontrolü: TAKS, emsal (KAKS) ve emsal dışı alanlar, konut piyes asgari ölçüleri, sığınak ve yağmur suyu deposu hesabı</td></tr>
+    <tr><td>0.12 (şimdi)</td><td>Resmî metinlerden doğrulama; bahçe mesafeleri, bina ve kat yüksekliği, su deposu, otopark, imar raporu CSV</td></tr>
+    <tr><td>Sonraki</td><td>Otopark Ek-1 tablosu, bağımsız bölüm (daire) tanımı ile otomatik sığınak / otopark girdileri, pafta üzerine imar tablosu</td></tr>
     <tr><td>BIM</td><td>IFC / IFCX dışa ve içe aktarma (OpenAEC <code>ifccad</code>), kat yönetimi, 3D BIM görünümü</td></tr>
   </table></div>
 </div></section>
