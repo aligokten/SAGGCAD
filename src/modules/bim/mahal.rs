@@ -26,21 +26,29 @@ pub struct MahalCommand {
     step: Step,
     name: String,
     no: String,
+    /// köşeler mm
     pts: Vec<[f64; 2]>,
+    /// bir çizim biriminin mm karşılığı
+    u: f64,
 }
 
 impl MahalCommand {
     /// `existing_nos`: belgedeki mahal numaraları (sıradaki önerilir)
     pub fn new(existing_nos: Vec<String>) -> Self {
         let n = existing_nos.iter().filter_map(|s| s.trim().parse::<u32>().ok()).max().unwrap_or(0);
-        Self { step: Step::Name, name: "ODA".into(), no: format!("{:02}", n + 1), pts: Vec::new() }
+        Self { step: Step::Name, name: "ODA".into(), no: format!("{:02}", n + 1), pts: Vec::new(), u: 1.0 }
+    }
+
+    pub fn with_units(mut self, u: f64) -> Self {
+        self.u = u;
+        self
     }
 
     fn finish(&mut self) -> CmdResult {
         if self.pts.len() < 3 || room::area(&self.pts) < 1.0 {
             return CmdResult::Cancel;
         }
-        CmdResult::CommitEntitiesAndExit(make_room(&self.pts, &self.name, &self.no))
+        CmdResult::CommitEntitiesAndExit(make_room(&self.pts, &self.name, &self.no).into_iter().map(|e| super::to_drawing(e, self.u)).collect())
     }
 }
 
@@ -141,7 +149,7 @@ impl CadCommand for MahalCommand {
 
     fn on_point(&mut self, pt: DVec3) -> CmdResult {
         self.step = Step::Points;
-        let p = [pt.x, pt.y];
+        let p = [pt.x * self.u, pt.y * self.u];
         if self.pts.last().map_or(true, |q| (q[0] - p[0]).abs() + (q[1] - p[1]).abs() > 1e-6) {
             self.pts.push(p);
         }
@@ -162,9 +170,9 @@ impl CadCommand for MahalCommand {
             return None;
         }
         let mut pts: Vec<[f64; 3]> = self.pts.iter().map(|q| [q[0], q[1], 0.0]).collect();
-        pts.push([pt.x, pt.y, 0.0]);
+        pts.push([pt.x * self.u, pt.y * self.u, 0.0]);
         pts.push([self.pts[0][0], self.pts[0][1], 0.0]);
-        Some(WireModel::solid_f64("rubber_band".into(), pts, WireModel::CYAN, false))
+        Some(WireModel::solid_f64("rubber_band".into(), super::preview_to_drawing(pts, self.u), WireModel::CYAN, false))
     }
 }
 

@@ -13,6 +13,8 @@ pub struct DonatiGirCommand {
     picked: Option<EntityType>,
     target: Option<(Handle, EntityType, Kind, Spec)>,
     field: usize,
+    /// bir çizim biriminin mm karşılığı
+    u: f64,
 }
 
 impl Default for DonatiGirCommand {
@@ -23,7 +25,12 @@ impl Default for DonatiGirCommand {
 
 impl DonatiGirCommand {
     pub fn new() -> Self {
-        Self { picked: None, target: None, field: 0 }
+        Self { picked: None, target: None, field: 0, u: 1.0 }
+    }
+
+    pub fn with_units(mut self, u: f64) -> Self {
+        self.u = u;
+        self
     }
 
     fn labels(&self) -> &'static [(&'static str, &'static str, bool)] {
@@ -48,7 +55,7 @@ impl DonatiGirCommand {
         let Some((handle, mut entity, kind, spec)) = self.target.take() else { return CmdResult::Cancel };
         let Some(map) = super::bim_data(&entity) else { return CmdResult::Cancel };
         super::set_bim_data(entity.common_mut(), xdata::with_spec(&map, kind, &spec));
-        let kg = super::element_of(&entity).map(|el| rebar::takeoff(&el, &Rules::default())).map(|t| (t.kg, t.warnings));
+        let kg = super::element_of(&entity, self.u).map(|el| rebar::takeoff(&el, &Rules::default())).map(|t| (t.kg, t.warnings));
         let message = match kg {
             Some((kg, w)) if w.is_empty() => format!("SAGG_DONATIGIR  {} donatısı kaydedildi (statik projeden): {kg:.1} kg", map.get("ad").cloned().unwrap_or_default()),
             Some((kg, w)) => format!("SAGG_DONATIGIR  {} donatısı kaydedildi: {kg:.1} kg — uyarı: {}", map.get("ad").cloned().unwrap_or_default(), w.join("; ")),
@@ -87,7 +94,7 @@ impl CadCommand for DonatiGirCommand {
             return CmdResult::NeedPoint;
         }
         let Some(entity) = self.picked.take() else { return CmdResult::NeedPoint };
-        let Some(el) = super::element_of(&entity) else { return CmdResult::NeedPoint };
+        let Some(el) = super::element_of(&entity, self.u) else { return CmdResult::NeedPoint };
         let kind = el.geom.kind();
         let spec = xdata::manual_defaults(&el, &Rules::default());
         self.target = Some((handle, entity, kind, spec));

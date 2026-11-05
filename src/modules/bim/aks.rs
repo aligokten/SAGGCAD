@@ -24,20 +24,28 @@ pub struct AksCommand {
     /// taşma ve baloncuk yarıçapı (mm)
     over: f64,
     bubble: f64,
+    /// bir çizim biriminin mm karşılığı
+    u: f64,
 }
 
 impl AksCommand {
     pub fn new(existing: Vec<String>) -> Self {
-        Self { step: Step::Xs, xs: vec![4000.0, 4000.0], ys: vec![3500.0, 3500.0], existing, over: 1500.0, bubble: 300.0 }
+        Self { step: Step::Xs, xs: vec![4000.0, 4000.0], ys: vec![3500.0, 3500.0], existing, over: 1500.0, bubble: 300.0, u: 1.0 }
     }
 
     fn list(v: &[f64]) -> String {
         v.iter().map(|x| format!("{x}")).collect::<Vec<_>>().join(" ")
     }
 
-    /// aks sistemi → DWG nesneleri
+    pub fn with_units(mut self, u: f64) -> Self {
+        self.u = u;
+        self
+    }
+
+    /// aks sistemi → DWG nesneleri (origin çizim biriminde; ölçüler mm)
     pub fn entities(&self, origin: [f64; 2]) -> Vec<EntityType> {
-        build_entities(&self.xs, &self.ys, origin, self.over, self.bubble, &self.existing)
+        let o = [origin[0] * self.u, origin[1] * self.u];
+        build_entities(&self.xs, &self.ys, o, self.over, self.bubble, &self.existing).into_iter().map(|e| super::to_drawing(e, self.u)).collect()
     }
 }
 

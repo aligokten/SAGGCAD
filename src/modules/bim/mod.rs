@@ -6,6 +6,7 @@
 
 pub mod aks;
 pub mod band;
+pub mod birim;
 pub mod bosluk;
 pub mod doseme;
 pub mod imar;
@@ -49,7 +50,10 @@ impl CadModule for BimModule {
             vec![
                 RibbonGroup {
                     title: "Aks",
-                    tools: vec![RibbonItem::LargeTool(tool("SAGG_AKS", "Aks\nsistemi", include_bytes!("../../../assets/icons/saggcad_aks.svg")))],
+                    tools: vec![
+                        RibbonItem::LargeTool(tool("SAGG_AKS", "Aks\nsistemi", include_bytes!("../../../assets/icons/saggcad_aks.svg"))),
+                        RibbonItem::Tool(tool("SAGG_BIRIM", "Birim (mm/cm/m)", include_bytes!("../../../assets/icons/saggcad_kat.svg"))),
+                    ],
                 },
                 RibbonGroup {
                     title: "Yapı",
@@ -134,11 +138,97 @@ pub fn outline_of(entity: &codec::EntityType) -> Option<Vec<[f64; 2]>> {
     }
 }
 
+/// nesnenin dış hattı mm cinsinden (u: bir çizim biriminin mm karşılığı)
+pub fn outline_mm(entity: &codec::EntityType, u: f64) -> Option<Vec<[f64; 2]>> {
+    outline_of(entity).map(|v| v.into_iter().map(|p| [p[0] * u, p[1] * u]).collect())
+}
+
+// ---- çizim birimi
+//
+// BIM modeli (XDATA, hesaplar, yazılan ölçüler) her zaman mm'dir. Çizim ise INSUNITS'te tanımlı birimdedir (mm, cm, m …).
+// Komutlar tıklanan noktayı `u` ile çarparak mm'ye çevirir, ürettikleri nesneleri `to_drawing` ile çizim birimine indirir.
+
+/// bir çizim biriminin mm karşılığı (INSUNITS); birimsiz ya da desteklenmeyen birimde None
+pub fn mm_per_unit(doc: &codec::Document) -> Option<f64> {
+    insunits_mm(doc.header.insertion_units)
+}
+
+pub fn insunits_mm(code: i16) -> Option<f64> {
+    match code {
+        1 => Some(25.4),
+        2 => Some(304.8),
+        4 => Some(1.0),
+        5 => Some(10.0),
+        6 => Some(1000.0),
+        10 => Some(914.4),
+        14 => Some(100.0),
+        _ => None,
+    }
+}
+
+pub fn insunits_name(code: i16) -> &'static str {
+    match code {
+        1 => "inç",
+        2 => "fit",
+        4 => "mm",
+        5 => "cm",
+        6 => "m",
+        10 => "yarda",
+        14 => "dm",
+        0 => "birimsiz",
+        _ => "desteklenmeyen birim",
+    }
+}
+
+fn sc(v: codec::types::Vector3, k: f64) -> codec::types::Vector3 {
+    codec::types::Vector3::new(v.x * k, v.y * k, v.z * k)
+}
+
+/// mm cinsinden üretilmiş nesneyi çizim birimine çevir (u: bir çizim biriminin mm karşılığı)
+pub fn to_drawing(mut e: codec::EntityType, u: f64) -> codec::EntityType {
+    if (u - 1.0).abs() < 1e-12 || !(u > 0.0) {
+        return e;
+    }
+    let k = 1.0 / u;
+    match &mut e {
+        codec::EntityType::LwPolyline(pl) => {
+            for v in &mut pl.vertices {
+                v.location.x *= k;
+                v.location.y *= k;
+            }
+        }
+        codec::EntityType::Line(l) => {
+            l.start = sc(l.start, k);
+            l.end = sc(l.end, k);
+        }
+        codec::EntityType::Arc(a) => {
+            a.center = sc(a.center, k);
+            a.radius *= k;
+        }
+        codec::EntityType::Circle(c) => {
+            c.center = sc(c.center, k);
+            c.radius *= k;
+        }
+        codec::EntityType::Text(t) => {
+            t.insertion_point = sc(t.insertion_point, k);
+            t.alignment_point = t.alignment_point.map(|p| sc(p, k));
+            t.height *= k;
+        }
+        _ => {}
+    }
+    e
+}
+
+/// mm önizleme noktalarını çizim birimine çevir
+pub fn preview_to_drawing(pts: Vec<[f64; 3]>, u: f64) -> Vec<[f64; 3]> {
+    pts.into_iter().map(|p| [p[0] / u, p[1] / u, p[2] / u]).collect()
+}
+
 /// nesne → donatı hesabının elemanı. Düzlem ölçüleri (kolon kesiti, kiriş / perde boyu ve kalınlığı, döşeme çokgeni)
 /// çizimdeki çoklu çizgiden okunur — çizim elle değiştirilse de metraj güncel kalır; yükseklikler XDATA'dan.
-pub fn element_of(entity: &codec::EntityType) -> Option<saggcad_bim::rebar::Element> {
+pub fn element_of(entity: &codec::EntityType, u: f64) -> Option<saggcad_bim::rebar::Element> {
     let map = bim_data(entity)?;
-    let outline = outline_of(entity);
+    let outline = outline_mm(entity, u);
     saggcad_bim::xdata::element_from_outline(&format!("{:X}", entity.common().handle.value()), &map, outline.as_deref(), "")
 }
 
@@ -187,7 +277,7 @@ pub fn anchor_point(entity: &codec::EntityType) -> Option<[f64; 2]> {
 }
 
 /// duvar parçası nesnesi → duvar tanımı (parçanın gerçek köşelerinden)
-pub fn wall_of(entity: &codec::EntityType) -> Option<saggcad_bim::wall::Wall> {
+pub fn wall_of(entity: &codec::EntityType, u: f64) -> Option<saggcad_bim::wall::Wall> {
     let map = bim_data(entity)?;
-    saggcad_bim::wall::Wall::from_piece(&map, &outline_of(entity)?)
+    saggcad_bim::wall::Wall::from_piece(&map, &outline_mm(entity, u)?)
 }

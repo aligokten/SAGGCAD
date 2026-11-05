@@ -35,6 +35,8 @@ pub struct BoslukCommand {
     related: Vec<(Handle, EntityType)>,
     names: Vec<String>,
     note: String,
+    /// bir çizim biriminin mm karşılığı
+    u: f64,
 }
 
 impl BoslukCommand {
@@ -44,13 +46,18 @@ impl BoslukCommand {
             .filter_map(|(_, e)| super::bim_data(e))
             .filter(|m| m.get("tur").map(String::as_str) == Some(kind.key()))
             .filter_map(|m| m.get("ad").cloned())
-            .chain(related.iter().filter_map(|(_, e)| super::wall_of(e)).flat_map(|w| w.openings.into_iter().map(|o| o.name)))
+            .chain(related.iter().filter_map(|(_, e)| super::wall_of(e, 1.0)).flat_map(|w| w.openings.into_iter().map(|o| o.name)))
             .collect();
         let (w, h, sill) = match kind {
             OpKind::Kapi => (900.0, 2100.0, 0.0),
             OpKind::Pencere => (1200.0, 1500.0, 900.0),
         };
-        Self { kind, step: Step::Pick, w, h, sill, picked: None, wall: None, related, names, note: String::new() }
+        Self { kind, step: Step::Pick, w, h, sill, picked: None, wall: None, related, names, note: String::new(), u: 1.0 }
+    }
+
+    pub fn with_units(mut self, u: f64) -> Self {
+        self.u = u;
+        self
     }
 
     fn prefix(&self) -> &'static str {
@@ -80,8 +87,8 @@ impl BoslukCommand {
             }
             let Some(map) = super::bim_data(e) else { continue };
             let same = match map.get("tur").map(String::as_str) {
-                Some("duvar") => super::wall_of(e).is_some_and(|w| w.same_as(&wall)),
-                Some("kapi" | "pencere") => map.get("duvar") == Some(&wall.name) && super::anchor_point(e).is_some_and(|p| wall.near(p)),
+                Some("duvar") => super::wall_of(e, self.u).is_some_and(|w| w.same_as(&wall)),
+                Some("kapi" | "pencere") => map.get("duvar") == Some(&wall.name) && super::anchor_point(e).is_some_and(|p| wall.near([p[0] * self.u, p[1] * self.u])),
                 _ => false,
             };
             if same {
@@ -89,7 +96,7 @@ impl BoslukCommand {
             }
         }
         let mut pairs: Vec<(Handle, Vec<EntityType>)> = erase.into_iter().map(|h| (h, Vec::new())).collect();
-        pairs[0].1 = super::wall_entities(&new_wall);
+        pairs[0].1 = super::wall_entities(&new_wall).into_iter().map(|e| super::to_drawing(e, self.u)).collect();
         CmdResult::ReplaceMany(pairs, Vec::new())
     }
 }
@@ -136,7 +143,7 @@ impl CadCommand for BoslukCommand {
             return CmdResult::NeedPoint;
         }
         let Some(entity) = self.picked.take() else { return CmdResult::NeedPoint };
-        let Some(wall) = super::wall_of(&entity) else {
+        let Some(wall) = super::wall_of(&entity, self.u) else {
             self.note = "Seçilen nesne SAGGCAD duvarı değil. ".into();
             return CmdResult::NeedPoint;
         };
@@ -171,7 +178,7 @@ impl CadCommand for BoslukCommand {
     }
 
     fn on_point(&mut self, pt: DVec3) -> CmdResult {
-        let p = [pt.x, pt.y];
+        let p = [pt.x * self.u, pt.y * self.u];
         let Some((_, wall)) = self.wall.as_ref() else { return CmdResult::NeedPoint };
         match self.step {
             Step::Place => {
@@ -206,7 +213,7 @@ impl CadCommand for BoslukCommand {
 
     fn on_mouse_move(&mut self, pt: DVec3) -> Option<WireModel> {
         let (_, wall) = self.wall.as_ref()?;
-        let p = [pt.x, pt.y];
+        let p = [pt.x * self.u, pt.y * self.u];
         let op = match self.step {
             Step::Place => self.opening(wall.place(p, self.w), 1, false),
             Step::Side(at) => {
@@ -235,7 +242,7 @@ impl CadCommand for BoslukCommand {
         if pts.len() < 2 {
             return None;
         }
-        Some(WireModel::solid_f64("rubber_band".into(), pts, WireModel::CYAN, false))
+        Some(WireModel::solid_f64("rubber_band".into(), super::preview_to_drawing(pts, self.u), WireModel::CYAN, false))
     }
 }
 
@@ -271,7 +278,7 @@ mod tests {
         let ents = &pairs[0].1;
         // 2 duvar parçası + kanat çizgisi + yay
         assert_eq!(ents.len(), 4, "{ents:?}");
-        let walls: Vec<_> = ents.iter().filter_map(super::super::wall_of).collect();
+        let walls: Vec<_> = ents.iter().filter_map(|e| super::super::wall_of(e, 1.0)).collect();
         assert_eq!(walls.len(), 2);
         assert_eq!(walls[0].openings.len(), 1);
         assert_eq!(walls[0].openings[0].name, "KP1");
@@ -309,7 +316,7 @@ mod tests {
         assert_eq!(pairs[0].0, Handle::new(21), "seçilen parça yeni hâli taşır");
         assert_eq!(erased.len(), 4, "2 parça + kanat + yay silinir: {erased:?}");
         assert!(!erased.contains(&99), "kopya duvar korunur");
-        let new_walls: Vec<_> = pairs[0].1.iter().filter_map(super::super::wall_of).collect();
+        let new_walls: Vec<_> = pairs[0].1.iter().filter_map(|e| super::super::wall_of(e, 1.0)).collect();
         assert_eq!(new_walls.len(), 3);
         assert_eq!(new_walls[0].openings.len(), 2);
         assert_eq!(pairs[0].1.iter().filter(|e| e.common().layer == super::super::LAYER_PENCERE).count(), 3);
