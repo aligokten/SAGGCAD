@@ -110,6 +110,46 @@ impl OpenCADStudio {
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
+            "SAGG_CEPHE" => {
+                use crate::modules::bim::imar::CepheCommand;
+                let Some((h, e)) = self.tabs[i]
+                    .scene
+                    .document
+                    .entities()
+                    .find(|e| bim_data(e).is_some_and(|m| m.get("tur").map(String::as_str) == Some("parsel")))
+                    .map(|e| (e.common().handle, e.clone()))
+                else {
+                    self.command_line.push_output("SAGG_CEPHE  Çizimde parsel yok — önce SAGG_PARSEL ile parseli çizin.");
+                    return Some(Task::none());
+                };
+                let cmd = CepheCommand::new(h, e);
+                self.command_line.push_info(&cmd.prompt());
+                self.tabs[i].active_cmd = Some(Box::new(cmd));
+            }
+            "SAGG_IMARCSV" => {
+                let rap = match imar_rapor(&self.tabs[i].scene.document) {
+                    Ok((rap, _)) => rap,
+                    Err(e) => {
+                        self.command_line.push_output(&format!("SAGG_IMARCSV  {e}"));
+                        return Some(Task::none());
+                    }
+                };
+                let csv = saggcad_bim::imar::rapor_csv(&rap);
+                let name = "saggcad-imar-kontrolu.csv";
+                #[cfg(target_arch = "wasm32")]
+                {
+                    crate::sys::download_bytes(name, csv.as_bytes());
+                    self.command_line.push_output(&format!("SAGG_IMARCSV  {name} indirildi."));
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let path = crate::sys::documents_dir().unwrap_or_else(std::env::temp_dir).join(name);
+                    match std::fs::write(&path, csv.as_bytes()) {
+                        Ok(()) => self.command_line.push_output(&format!("SAGG_IMARCSV  Kaydedildi: {}", path.display())),
+                        Err(e) => self.command_line.push_error(&format!("SAGG_IMARCSV  Yazılamadı ({}): {e}", path.display())),
+                    }
+                }
+            }
             "SAGG_IMAR" => {
                 for line in imar_lines(&self.tabs[i].scene.document) {
                     self.command_line.push_output(&line);
@@ -184,8 +224,8 @@ impl OpenCADStudio {
     }
 }
 
-/// SAGG_IMAR raporu: belgedeki parsel, kat dış hatları ve mahallerden imar ön kontrolü
-pub(crate) fn imar_lines(doc: &codec::Document) -> Vec<String> {
+/// belgedeki parsel, kat dış hatları ve mahallerden imar ön kontrolü; Err: parsel yok. İkinci değer: parsel sayısı.
+pub(crate) fn imar_rapor(doc: &codec::Document) -> Result<(saggcad_bim::imar::Rapor, usize), String> {
     use crate::modules::bim::outline_of;
     use saggcad_bim::imar::{self, from_mm};
     let mut parsel: Option<imar::Parsel> = None;
@@ -207,14 +247,22 @@ pub(crate) fn imar_lines(doc: &codec::Document) -> Vec<String> {
             _ => {}
         }
     }
-    let Some(parsel) = parsel else {
-        return vec!["SAGG_IMAR  Çizimde parsel yok — önce SAGG_PARSEL ile parseli ve imar durumunu girin.".into()];
-    };
-    let mut out = imar::rapor_satirlari(&imar::hesapla(&parsel, &katlar, &mahaller, &imar::Kurallar::default()));
-    if parsel_say > 1 {
-        out.insert(1, "  Çizimde birden çok parsel var; ilk çizilen kullanıldı.".into());
+    let parsel = parsel.ok_or_else(|| "Çizimde parsel yok — önce SAGG_PARSEL ile parseli ve imar durumunu girin.".to_string())?;
+    Ok((imar::hesapla(&parsel, &katlar, &mahaller, &imar::Kurallar::default()), parsel_say))
+}
+
+/// SAGG_IMAR raporu (komut satırı)
+pub(crate) fn imar_lines(doc: &codec::Document) -> Vec<String> {
+    match imar_rapor(doc) {
+        Err(e) => vec![format!("SAGG_IMAR  {e}")],
+        Ok((rap, n)) => {
+            let mut out = saggcad_bim::imar::rapor_satirlari(&rap);
+            if n > 1 {
+                out.insert(1, "  Çizimde birden çok parsel var; ilk çizilen kullanıldı.".into());
+            }
+            out
+        }
     }
-    out
 }
 
 /// komut satırı raporu: kesin (statik projeden) ve tahmini (minimum) ayrı
@@ -239,7 +287,7 @@ pub(crate) fn report_lines(rep: &rebar::Report) -> Vec<String> {
     out
 }
 
-inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_DONATI", "SAGG_DONATIMIN", "SAGG_DONATICSV", "SAGG_IMAR"] });
+inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_DONATI", "SAGG_DONATIMIN", "SAGG_DONATICSV", "SAGG_IMAR", "SAGG_IMARCSV"] });
 
 #[cfg(test)]
 mod tests {
@@ -409,7 +457,7 @@ mod tests {
         let i = app.active_tab;
         assert!(imar_lines(&app.tabs[i].scene.document)[0].contains("parsel yok"));
         // parsel 20×25 m, TAKS 0,40, KAKS 1,20, kat adedi 4
-        app.automation_op(r#"{"op":"run","cmd":"SAGG_PARSEL 0.40 1.20 4 0,0 20000,0 20000,25000 0,25000 "}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_PARSEL 0.40 1.20 4 15.5 5 3 3 0,0 20000,0 20000,25000 0,25000 "}"#);
         assert_eq!(bim_count(&app, "parsel"), 1);
         // zemin kat 12×15 m (tip/ad komuta doğrudan; ad boşluk içerebilir)
         for (tip, tekrar) in [("Z", "1"), ("N", "2")] {
@@ -435,10 +483,15 @@ mod tests {
         assert!(all.contains("[UYGUN] TAKS") && all.contains("[UYGUN] Emsal (KAKS)") && all.contains("[UYGUN] Kat adedi"), "{all}");
         assert!(all.contains("[VERİ EKSİK] Sığınak") && all.contains("[VERİ EKSİK] Yağmur"), "{all}");
         // sığınak / yağmur girdileri: 12 adet 3+ odalı konut, yağış 600 mm, katsayı 0,8
-        app.automation_op(r#"{"op":"run","cmd":"SAGG_IMARVERI 0 0 12 0 600 0.8"}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_IMARVERI 0 0 12 0 600 0.8 2400 110"}"#);
         let i = app.active_tab;
         let all = imar_lines(&app.tabs[i].scene.document).join("\n");
-        assert!(all.contains("[AYKIRI] Sığınak") && all.contains("48 kişi"), "çizimde sığınak yok: {all}");
+        assert!(all.contains("[AYKIRI] Sığınak") && all.contains("48,00 m²"), "çizimde sığınak yok: {all}");
+        assert!(all.contains("[BİLGİ] Otopark") && all.contains("= 22 araç") && all.contains("[BİLGİ] Su deposu"), "{all}");
+        assert!(all.contains("[VERİ EKSİK] Bahçe mesafeleri") && all.contains("[VERİ EKSİK] Bina yüksekliği"), "{all}");
+        let i = app.active_tab;
+        let csv = saggcad_bim::imar::rapor_csv(&imar_rapor(&app.tabs[i].scene.document).unwrap().0);
+        assert!(csv.contains("\"AYKIRI\";\"Sığınak\""), "{csv}");
         assert!(all.contains("Yağmur suyu deposu") && all.contains("Zorunlu değil"), "{all}");
         app.automation_op(r#"{"op":"undo"}"#);
         let i = app.active_tab;

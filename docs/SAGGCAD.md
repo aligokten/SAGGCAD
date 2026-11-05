@@ -51,7 +51,19 @@ kiriş 25×50×500 → üst 2Ø12, alt 3Ø12, 31 etriye; döşeme 500×400 / t 1
    Kaynaklarda birbirini tutmayan değerler (tuvalet ölçüsü, sığınak eşiğinin "10 ve üzeri" / "10'dan fazla" yorumu,
    %30 sınırının dayanağı) raporda "doğrulayın" notuyla gösterilir; girdi yoksa hesap yapılmaz ("VERİ EKSİK").
    Rapor bir ön kontroldür: plan notlarının, idarenin yerel imar yönetmeliğinin ve ruhsat incelemesinin yerini tutmaz.
-5. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
+5. **0.12 (tamamlandı) — imar kontrolü resmî metinlerden doğrulandı ve genişletildi.** Kaynak: mevzuat.gov.tr
+   PAİY (7.5.23722, RG 1/7/2026 değişikliği dâhil), Sığınak Yönetmeliği (7.5.4883, RG 7/11/2025 dâhil), Otopark
+   Yönetmeliği (7.5.24408). Her rapor satırı madde / fıkra / bent dayanağını taşır.
+   - Düzeltmeler: tuvalet 1,00 m / 1,20 m² ve %30 sınırının dayanağı (md. 5/8, "parselin toplam emsale esas alanı")
+     doğrulandı; sığınak eşiği 10 BB ve üzeri (md. 7/a), konut dışında 1500 m² (md. 7/b), karma kullanımda md. 7/c;
+     "en az 20 m²" yalnız sanayi tesisleri içindir, konuttan kaldırıldı; emsal dışına yalnız gerekli asgari sığınak
+     alanı sayılır (PAİY md. 22/1-g); merdiven evi, asansör boşluğu, teknik hacimler koşullarıyla (md. 20/8, 22/1).
+   - Yeni: bahçe mesafeleri (md. 23: ön 5,00, yan / arka 3,00 + 4 katın üzerindeki her kat için 0,50; kat adedi
+     toplam yükseklik / 3, 2,50 m'yi aşan artık 1 kat; plan notu değerleri girilebilir) — `SAGG_CEPHE` ile parsel
+     kenarları ön / yan / arka işaretlenir; bina yüksekliği (Hmax) ve konut bölgesi kat yükseklikleri (md. 28);
+     su deposu (md. 36); otopark (Otopark Yön. md. 8/3-4, 5/1-j; Ek-1 oranı kullanıcı girdisi — Ek-1 tablosu elimizdeki
+     metinde yok); `SAGG_IMARCSV` ile rapor CSV olarak.
+6. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
    3D BIM görünümü (OpenCAD Studio çekirdeğinin katı modellemesiyle ekstrüzyon), eleman türleri ve kompozit katmanlar.
 
 ## Yukarı akımla eşitleme

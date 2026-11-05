@@ -74,7 +74,9 @@ impl CadModule for BimModule {
                     tools: vec![
                         RibbonItem::LargeTool(tool("SAGG_PARSEL", "Parsel", include_bytes!("../../../assets/icons/saggcad_parsel.svg"))),
                         RibbonItem::LargeTool(tool("SAGG_KAT", "Kat\nalanı", include_bytes!("../../../assets/icons/saggcad_kat.svg"))),
-                        RibbonItem::Tool(tool("SAGG_IMARVERI", "Sığınak / yağmur", include_bytes!("../../../assets/icons/saggcad_imar.svg"))),
+                        RibbonItem::Tool(tool("SAGG_CEPHE", "Cephe (ön/yan/arka)", include_bytes!("../../../assets/icons/saggcad_parsel.svg"))),
+                        RibbonItem::Tool(tool("SAGG_IMARVERI", "Sığınak / su / otopark", include_bytes!("../../../assets/icons/saggcad_imar.svg"))),
+                        RibbonItem::Tool(tool("SAGG_IMARCSV", "İmar CSV", include_bytes!("../../../assets/icons/saggcad_csv.svg"))),
                         RibbonItem::LargeTool(tool("SAGG_IMAR", "İmar\nkontrolü", include_bytes!("../../../assets/icons/saggcad_imar.svg"))),
                     ],
                 },

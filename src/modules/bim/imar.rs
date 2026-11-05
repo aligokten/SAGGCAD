@@ -3,6 +3,7 @@
 //   SAGG_KAT      — kat adı, tipi (B / Z / N / C), tekrar sayısı, sonra brüt kat dış hattı → çoklu çizgi (A-KAT)
 //   SAGG_IMARVERI — sığınak ve yağmur suyu girdileri (konut BB adetleri, konut dışı alan, yıllık yağış, yüzey katsayısı)
 //                   parselin XDATA'sına yazılır (tek geri al)
+//   SAGG_CEPHE    — parsel kenarlarını ön / yan / arka olarak işaretle (bahçe mesafesi kontrolü için)
 // Hesap ve rapor SAGG_IMAR'dadır (src/app/commands/bim.rs); kurallar `saggcad_bim::imar`.
 
 use codec::entities::{LwPolyline, LwVertex, Text, TextHorizontalAlignment, TextVerticalAlignment};
@@ -13,7 +14,7 @@ use std::collections::BTreeMap;
 
 use crate::command::{CadCommand, CmdResult, InputKind};
 use crate::scene::model::wire_model::WireModel;
-use saggcad_bim::imar::KatTip;
+use saggcad_bim::imar::{Cephe, KatTip};
 use saggcad_bim::room;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -143,11 +144,16 @@ impl AlanCommand {
                 field("taks", "TAKS (taban alanı katsayısı, plan notundan)", Kind::Num, &g("taks"), true),
                 field("kaks", "KAKS / emsal (plan notundan)", Kind::Num, &g("kaks"), true),
                 field("kat", "İzin verilen kat adedi", Kind::Int, &g("kat"), true),
+                field("hmax", "Bina yüksekliği Hmax, m (plan notu)", Kind::Num, &g("hmax"), true),
+                field("on", "Ön bahçe mesafesi, m (plan notu; boş: PAİY md. 23 — 5,00)", Kind::Num, &g("on"), true),
+                field("yan", "Yan bahçe mesafesi, m (plan notu; boş: PAİY md. 23 — 3,00 + kat artışı)", Kind::Num, &g("yan"), true),
+                field("arka", "Arka bahçe mesafesi, m (plan notu; boş: PAİY md. 23 — 3,00 + kat artışı)", Kind::Num, &g("arka"), true),
             ],
             AlanTur::Kat => vec![
                 field("ad", "Kat adı", Kind::Text, if g("ad").is_empty() { "ZEMİN KAT" } else { "NORMAL KAT" }, false),
                 field("tip", "Kat tipi [B=bodrum / Z=zemin / N=normal / C=çatı]", Kind::Tip, if prev.is_some() { "N" } else { "Z" }, false),
                 field("tekrar", "Bu kattan kaç adet (aynı plan)", Kind::Int, "1", false),
+                field("h", "Kat yüksekliği, döşemeden döşemeye, m", Kind::Num, &g("h"), true),
             ],
         };
         Self { tur, fields: Fields { list, idx: 0 }, pts: Vec::new() }
@@ -315,6 +321,8 @@ impl ImarVeriCommand {
             field("diger", "Sığınak: konut dışı kullanımların emsale konu alanı, m²", Kind::Num, &g("diger"), true),
             field("yagis", "Yağmur suyu: ilin yıllık ortalama yağışı, mm (= L/m²)", Kind::Num, &g("yagis"), true),
             field("katsayi", "Yağmur suyu: çatı yüzey / toplam verim katsayısı (TS EN 16941-1 Ek A)", Kind::Num, &g("katsayi"), true),
+            field("otopark_alan", "Otopark: Ek-1'e göre esas alan, m² (konutta BB brüt alanları toplamı)", Kind::Num, &g("otopark_alan"), true),
+            field("otopark_oran", "Otopark: Ek-1 oranı — 1 araç / … m²", Kind::Num, &g("otopark_oran"), true),
         ];
         Self { handle, entity, fields: Fields { list, idx: 0 } }
     }
@@ -377,7 +385,85 @@ impl CadCommand for ImarVeriCommand {
     }
 }
 
-inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_PARSEL", "SAGG_KAT", "SAGG_IMARVERI"] }); // AlanCommand, ImarVeriCommand
+/// SAGG_CEPHE: önce tür (O / Y / A), sonra parsel kenarlarına tıkla; tür istendiği an değiştirilebilir; Enter kaydeder
+pub struct CepheCommand {
+    handle: Handle,
+    entity: EntityType,
+    /// parsel köşeleri (mm)
+    poly: Vec<[f64; 2]>,
+    cephe: Cephe,
+    atanan: BTreeMap<usize, Cephe>,
+    son: String,
+}
+
+impl CepheCommand {
+    pub fn new(handle: Handle, entity: EntityType) -> Self {
+        let poly = super::outline_of(&entity).unwrap_or_default();
+        let map = super::bim_data(&entity).unwrap_or_default();
+        let atanan = (0..poly.len()).filter_map(|i| map.get(&format!("kenar{}", i + 1)).and_then(|v| Cephe::parse(v)).map(|c| (i, c))).collect();
+        Self { handle, entity, poly, cephe: Cephe::On, atanan, son: String::new() }
+    }
+
+    fn save(&mut self) -> CmdResult {
+        let mut map = super::bim_data(&self.entity).unwrap_or_default();
+        map.retain(|k, _| !k.starts_with("kenar"));
+        for (i, c) in &self.atanan {
+            map.insert(format!("kenar{}", i + 1), c.key().to_string());
+        }
+        let pairs: Vec<(String, String)> = map.into_iter().filter(|(k, _)| k != "v").collect();
+        let mut entity = self.entity.clone();
+        super::set_bim_data(entity.common_mut(), saggcad_bim::xdata::encode(&pairs));
+        let ozet: Vec<String> = self.atanan.iter().map(|(i, c)| format!("{} {}", i + 1, c.label())).collect();
+        CmdResult::UpdateEntityAndReport { handle: self.handle, entity, message: format!("SAGG_CEPHE  Parsel kenarları kaydedildi: {}.", ozet.join(", ")) }
+    }
+}
+
+impl CadCommand for CepheCommand {
+    fn name(&self) -> &'static str {
+        "SAGG_CEPHE"
+    }
+
+    fn prompt(&self) -> String {
+        format!(
+            "SAGG_CEPHE  {}{} kenarına tıklayın [O=ön / Y=yan / A=arka] (Enter: kaydet ve bitir):",
+            self.son,
+            match self.cephe {
+                Cephe::On => "Ön",
+                Cephe::Yan => "Yan",
+                Cephe::Arka => "Arka",
+            }
+        )
+    }
+
+    fn options(&self) -> Vec<crate::command::CmdOption> {
+        vec![crate::command::CmdOption::new("Ön", "O"), crate::command::CmdOption::new("Yan", "Y"), crate::command::CmdOption::new("Arka", "A")]
+    }
+
+    fn on_text_input(&mut self, text: &str) -> Option<CmdResult> {
+        self.cephe = Cephe::parse(text)?;
+        Some(CmdResult::NeedPoint)
+    }
+
+    fn on_point(&mut self, pt: DVec3) -> CmdResult {
+        if let Some(i) = saggcad_bim::imar::en_yakin_kenar(&self.poly, [pt.x, pt.y]) {
+            self.atanan.insert(i, self.cephe);
+            self.son = format!("kenar {} → {}. ", i + 1, self.cephe.label());
+        }
+        CmdResult::NeedPoint
+    }
+
+    fn on_enter(&mut self) -> CmdResult {
+        self.save()
+    }
+
+    fn on_mouse_move(&mut self, pt: DVec3) -> Option<WireModel> {
+        let i = saggcad_bim::imar::en_yakin_kenar(&self.poly, [pt.x, pt.y])?;
+        let (a, b) = (self.poly[i], self.poly[(i + 1) % self.poly.len()]);
+        Some(WireModel::solid_f64("rubber_band".into(), vec![[a[0], a[1], 0.0], [b[0], b[1], 0.0]], WireModel::CYAN, false))
+    }
+}
+
+inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_PARSEL", "SAGG_KAT", "SAGG_IMARVERI", "SAGG_CEPHE"] }); // AlanCommand, ImarVeriCommand, CepheCommand
 
 #[cfg(test)]
 mod tests {
@@ -391,6 +477,9 @@ mod tests {
         assert!(c.on_text_input("abc").is_none(), "geçersiz sayı ilerlemez");
         assert!(matches!(c.on_text_input("1.2"), Some(CmdResult::NeedPoint)));
         assert!(matches!(c.on_enter(), CmdResult::NeedPoint)); // kat adedi yok
+        assert!(c.prompt().contains("Hmax"), "{}", c.prompt());
+        assert!(matches!(c.on_text_input("15.5"), Some(CmdResult::NeedPoint)));
+        // ön / yan / arka bahçe: nokta tıklanınca kalan isteğe bağlı alanlar geçilir
         for (x, y) in [(0.0, 0.0), (20000.0, 0.0), (20000.0, 25000.0), (0.0, 25000.0)] {
             let _ = c.on_point(DVec3::new(x, y, 0.0));
         }
@@ -400,7 +489,8 @@ mod tests {
         assert_eq!(m.get("tur").map(String::as_str), Some("parsel"));
         assert_eq!(m.get("taks").map(String::as_str), Some("0.4"));
         assert_eq!(m.get("kaks").map(String::as_str), Some("1.2"));
-        assert!(!m.contains_key("kat"));
+        assert!(!m.contains_key("kat") && !m.contains_key("on"));
+        assert_eq!(m.get("hmax").map(String::as_str), Some("15.5"));
         assert_eq!(ents[0].common().layer, super::super::LAYER_PARSEL);
     }
 
@@ -412,12 +502,13 @@ mod tests {
         assert!(c.on_text_input("X").is_none(), "geçersiz tip");
         let _ = c.on_text_input("n");
         let _ = c.on_text_input("3");
+        let _ = c.on_text_input("3,2");
         for (x, y) in [(0.0, 0.0), (12000.0, 0.0), (12000.0, 15000.0), (0.0, 15000.0)] {
             let _ = c.on_point(DVec3::new(x, y, 0.0));
         }
         let CmdResult::CommitEntitiesAndExit(ents) = c.on_text_input("K").unwrap() else { panic!() };
         let m = super::super::bim_data(&ents[0]).unwrap();
-        assert_eq!((m.get("tip").map(String::as_str), m.get("tekrar").map(String::as_str)), (Some("N"), Some("3")));
+        assert_eq!((m.get("tip").map(String::as_str), m.get("tekrar").map(String::as_str), m.get("h").map(String::as_str)), (Some("N"), Some("3"), Some("3.2")));
         let EntityType::Text(t) = &ents[1] else { panic!() };
         assert_eq!(t.value, "NORMAL KAT ×3  brüt 180,00 m²");
     }
@@ -433,7 +524,9 @@ mod tests {
         let _ = c.on_enter(); // diğer yok
         assert!(c.prompt().contains("<500>"), "kayıtlı değer önerilir: {}", c.prompt());
         let _ = c.on_text_input("-"); // yağış silinir
-        let Some(CmdResult::UpdateEntityAndReport { handle, entity, .. }) = c.on_text_input("0,8") else { panic!() };
+        assert!(matches!(c.on_text_input("0,8"), Some(CmdResult::NeedPoint)));
+        let _ = c.on_text_input("2400");
+        let Some(CmdResult::UpdateEntityAndReport { handle, entity, .. }) = c.on_text_input("110") else { panic!() };
         assert_eq!(handle, Handle::new(5));
         let m = super::super::bim_data(&entity).unwrap();
         assert_eq!(m.get("bb1").map(String::as_str), Some("2"));
@@ -441,5 +534,27 @@ mod tests {
         assert_eq!(m.get("katsayi").map(String::as_str), Some("0.8"));
         assert_eq!(m.get("taks").map(String::as_str), Some("0.4"), "imar durumu korunur");
         assert!(!m.contains_key("yagis") && !m.contains_key("bb2"));
+        assert_eq!((m.get("otopark_alan").map(String::as_str), m.get("otopark_oran").map(String::as_str)), (Some("2400"), Some("110")));
+    }
+
+    #[test]
+    fn cephe_kenarlari_isaretlenir() {
+        let mut ents = make_alan(AlanTur::Parsel, &[[0.0, 0.0], [20000.0, 0.0], [20000.0, 30000.0], [0.0, 30000.0]], &[("taks".into(), "0.4".into())]);
+        let mut c = CepheCommand::new(Handle::new(9), ents.remove(0));
+        assert!(c.prompt().contains("Ön kenarına"));
+        let _ = c.on_point(DVec3::new(10000.0, 100.0, 0.0)); // kenar 1 ön
+        assert!(matches!(c.on_text_input("y"), Some(CmdResult::NeedPoint)));
+        let _ = c.on_point(DVec3::new(19900.0, 15000.0, 0.0)); // kenar 2 yan
+        let _ = c.on_point(DVec3::new(50.0, 12000.0, 0.0)); // kenar 4 yan
+        let _ = c.on_text_input("A");
+        let _ = c.on_point(DVec3::new(10000.0, 29000.0, 0.0)); // kenar 3 arka
+        assert!(c.prompt().contains("kenar 3 → arka"), "{}", c.prompt());
+        let CmdResult::UpdateEntityAndReport { handle, entity, message } = c.on_enter() else { panic!() };
+        assert_eq!(handle, Handle::new(9));
+        let m = super::super::bim_data(&entity).unwrap();
+        let k: Vec<_> = (1..=4).map(|i| m.get(&format!("kenar{i}")).cloned().unwrap_or_default()).collect();
+        assert_eq!(k, ["O", "Y", "A", "Y"]);
+        assert_eq!(m.get("taks").map(String::as_str), Some("0.4"), "imar durumu korunur");
+        assert!(message.contains("1 ön"), "{message}");
     }
 }
