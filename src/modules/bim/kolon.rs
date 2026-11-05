@@ -26,11 +26,13 @@ pub struct KolonCommand {
     height: f64,
     anchor: Anchor,
     names: Vec<String>,
+    /// bir çizim biriminin mm karşılığı
+    u: f64,
 }
 
 impl KolonCommand {
     pub fn new(names: Vec<String>) -> Self {
-        Self { step: Step::Size, b: 300.0, h: 500.0, height: 2800.0, anchor: Anchor::Center, names }
+        Self { step: Step::Size, b: 300.0, h: 500.0, height: 2800.0, anchor: Anchor::Center, names, u: 1.0 }
     }
 
     fn next_name(&self) -> String {
@@ -38,16 +40,24 @@ impl KolonCommand {
         format!("S{}", n + 1)
     }
 
-    /// tıklanan nokta → kolon nesnesi
+    pub fn with_units(mut self, u: f64) -> Self {
+        self.u = u;
+        self
+    }
+
+    /// tıklanan nokta (çizim biriminde) → kolon nesnesi
     pub fn make(&mut self, p: [f64; 2]) -> EntityType {
         let name = self.next_name();
         self.names.push(name.clone());
-        make_column(p, self.b, self.h, self.height, self.anchor, &name)
+        let p = [p[0] * self.u, p[1] * self.u];
+        super::to_drawing(make_column(p, self.b, self.h, self.height, self.anchor, &name), self.u)
     }
 
+    /// önizleme dış hattı (çizim biriminde)
     fn outline_at(&self, p: [f64; 2]) -> [[f64; 2]; 4] {
+        let p = [p[0] * self.u, p[1] * self.u];
         let c = column::center_from_anchor(p, self.b, self.h, 0.0, self.anchor);
-        column::outline(c, self.b, self.h, 0.0)
+        column::outline(c, self.b, self.h, 0.0).map(|q| [q[0] / self.u, q[1] / self.u])
     }
 }
 

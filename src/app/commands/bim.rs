@@ -10,23 +10,66 @@ use saggcad_bim::rebar::{self, Rules};
 
 /// belgedeki SAGGCAD BIM elemanları (donatı hesabının biçiminde)
 pub(crate) fn bim_elements(doc: &codec::Document) -> Vec<rebar::Element> {
-    doc.entities().filter_map(element_of).collect()
+    let u = crate::modules::bim::mm_per_unit(doc).unwrap_or(1.0);
+    doc.entities().filter_map(|e| element_of(e, u)).collect()
 }
 
 const BETONARME: [&str; 4] = ["kolon", "kiris", "perde", "doseme"];
 
 impl OpenCADStudio {
     pub(super) fn dispatch_bim(&mut self, cmd: &str, i: usize) -> Option<Task<Message>> {
-        match cmd.trim().to_ascii_uppercase().as_str() {
+        let up = cmd.trim().to_ascii_uppercase();
+        if !up.starts_with("SAGG_") {
+            return None;
+        }
+        // çizim birimi: SAGG_BIRIM ayarlar; tanımsızsa önce birim sorulur (ölçüler mm yazılır, çizime bu birimle konur)
+        if let Some(arg) = up.strip_prefix("SAGG_BIRIM_AYARLA") {
+            let Some(code) = arg.trim().parse::<i16>().ok().filter(|c| crate::modules::bim::insunits_mm(*c).is_some()) else {
+                self.command_line.push_error("SAGG_BIRIM  Geçersiz birim.");
+                return Some(Task::none());
+            };
+            self.push_undo_snapshot(i, "SAGG_BIRIM");
+            self.tabs[i].scene.document.header.insertion_units = code;
+            let u = crate::modules::bim::insunits_mm(code).unwrap_or(1.0);
+            let etiketler = crate::modules::bim::birim::yenilenen_etiketler(&self.tabs[i].scene.document, u);
+            let n = etiketler.len();
+            for e in etiketler {
+                let _ = self.tabs[i].scene.update_entity(e);
+            }
+            self.tabs[i].dirty = true;
+            self.command_line.push_output(&format!(
+                "SAGG_BIRIM  Çizim birimi: {} (ölçüleri yine mm yazın; çizime bu birimle konur).{}",
+                crate::modules::bim::insunits_name(code),
+                if n > 0 { format!(" {n} etiket yeniden hesaplandı.") } else { String::new() }
+            ));
+            return Some(Task::none());
+        }
+        let current = self.tabs[i].scene.document.header.insertion_units;
+        let known = crate::modules::bim::mm_per_unit(&self.tabs[i].scene.document);
+        if up == "SAGG_BIRIM" || (known.is_none() && up != "SAGG_DONATI") {
+            use crate::modules::bim::birim::BirimCommand;
+            if up != "SAGG_BIRIM" {
+                self.command_line.push_output(&format!(
+                    "{up}  Çizim birimi tanımsız ({}). Önce birimi seçin, sonra komutu yeniden çalıştırın.",
+                    crate::modules::bim::insunits_name(current)
+                ));
+            }
+            let cmd = BirimCommand::new(current);
+            self.command_line.push_info(&cmd.prompt());
+            self.tabs[i].active_cmd = Some(Box::new(cmd));
+            return Some(Task::none());
+        }
+        let u = known.unwrap_or(1.0);
+        match up.as_str() {
             "SAGG_AKS" => {
                 use crate::modules::bim::aks::AksCommand;
-                let cmd = AksCommand::new(existing_names(&self.tabs[i].scene.document, "aks"));
+                let cmd = AksCommand::new(existing_names(&self.tabs[i].scene.document, "aks")).with_units(u);
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
             "SAGG_KOLON" => {
                 use crate::modules::bim::kolon::KolonCommand;
-                let cmd = KolonCommand::new(existing_names(&self.tabs[i].scene.document, "kolon"));
+                let cmd = KolonCommand::new(existing_names(&self.tabs[i].scene.document, "kolon")).with_units(u);
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
@@ -37,13 +80,13 @@ impl OpenCADStudio {
                     "SAGG_PERDE" => (BandKind::Perde, "perde"),
                     _ => (BandKind::Duvar, "duvar"),
                 };
-                let cmd = BandCommand::new(kind, existing_names(&self.tabs[i].scene.document, tur));
+                let cmd = BandCommand::new(kind, existing_names(&self.tabs[i].scene.document, tur)).with_units(u);
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
             "SAGG_DOSEME" => {
                 use crate::modules::bim::doseme::DosemeCommand;
-                let cmd = DosemeCommand::new(existing_names(&self.tabs[i].scene.document, "doseme"));
+                let cmd = DosemeCommand::new(existing_names(&self.tabs[i].scene.document, "doseme")).with_units(u);
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
@@ -63,7 +106,7 @@ impl OpenCADStudio {
                     self.command_line.push_output(&format!("{}  Çizimde SAGGCAD duvarı yok — önce SAGG_DUVAR ile duvar çizin.", cmd.trim().to_ascii_uppercase()));
                     return Some(Task::none());
                 }
-                let cmd = BoslukCommand::new(kind, related);
+                let cmd = BoslukCommand::new(kind, related).with_units(u);
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
@@ -77,7 +120,7 @@ impl OpenCADStudio {
                     .filter(|m| m.get("tur").map(String::as_str) == Some("mahal"))
                     .filter_map(|m| m.get("no").cloned())
                     .collect();
-                let cmd = MahalCommand::new(nos);
+                let cmd = MahalCommand::new(nos).with_units(u);
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
@@ -86,7 +129,7 @@ impl OpenCADStudio {
                 let (tur, key) = if cmd.trim().eq_ignore_ascii_case("SAGG_PARSEL") { (AlanTur::Parsel, "parsel") } else { (AlanTur::Kat, "kat") };
                 // önceki parselin imar durumu / önceki kat öneri olarak gelir
                 let prev = self.tabs[i].scene.document.entities().filter_map(bim_data).filter(|m| m.get("tur").map(String::as_str) == Some(key)).last();
-                let cmd = AlanCommand::new(tur, prev);
+                let cmd = AlanCommand::new(tur, prev).with_units(u);
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
@@ -157,7 +200,7 @@ impl OpenCADStudio {
             }
             "SAGG_DONATIGIR" => {
                 use crate::modules::bim::donatigir::DonatiGirCommand;
-                let cmd = DonatiGirCommand::new();
+                let cmd = DonatiGirCommand::new().with_units(u);
                 self.command_line.push_info(&cmd.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(cmd));
             }
@@ -226,14 +269,15 @@ impl OpenCADStudio {
 
 /// belgedeki parsel, kat dış hatları ve mahallerden imar ön kontrolü; Err: parsel yok. İkinci değer: parsel sayısı.
 pub(crate) fn imar_rapor(doc: &codec::Document) -> Result<(saggcad_bim::imar::Rapor, usize), String> {
-    use crate::modules::bim::outline_of;
+    use crate::modules::bim::outline_mm;
     use saggcad_bim::imar::{self, from_mm};
+    let u = crate::modules::bim::mm_per_unit(doc).unwrap_or(1.0);
     let mut parsel: Option<imar::Parsel> = None;
     let mut parsel_say = 0;
     let mut katlar = Vec::new();
     let mut mahaller = Vec::new();
     for e in doc.entities() {
-        let (Some(map), Some(poly)) = (bim_data(e), outline_of(e)) else { continue };
+        let (Some(map), Some(poly)) = (bim_data(e), outline_mm(e, u)) else { continue };
         let poly = from_mm(&poly);
         match map.get("tur").map(String::as_str) {
             Some("parsel") => {
@@ -302,6 +346,7 @@ mod tests {
     fn aks_sistemi_komutu_dwg_nesneleri_ve_xdata() {
         let mut app = OpenCADStudio::new_for_test();
         app.automation_op(r#"{"op":"new"}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_BIRIM MM"}"#);
         app.automation_op(r#"{"op":"run","cmd":"SAGG_AKS 4000;5000 3500 0,0 "}"#);
         let i = app.active_tab;
         let doc = &app.tabs[i].scene.document;
@@ -327,6 +372,7 @@ mod tests {
     fn kolon_ve_donati_minimum_metraj_geri_al() {
         let mut app = OpenCADStudio::new_for_test();
         app.automation_op(r#"{"op":"new"}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_BIRIM MM"}"#);
         app.automation_op(r#"{"op":"run","cmd":"SAGG_KOLON 300x500 2800 SA 1000,0 5000,0 "}"#);
         assert_eq!(bim_count(&app, "kolon"), 2);
         let i = app.active_tab;
@@ -351,6 +397,7 @@ mod tests {
         use saggcad_bim::rebar::{Element, Geom, Spec};
         let mut app = OpenCADStudio::new_for_test();
         app.automation_op(r#"{"op":"new"}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_BIRIM MM"}"#);
         app.automation_op(r#"{"op":"run","cmd":"SAGG_KIRIS 250x500 E 0,0 5000,0 "}"#);
         app.automation_op(r#"{"op":"run","cmd":"SAGG_PERDE 250 2800 S 0,0 0,4000 "}"#);
         app.automation_op(r#"{"op":"run","cmd":"SAGG_DOSEME 150 0,0 5000,0 5000,4000 0,4000 "}"#);
@@ -391,6 +438,7 @@ mod tests {
         use glam::DVec3;
         let mut app = OpenCADStudio::new_for_test();
         app.automation_op(r#"{"op":"new"}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_BIRIM MM"}"#);
         app.automation_op(r#"{"op":"run","cmd":"SAGG_DUVAR 200 2800 E 0,0 5000,0 5000,4000 "}"#);
         assert_eq!(bim_count(&app, "duvar"), 2, "zincirleme iki duvar");
         let i = app.active_tab;
@@ -421,7 +469,7 @@ mod tests {
         assert!(app.tabs[i].active_cmd.is_none());
         assert_eq!(bim_count(&app, "duvar"), 3, "DV1 kapıyla iki parçaya bölündü");
         assert_eq!(bim_count(&app, "kapi"), 2, "kanat + yay");
-        let walls: Vec<_> = app.tabs[i].scene.document.entities().filter_map(crate::modules::bim::wall_of).collect();
+        let walls: Vec<_> = app.tabs[i].scene.document.entities().filter_map(|e| crate::modules::bim::wall_of(e, 1.0)).collect();
         let (gross, net): (f64, f64) = walls.iter().filter(|w| w.name == "DV1").take(1).map(|w| w.areas()).next().unwrap();
         assert!((gross - 14.0).abs() < 1e-9 && (net - (14.0 - 0.9 * 2.1)).abs() < 1e-9);
         app.automation_op(r#"{"op":"undo"}"#);
@@ -452,6 +500,7 @@ mod tests {
         use glam::DVec3;
         let mut app = OpenCADStudio::new_for_test();
         app.automation_op(r#"{"op":"new"}"#);
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_BIRIM MM"}"#);
         // girdiler yokken
         app.automation_op(r#"{"op":"run","cmd":"SAGG_IMAR"}"#);
         let i = app.active_tab;
@@ -496,5 +545,39 @@ mod tests {
         app.automation_op(r#"{"op":"undo"}"#);
         let i = app.active_tab;
         assert!(imar_lines(&app.tabs[i].scene.document).join("\n").contains("[VERİ EKSİK] Sığınak"), "imar verisi tek geri al");
+    }
+
+    #[test]
+    fn metre_biriminde_cizim_ve_birim_sorusu() {
+        let mut app = OpenCADStudio::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        let i = app.active_tab;
+        app.tabs[i].scene.document.header.insertion_units = 0;
+        // birimsiz çizimde komut önce birimi sorar
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_MAHAL"}"#);
+        let i = app.active_tab;
+        assert_eq!(app.tabs[i].active_cmd.as_ref().map(|c| c.name()), Some("SAGG_BIRIM"));
+        let result = app.tabs[i].active_cmd.as_mut().unwrap().on_text_input("M").expect("birim kabul edilmeli");
+        let task = app.apply_cmd_result(result);
+        app.drive_headless_task(task).unwrap();
+        let i = app.active_tab;
+        assert_eq!(app.tabs[i].scene.document.header.insertion_units, 6);
+        assert!(app.tabs[i].active_cmd.is_none());
+        // metre çiziminde 25 × 15 parsel: 375 m², etiket 0,25 birim (= 250 mm) yüksekliğinde
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_PARSEL 0.40 1.20 4 15.5 5 3 3 0,0 25,0 25,15 0,15 "}"#);
+        let i = app.active_tab;
+        let doc = &app.tabs[i].scene.document;
+        let t = doc.entities().find_map(|e| if let codec::EntityType::Text(t) = e { Some(t.clone()) } else { None }).expect("parsel etiketi");
+        assert_eq!(t.value, "PARSEL  375,00 m²");
+        assert!((t.height - 0.25).abs() < 1e-9, "{}", t.height);
+        assert!(imar_lines(doc)[0].contains("parsel 375,00 m²"), "{:?}", imar_lines(doc));
+        // duvar kalınlığı mm yazılır (200) → metre çizimde 0,2 birim
+        app.automation_op(r#"{"op":"run","cmd":"SAGG_DUVAR 200 2800 E 0,0 5,0 "}"#);
+        let i = app.active_tab;
+        let duvar = app.tabs[i].scene.document.entities().find(|e| bim_data(e).is_some_and(|m| m.get("tur").map(String::as_str) == Some("duvar"))).unwrap().clone();
+        let o = crate::modules::bim::outline_of(&duvar).unwrap();
+        assert!((o[0][1] + 0.1).abs() < 1e-9 && (o[2][1] - 0.1).abs() < 1e-9, "{o:?}");
+        let w = crate::modules::bim::wall_of(&duvar, 1000.0).unwrap();
+        assert!((w.length() - 5000.0).abs() < 1e-6 && (w.t - 200.0).abs() < 1e-9);
     }
 }

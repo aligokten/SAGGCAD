@@ -13,21 +13,29 @@ use saggcad_bim::rebar::Spec;
 pub struct DosemeCommand {
     thickness: f64,
     asked: bool,
+    /// köşeler mm
     pts: Vec<[f64; 2]>,
     name: String,
+    /// bir çizim biriminin mm karşılığı
+    u: f64,
 }
 
 impl DosemeCommand {
     pub fn new(names: Vec<String>) -> Self {
         let n = names.iter().filter_map(|s| s.strip_prefix('D').and_then(|x| x.parse::<u32>().ok())).max().unwrap_or(0);
-        Self { thickness: 150.0, asked: false, pts: Vec::new(), name: format!("D{}", n + 1) }
+        Self { thickness: 150.0, asked: false, pts: Vec::new(), name: format!("D{}", n + 1), u: 1.0 }
+    }
+
+    pub fn with_units(mut self, u: f64) -> Self {
+        self.u = u;
+        self
     }
 
     fn finish(&mut self) -> CmdResult {
         if self.pts.len() < 3 {
             return CmdResult::Cancel;
         }
-        CmdResult::CommitAndExit(make_slab(&self.pts, self.thickness, &self.name))
+        CmdResult::CommitAndExit(super::to_drawing(make_slab(&self.pts, self.thickness, &self.name), self.u))
     }
 }
 
@@ -87,7 +95,7 @@ impl CadCommand for DosemeCommand {
 
     fn on_point(&mut self, pt: DVec3) -> CmdResult {
         self.asked = true;
-        let p = [pt.x, pt.y];
+        let p = [pt.x * self.u, pt.y * self.u];
         if self.pts.last().map_or(true, |q| (q[0] - p[0]).abs() + (q[1] - p[1]).abs() > 1e-6) {
             self.pts.push(p);
         }
@@ -107,9 +115,9 @@ impl CadCommand for DosemeCommand {
             return None;
         }
         let mut pts: Vec<[f64; 3]> = self.pts.iter().map(|q| [q[0], q[1], 0.0]).collect();
-        pts.push([pt.x, pt.y, 0.0]);
+        pts.push([pt.x * self.u, pt.y * self.u, 0.0]);
         pts.push([self.pts[0][0], self.pts[0][1], 0.0]);
-        Some(WireModel::solid_f64("rubber_band".into(), pts, WireModel::CYAN, false))
+        Some(WireModel::solid_f64("rubber_band".into(), super::preview_to_drawing(pts, self.u), WireModel::CYAN, false))
     }
 }
 

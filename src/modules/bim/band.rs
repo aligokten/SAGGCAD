@@ -36,6 +36,8 @@ pub struct BandCommand {
     height: f64,
     align: Align,
     names: Vec<String>,
+    /// bir çizim biriminin mm karşılığı
+    u: f64,
 }
 
 impl BandCommand {
@@ -45,7 +47,12 @@ impl BandCommand {
             BandKind::Perde => (250.0, 2800.0),
             BandKind::Duvar => (200.0, 2800.0),
         };
-        Self { kind, step: Step::Size, width, height, align: Align::Axis, names }
+        Self { kind, step: Step::Size, width, height, align: Align::Axis, names, u: 1.0 }
+    }
+
+    pub fn with_units(mut self, u: f64) -> Self {
+        self.u = u;
+        self
     }
 
     fn prefix(&self) -> &'static str {
@@ -67,7 +74,7 @@ impl BandCommand {
         let name = self.next_name();
         let e = make_band(self.kind, a, b, self.width, self.height, self.align, &name)?;
         self.names.push(name);
-        Some(e)
+        Some(super::to_drawing(e, self.u))
     }
 }
 
@@ -151,7 +158,7 @@ impl CadCommand for BandCommand {
     }
 
     fn on_point(&mut self, pt: DVec3) -> CmdResult {
-        let p = [pt.x, pt.y];
+        let p = [pt.x * self.u, pt.y * self.u];
         match self.step {
             Step::Start => {
                 self.step = Step::End(p);
@@ -183,10 +190,10 @@ impl CadCommand for BandCommand {
 
     fn on_mouse_move(&mut self, pt: DVec3) -> Option<WireModel> {
         let Step::End(a) = self.step else { return None };
-        let o = outline(a, [pt.x, pt.y], self.width, self.align)?;
+        let o = outline(a, [pt.x * self.u, pt.y * self.u], self.width, self.align)?;
         let mut pts: Vec<[f64; 3]> = o.iter().map(|q| [q[0], q[1], 0.0]).collect();
         pts.push([o[0][0], o[0][1], 0.0]);
-        Some(WireModel::solid_f64("rubber_band".into(), pts, WireModel::CYAN, false))
+        Some(WireModel::solid_f64("rubber_band".into(), super::preview_to_drawing(pts, self.u), WireModel::CYAN, false))
     }
 }
 

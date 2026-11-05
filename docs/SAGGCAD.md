@@ -63,7 +63,11 @@ kiriş 25×50×500 → üst 2Ø12, alt 3Ø12, 31 etriye; döşeme 500×400 / t 1
      kenarları ön / yan / arka işaretlenir; bina yüksekliği (Hmax) ve konut bölgesi kat yükseklikleri (md. 28);
      su deposu (md. 36); otopark (Otopark Yön. md. 8/3-4, 5/1-j; Ek-1 oranı kullanıcı girdisi — Ek-1 tablosu elimizdeki
      metinde yok); `SAGG_IMARCSV` ile rapor CSV olarak.
-6. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
+6. **0.13 — çizim birimi.** BIM modeli (XDATA, hesaplar, yazılan ölçüler) mm'dir; çizim INSUNITS biriminde (mm, cm, m)
+   olabilir. Komutlar tıklanan noktayı birime göre mm'ye çevirir, ürettikleri nesneleri çizim birimine indirir; alanlar
+   doğru m² ile hesaplanır. Birimsiz (INSUNITS 0) çizimde SAGGCAD önce birimi sorar (`SAGG_BIRIM`: MM / CM / M);
+   birim değişince mahal, parsel ve kat etiketleri yeniden hesaplanır (geometri ölçeklenmez).
+7. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
    3D BIM görünümü (OpenCAD Studio çekirdeğinin katı modellemesiyle ekstrüzyon), eleman türleri ve kompozit katmanlar.
 
 ## Yukarı akımla eşitleme
