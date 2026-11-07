@@ -3,7 +3,7 @@
 
 use super::{Message, OpenCADStudio};
 use crate::command::CadCommand;
-use crate::modules::bim::{bim_data, element_of, existing_names, set_bim_data};
+use crate::modules::bim::{bim_data, existing_names, set_bim_data};
 use codec::Handle;
 use iced::Task;
 use saggcad_bim::rebar::{self, Rules};
@@ -11,7 +11,7 @@ use saggcad_bim::rebar::{self, Rules};
 /// belgedeki SAGGCAD BIM elemanları (donatı hesabının biçiminde)
 pub(crate) fn bim_elements(doc: &codec::Document) -> Vec<rebar::Element> {
     let u = crate::modules::bim::mm_per_unit(doc).unwrap_or(1.0);
-    doc.entities().filter_map(|e| element_of(e, u)).collect()
+    doc.entities().filter_map(|e| crate::modules::bim::element_in(doc, e, u)).collect()
 }
 
 const BETONARME: [&str; 4] = ["kolon", "kiris", "perde", "doseme"];
@@ -60,6 +60,80 @@ impl OpenCADStudio {
             return Some(Task::none());
         }
         let u = known.unwrap_or(1.0);
+        // SAGG_BOSLUK_UYGULA — kapı / pencere komutunun sonucu: eski parça ve semboller silinir, yeni parçalar eklenir,
+        // semboller dinamik blok örneği olarak konur (kapıda menteşe ucu çevirme parametresiyle), tek geri al
+        if up == "SAGG_BOSLUK_UYGULA" {
+            use crate::modules::bim::{blok, bosluk, LAYER_KAPI, LAYER_PENCERE};
+            use saggcad_bim::wall::OpKind;
+            let Some(b) = bosluk::bekleyeni_al() else {
+                self.command_line.push_error("SAGG_KAPI  Uygulanacak değişiklik yok.");
+                return Some(Task::none());
+            };
+            self.push_undo_snapshot(i, "SAGG_KAPI");
+            self.tabs[i].scene.erase_entities(&b.erase);
+            for e in b.pieces {
+                let _ = self.tabs[i].scene.add_entity(e);
+            }
+            for s in &b.semboller {
+                let eki = blok::birim_eki(u);
+                let (ad, tanim, katman) = match s.kind {
+                    OpKind::Kapi => {
+                        let ad = format!("SAGG_KAPI_{}x{}_{eki}", blok::olcu(s.w), blok::olcu(s.t));
+                        (ad.clone(), blok::kapi_blogu(ad, s.w, s.t, u), LAYER_KAPI)
+                    }
+                    OpKind::Pencere => {
+                        let ad = format!("SAGG_PENCERE_{}x{}_{eki}", blok::olcu(s.w), blok::olcu(s.t));
+                        (ad.clone(), blok::pencere_blogu(ad, s.w, s.t, u), LAYER_PENCERE)
+                    }
+                };
+                if let Err(e) = blok::tanimla(&mut self.tabs[i].scene, tanim) {
+                    self.command_line.push_error(&format!("SAGG_KAPI  Dinamik blok kurulamadı: {e}"));
+                    continue;
+                }
+                let h = blok::yerlestir(&mut self.tabs[i].scene, &ad, [s.at[0] / u, s.at[1] / u], s.donus, katman, s.xdata.clone());
+                if s.mentese_cevir {
+                    use crate::scene::block_actions as actions;
+                    if let Some(p) = blok::mentese_parametresi(&self.tabs[i].scene.document, h) {
+                        match actions::instance::evaluate_value(&self.tabs[i].scene.document, h, p, actions::Value::Flip(true)) {
+                            Ok(Some(staged)) => {
+                                self.apply_action_document(i, staged);
+                                self.tabs[i].scene.bump_geometry();
+                            }
+                            Ok(None) => {}
+                            Err(e) => self.command_line.push_error(&format!("SAGG_KAPI  Menteşe çevrilemedi: {e}")),
+                        }
+                    }
+                }
+            }
+            self.tabs[i].dirty = true;
+            self.command_line.push_output(&format!("SAGG_KAPI  {}", b.ozet));
+            return Some(Task::none());
+        }
+        // SAGG_KOLON_KOY b h H çapa cx cy ad — KolonCommand'ın yerleştirmesi (mm): dinamik blok örneği koyar, komutu sürdürür
+        if let Some(arg) = up.strip_prefix("SAGG_KOLON_KOY") {
+            use crate::modules::bim::{blok, kolon::KolonCommand, LAYER_KOLON};
+            let a: Vec<&str> = arg.split_whitespace().collect();
+            let num = |k: usize| a.get(k).and_then(|v| v.parse::<f64>().ok()).filter(|v| v.is_finite());
+            let (Some(b), Some(h), Some(height), Some(cx), Some(cy), Some(anchor), Some(ad)) =
+                (num(0), num(1), num(2), num(4), num(5), a.get(3).and_then(|v| saggcad_bim::column::Anchor::parse(v)), a.get(6))
+            else {
+                self.command_line.push_error("SAGG_KOLON  Geçersiz yerleştirme.");
+                return Some(Task::none());
+            };
+            let blok_adi = format!("SAGG_KOLON_{}x{}_{}", blok::olcu(b), blok::olcu(h), blok::birim_eki(u));
+            self.push_undo_snapshot(i, "SAGG_KOLON");
+            if let Err(e) = blok::tanimla(&mut self.tabs[i].scene, blok::dikdortgen(blok_adi.clone(), b, h, u)) {
+                self.command_line.push_error(&format!("SAGG_KOLON  Dinamik blok kurulamadı: {e}"));
+                return Some(Task::none());
+            }
+            let xdata = saggcad_bim::xdata::kolon(ad, b, h, height, &saggcad_bim::rebar::Spec::none());
+            blok::yerlestir(&mut self.tabs[i].scene, &blok_adi, [cx / u, cy / u], 0.0, LAYER_KOLON, xdata);
+            self.tabs[i].dirty = true;
+            let cmd = KolonCommand::new(existing_names(&self.tabs[i].scene.document, "kolon")).with_units(u).resume(b, h, height, anchor);
+            self.command_line.push_info(&cmd.prompt());
+            self.tabs[i].active_cmd = Some(Box::new(cmd));
+            return Some(Task::none());
+        }
         match up.as_str() {
             "SAGG_AKS" => {
                 use crate::modules::bim::aks::AksCommand;
@@ -269,7 +343,7 @@ impl OpenCADStudio {
 
 /// belgedeki parsel, kat dış hatları ve mahallerden imar ön kontrolü; Err: parsel yok. İkinci değer: parsel sayısı.
 pub(crate) fn imar_rapor(doc: &codec::Document) -> Result<(saggcad_bim::imar::Rapor, usize), String> {
-    use crate::modules::bim::outline_mm;
+    use crate::modules::bim::outline_mm_in;
     use saggcad_bim::imar::{self, from_mm};
     let u = crate::modules::bim::mm_per_unit(doc).unwrap_or(1.0);
     let mut parsel: Option<imar::Parsel> = None;
@@ -277,7 +351,7 @@ pub(crate) fn imar_rapor(doc: &codec::Document) -> Result<(saggcad_bim::imar::Ra
     let mut katlar = Vec::new();
     let mut mahaller = Vec::new();
     for e in doc.entities() {
-        let (Some(map), Some(poly)) = (bim_data(e), outline_mm(e, u)) else { continue };
+        let (Some(map), Some(poly)) = (bim_data(e), outline_mm_in(doc, e, u)) else { continue };
         let poly = from_mm(&poly);
         match map.get("tur").map(String::as_str) {
             Some("parsel") => {
@@ -375,6 +449,18 @@ mod tests {
         app.automation_op(r#"{"op":"run","cmd":"SAGG_BIRIM MM"}"#);
         app.automation_op(r#"{"op":"run","cmd":"SAGG_KOLON 300x500 2800 SA 1000,0 5000,0 "}"#);
         assert_eq!(bim_count(&app, "kolon"), 2);
+        {
+            // kolonlar dinamik blok örneği: tek tanım (aynı ölçü ailesi), b ve h uzatma parametreleri
+            let i = app.active_tab;
+            let doc = &app.tabs[i].scene.document;
+            let kolonlar: Vec<_> = doc.entities().filter(|e| bim_data(e).is_some_and(|m| m.get("tur").map(String::as_str) == Some("kolon"))).collect();
+            assert!(kolonlar.iter().all(|e| matches!(e, codec::EntityType::Insert(ins) if ins.block_name == "SAGG_KOLON_300x500_mm")));
+            assert!(kolonlar.iter().all(|e| e.common().layer == "S-KOLON"));
+            let def = doc.block_records.get("SAGG_KOLON_300x500_mm").expect("tanım").handle;
+            assert_eq!(crate::scene::block_actions::all_parameters(doc, def).iter().filter(|p| p.linear).count(), 2);
+            let o = crate::modules::bim::outline_in(doc, kolonlar[0]).unwrap();
+            assert_eq!(o[0], [1000.0, 0.0], "sol alt köşeden yerleşti");
+        }
         let i = app.active_tab;
         let els = bim_elements(&app.tabs[i].scene.document);
         assert_eq!(els.len(), 2);
@@ -464,11 +550,23 @@ mod tests {
             let _ = cmd.on_point(DVec3::new(1000.0, 0.0, 0.0));
             cmd.on_point(DVec3::new(600.0, 700.0, 0.0))
         };
-        let _ = app.apply_cmd_result(result);
+        let task = app.apply_cmd_result(result);
+        app.drive_headless_task(task).unwrap();
         let i = app.active_tab;
         assert!(app.tabs[i].active_cmd.is_none());
         assert_eq!(bim_count(&app, "duvar"), 3, "DV1 kapıyla iki parçaya bölündü");
-        assert_eq!(bim_count(&app, "kapi"), 2, "kanat + yay");
+        assert_eq!(bim_count(&app, "kapi"), 1, "kapı tek dinamik blok örneği");
+        {
+            let i = app.active_tab;
+            let doc = &app.tabs[i].scene.document;
+            let kapi = doc.entities().find(|e| bim_data(e).is_some_and(|m| m.get("tur").map(String::as_str) == Some("kapi"))).unwrap();
+            let codec::EntityType::Insert(ins) = kapi else { panic!("kapı INSERT olmalı") };
+            assert!(ins.block_name.starts_with("SAGG_KAPI_900x200_mm"), "{}", ins.block_name);
+            assert_eq!(kapi.common().layer, "A-KAPI");
+            assert_eq!([ins.insert_point.x, ins.insert_point.y], [1000.0, 100.0]);
+            let def = doc.block_records.get("SAGG_KAPI_900x200_mm").expect("kapı tanımı").handle;
+            assert_eq!(crate::scene::block_actions::all_parameters(doc, def).iter().filter(|p| p.flip).count(), 2);
+        }
         let walls: Vec<_> = app.tabs[i].scene.document.entities().filter_map(|e| crate::modules::bim::wall_of(e, 1.0)).collect();
         let (gross, net): (f64, f64) = walls.iter().filter(|w| w.name == "DV1").take(1).map(|w| w.areas()).next().unwrap();
         assert!((gross - 14.0).abs() < 1e-9 && (net - (14.0 - 0.9 * 2.1)).abs() < 1e-9);

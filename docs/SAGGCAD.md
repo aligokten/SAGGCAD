@@ -67,7 +67,19 @@ kiriş 25×50×500 → üst 2Ø12, alt 3Ø12, 31 etriye; döşeme 500×400 / t 1
    olabilir. Komutlar tıklanan noktayı birime göre mm'ye çevirir, ürettikleri nesneleri çizim birimine indirir; alanlar
    doğru m² ile hesaplanır. Birimsiz (INSUNITS 0) çizimde SAGGCAD önce birimi sorar (`SAGG_BIRIM`: MM / CM / M);
    birim değişince mahal, parsel ve kat etiketleri yeniden hesaplanır (geometri ölçeklenmez).
-7. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
+7. **0.14 — dinamik blok altyapısı.** SAGGCAD nesneleri OpenCAD Studio'nun yerel dinamik bloklarıyla (DWG'de AutoCAD'in
+   okuduğu BLOCKLINEARPARAMETER / BLOCKSTRETCHACTION / BLOCKFLIPPARAMETER / BLOCKFLIPACTION nesneleri) kurulur:
+   `src/modules/bim/blok.rs` — `tanimla` (tanım + uzatma / çevirme parametre ve eylemleri), `yerlestir` (INSERT, XDATA ve
+   SAGGCAD katmanı örnekte), `blok_dis_hatti` (örneğin etkin, kullanıcının uzattığı geometrisinden dış hat; metraj ve
+   imar hesapları bunu okur). Tanımlar ölçü ailesi ve birim başına birer tane (ör. `SAGG_KOLON_300x500_mm`).
+   Dönüştürülenler: **kolon** (b ve h için iki doğrusal parametre + uzatma), **kapı** (menteşe ucu ve açılış tarafı için
+   iki çevirme; genişlik tanım ailesindedir, çünkü açılma yayı uzatmayla doğru büyümez), **pencere** (genişlik uzatma).
+   Kapı / pencere komutu duvarı böldükten sonra sonucu uygulamaya aktarır (`SAGG_BOSLUK_UYGULA`): blok tanımı kurulur,
+   örnek duvar yönünde döndürülerek konur, gerekirse menteşe çevrilir; tek geri al. Not: pencereyi kavramayla
+   genişletmek duvar boşluğunu değiştirmez (boşluk duvar XDATA'sındadır); boşluk ölçüsü komutla değiştirilir.
+   Sıradakiler: kiriş / perde / duvar parçaları (boy ve kalınlık), aks baloncuğu ve mahal etiketi (öznitelikli blok). Döşeme, parsel, kat ve mahal sınırları serbest köşeli çokgen olduğundan sınır çizgisi kalır;
+   etiketleri bloklaşır.
+8. **BIM** — IFC / IFCX (OpenAEC `ifccad`; `opencaddocument` `ifcx` özelliği) dışa / içe aktarma, kat (level) yönetimi,
    3D BIM görünümü (OpenCAD Studio çekirdeğinin katı modellemesiyle ekstrüzyon), eleman türleri ve kompozit katmanlar.
 
 ## Yukarı akımla eşitleme
