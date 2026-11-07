@@ -7,6 +7,7 @@
 pub mod aks;
 pub mod band;
 pub mod birim;
+pub mod blok;
 pub mod bosluk;
 pub mod doseme;
 pub mod imar;
@@ -136,6 +137,26 @@ pub fn outline_of(entity: &codec::EntityType) -> Option<Vec<[f64; 2]>> {
         codec::EntityType::LwPolyline(pl) => Some(pl.vertices.iter().map(|v| [v.location.x, v.location.y]).collect()),
         _ => None,
     }
+}
+
+/// nesnenin dış hattı (çizim biriminde): çoklu çizgi ya da dinamik blok örneğinin etkin geometrisi
+pub fn outline_in(doc: &codec::Document, entity: &codec::EntityType) -> Option<Vec<[f64; 2]>> {
+    match entity {
+        codec::EntityType::Insert(_) => blok::blok_dis_hatti(doc, entity),
+        _ => outline_of(entity),
+    }
+}
+
+/// [`outline_in`] mm cinsinden
+pub fn outline_mm_in(doc: &codec::Document, entity: &codec::EntityType, u: f64) -> Option<Vec<[f64; 2]>> {
+    outline_in(doc, entity).map(|v| v.into_iter().map(|p| [p[0] * u, p[1] * u]).collect())
+}
+
+/// belge bağlamında eleman: dinamik blok örneğinin ölçüleri etkin (uzatılmış) geometriden okunur
+pub fn element_in(doc: &codec::Document, entity: &codec::EntityType, u: f64) -> Option<saggcad_bim::rebar::Element> {
+    let map = bim_data(entity)?;
+    let outline = outline_mm_in(doc, entity, u);
+    saggcad_bim::xdata::element_from_outline(&format!("{:X}", entity.common().handle.value()), &map, outline.as_deref(), "")
 }
 
 /// nesnenin dış hattı mm cinsinden (u: bir çizim biriminin mm karşılığı)

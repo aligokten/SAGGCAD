@@ -45,6 +45,26 @@ impl KolonCommand {
         self
     }
 
+    /// yerleştirmeden sonra aynı ölçülerle sürdür (nokta adımından)
+    pub fn resume(mut self, b: f64, h: f64, height: f64, anchor: Anchor) -> Self {
+        self.b = b;
+        self.h = h;
+        self.height = height;
+        self.anchor = anchor;
+        self.step = Step::Place;
+        self
+    }
+
+    /// tıklanan nokta (çizim biriminde) → dinamik blok yerleştirme isteği (mm). Uygulama SAGG_KOLON_KOY ile tanımı
+    /// kurar, örneği koyar ve komutu sürdürür.
+    pub fn place_request(&mut self, p: [f64; 2]) -> String {
+        let name = self.next_name();
+        self.names.push(name.clone());
+        let p = [p[0] * self.u, p[1] * self.u];
+        let c = column::center_from_anchor(p, self.b, self.h, 0.0, self.anchor);
+        format!("SAGG_KOLON_KOY {} {} {} {} {} {} {}", self.b, self.h, self.height, anchor_key(self.anchor), c[0], c[1], name)
+    }
+
     /// tıklanan nokta (çizim biriminde) → kolon nesnesi
     pub fn make(&mut self, p: [f64; 2]) -> EntityType {
         let name = self.next_name();
@@ -69,6 +89,16 @@ pub fn make_column(p: [f64; 2], b: f64, h: f64, height: f64, anchor: Anchor, nam
     pl.common.layer = super::LAYER_KOLON.to_string();
     super::set_bim_data(&mut pl.common, saggcad_bim::xdata::kolon(name, b, h, height, &Spec::none()));
     EntityType::LwPolyline(pl)
+}
+
+fn anchor_key(a: Anchor) -> &'static str {
+    match a {
+        Anchor::Center => "M",
+        Anchor::BottomLeft => "SA",
+        Anchor::BottomRight => "GA",
+        Anchor::TopRight => "GU",
+        Anchor::TopLeft => "SU",
+    }
 }
 
 fn parse_size(text: &str) -> Option<(f64, f64)> {
@@ -124,7 +154,7 @@ impl CadCommand for KolonCommand {
 
     fn on_point(&mut self, pt: DVec3) -> CmdResult {
         match self.step {
-            Step::Place => CmdResult::CommitEntity(self.make([pt.x, pt.y])),
+            Step::Place => CmdResult::Dispatch(self.place_request([pt.x, pt.y])),
             _ => {
                 self.step = Step::Place;
                 CmdResult::NeedPoint
@@ -153,7 +183,7 @@ impl CadCommand for KolonCommand {
     }
 }
 
-inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_KOLON"] }); // KolonCommand
+inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_KOLON", "SAGG_KOLON_KOY"] }); // KolonCommand
 
 #[cfg(test)]
 mod tests {
@@ -161,22 +191,28 @@ mod tests {
 
     #[test]
     fn kolon_komutu_kose_yerlestirme_ve_xdata() {
-        let mut c = KolonCommand::new(vec!["S1".into()]);
-        assert!(matches!(c.on_text_input("300x500"), Some(CmdResult::NeedPoint)));
-        assert!(matches!(c.on_text_input("2800"), Some(CmdResult::NeedPoint)));
-        assert!(matches!(c.on_text_input("SA"), Some(CmdResult::NeedPoint)));
-        let CmdResult::CommitEntity(EntityType::LwPolyline(pl)) = c.on_point(DVec3::new(1000.0, 0.0, 0.0)) else {
-            panic!("kolon çoklu çizgi olarak işlenmeli");
-        };
+        // çoklu çizgi biçimi (eski çizimler ve donatı testleri için korunur)
+        let e = make_column([1000.0, 0.0], 300.0, 500.0, 2800.0, Anchor::BottomLeft, "S2");
+        let EntityType::LwPolyline(pl) = &e else { panic!() };
         assert!(pl.is_closed);
         assert_eq!(pl.vertices[0].location, Vector2::new(1000.0, 0.0));
         assert_eq!(pl.vertices[2].location, Vector2::new(1300.0, 500.0));
         assert_eq!(pl.common.layer, "S-KOLON");
-        let m = super::super::bim_data(&EntityType::LwPolyline(pl)).unwrap();
+        let m = super::super::bim_data(&e).unwrap();
         assert_eq!(m.get("tur").map(String::as_str), Some("kolon"));
-        assert_eq!(m.get("ad").map(String::as_str), Some("S2"));
         assert_eq!(m.get("b").map(String::as_str), Some("300"));
         assert_eq!(m.get("rb").map(String::as_str), Some("none"));
+        // komut: sol alt köşeden yerleştirme → merkez (1150, 250) için dinamik blok isteği
+        let mut c = KolonCommand::new(vec!["S1".into()]);
+        assert!(matches!(c.on_text_input("300x500"), Some(CmdResult::NeedPoint)));
+        assert!(matches!(c.on_text_input("2800"), Some(CmdResult::NeedPoint)));
+        assert!(matches!(c.on_text_input("SA"), Some(CmdResult::NeedPoint)));
+        let CmdResult::Dispatch(line) = c.on_point(DVec3::new(1000.0, 0.0, 0.0)) else { panic!("yerleştirme isteği beklenir") };
+        assert_eq!(line, "SAGG_KOLON_KOY 300 500 2800 SA 1150 250 S2");
         assert!(c.on_text_input("bozuk").is_none());
+        // metre çiziminde nokta mm'ye çevrilir
+        let mut c = KolonCommand::new(Vec::new()).with_units(1000.0).resume(300.0, 500.0, 2800.0, Anchor::Center);
+        let CmdResult::Dispatch(line) = c.on_point(DVec3::new(2.0, 3.0, 0.0)) else { panic!() };
+        assert_eq!(line, "SAGG_KOLON_KOY 300 500 2800 M 2000 3000 S1");
     }
 }
