@@ -293,8 +293,82 @@ pub fn anchor_point(entity: &codec::EntityType) -> Option<[f64; 2]> {
         codec::EntityType::Line(l) => Some([l.start.x, l.start.y]),
         codec::EntityType::Arc(a) => Some([a.center.x, a.center.y]),
         codec::EntityType::LwPolyline(pl) => pl.vertices.first().map(|v| [v.location.x, v.location.y]),
+        codec::EntityType::Insert(i) => Some([i.insert_point.x, i.insert_point.y]),
         _ => None,
     }
+}
+
+/// yalnız duvarın dolu parçaları (mm; A-DUVAR, XDATA'lı) — boşluk sembolleri dinamik blok olarak ayrıca konur
+pub fn wall_pieces(wall: &saggcad_bim::wall::Wall) -> Vec<codec::EntityType> {
+    use codec::entities::{LwPolyline, LwVertex};
+    use codec::types::Vector2;
+    wall.pieces()
+        .into_iter()
+        .map(|(o, s, e)| {
+            let mut pl = LwPolyline::new();
+            pl.is_closed = true;
+            pl.vertices = o.iter().map(|q| LwVertex::new(Vector2::new(q[0], q[1]))).collect();
+            pl.common.layer = LAYER_DUVAR.to_string();
+            set_bim_data(&mut pl.common, wall.piece_xdata(s, e));
+            codec::EntityType::LwPolyline(pl)
+        })
+        .collect()
+}
+
+/// boşluk sembolünün dinamik blok olarak konma isteği (konum mm, dönüş radyan)
+#[derive(Clone, Debug)]
+pub struct SembolIstek {
+    pub kind: saggcad_bim::wall::OpKind,
+    /// kapı: kanadın açıldığı yüzde boşluğun ortası; pencere: iki yüzün ortasında boşluğun ortası
+    pub at: [f64; 2],
+    pub donus: f64,
+    /// kapı: menteşe çevirme parametresi açık konuma alınmalı mı
+    pub mentese_cevir: bool,
+    pub w: f64,
+    pub t: f64,
+    pub xdata: Vec<String>,
+}
+
+/// duvarın tüm boşlukları için sembol istekleri (mm). Kapı bloğu: yerel x duvar boyunca, menteşe −x ucunda, kanat +y'ye
+/// açılır, duvar −y tarafındadır; tarafı dönüşle (yüz), menteşe ucunu çevirme parametresiyle ayarlanır.
+pub fn opening_requests(wall: &saggcad_bim::wall::Wall) -> Vec<SembolIstek> {
+    use saggcad_bim::wall::{face_offsets, OpKind};
+    let l = wall.length();
+    if l < 1e-9 {
+        return Vec::new();
+    }
+    let d = [(wall.b[0] - wall.a[0]) / l, (wall.b[1] - wall.a[1]) / l];
+    let n = [-d[1], d[0]];
+    let theta = d[1].atan2(d[0]);
+    let (fl, fr) = face_offsets(wall.t, wall.align);
+    let pt = |s: f64, k: f64| [wall.a[0] + d[0] * s + n[0] * k, wall.a[1] + d[1] * s + n[1] * k];
+    wall.openings
+        .iter()
+        .map(|op| match op.kind {
+            OpKind::Kapi => {
+                let sol = op.side >= 0;
+                SembolIstek {
+                    kind: op.kind,
+                    at: pt(op.at, if sol { fl } else { fr }),
+                    donus: if sol { theta } else { theta + std::f64::consts::PI },
+                    // döndürmeyle menteşe: sol yüzde a ucunda, sağ yüzde b ucunda; aksi istenmişse çevir
+                    mentese_cevir: sol == op.hinge_end,
+                    w: op.w,
+                    t: wall.t,
+                    xdata: wall.opening_xdata(op),
+                }
+            }
+            OpKind::Pencere => SembolIstek {
+                kind: op.kind,
+                at: pt(op.at, (fl + fr) / 2.0),
+                donus: theta,
+                mentese_cevir: false,
+                w: op.w,
+                t: wall.t,
+                xdata: wall.opening_xdata(op),
+            },
+        })
+        .collect()
 }
 
 /// duvar parçası nesnesi → duvar tanımı (parçanın gerçek köşelerinden)

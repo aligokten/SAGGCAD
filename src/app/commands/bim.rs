@@ -60,6 +60,55 @@ impl OpenCADStudio {
             return Some(Task::none());
         }
         let u = known.unwrap_or(1.0);
+        // SAGG_BOSLUK_UYGULA — kapı / pencere komutunun sonucu: eski parça ve semboller silinir, yeni parçalar eklenir,
+        // semboller dinamik blok örneği olarak konur (kapıda menteşe ucu çevirme parametresiyle), tek geri al
+        if up == "SAGG_BOSLUK_UYGULA" {
+            use crate::modules::bim::{blok, bosluk, LAYER_KAPI, LAYER_PENCERE};
+            use saggcad_bim::wall::OpKind;
+            let Some(b) = bosluk::bekleyeni_al() else {
+                self.command_line.push_error("SAGG_KAPI  Uygulanacak değişiklik yok.");
+                return Some(Task::none());
+            };
+            self.push_undo_snapshot(i, "SAGG_KAPI");
+            self.tabs[i].scene.erase_entities(&b.erase);
+            for e in b.pieces {
+                let _ = self.tabs[i].scene.add_entity(e);
+            }
+            for s in &b.semboller {
+                let eki = blok::birim_eki(u);
+                let (ad, tanim, katman) = match s.kind {
+                    OpKind::Kapi => {
+                        let ad = format!("SAGG_KAPI_{}x{}_{eki}", blok::olcu(s.w), blok::olcu(s.t));
+                        (ad.clone(), blok::kapi_blogu(ad, s.w, s.t, u), LAYER_KAPI)
+                    }
+                    OpKind::Pencere => {
+                        let ad = format!("SAGG_PENCERE_{}x{}_{eki}", blok::olcu(s.w), blok::olcu(s.t));
+                        (ad.clone(), blok::pencere_blogu(ad, s.w, s.t, u), LAYER_PENCERE)
+                    }
+                };
+                if let Err(e) = blok::tanimla(&mut self.tabs[i].scene, tanim) {
+                    self.command_line.push_error(&format!("SAGG_KAPI  Dinamik blok kurulamadı: {e}"));
+                    continue;
+                }
+                let h = blok::yerlestir(&mut self.tabs[i].scene, &ad, [s.at[0] / u, s.at[1] / u], s.donus, katman, s.xdata.clone());
+                if s.mentese_cevir {
+                    use crate::scene::block_actions as actions;
+                    if let Some(p) = blok::mentese_parametresi(&self.tabs[i].scene.document, h) {
+                        match actions::instance::evaluate_value(&self.tabs[i].scene.document, h, p, actions::Value::Flip(true)) {
+                            Ok(Some(staged)) => {
+                                self.apply_action_document(i, staged);
+                                self.tabs[i].scene.bump_geometry();
+                            }
+                            Ok(None) => {}
+                            Err(e) => self.command_line.push_error(&format!("SAGG_KAPI  Menteşe çevrilemedi: {e}")),
+                        }
+                    }
+                }
+            }
+            self.tabs[i].dirty = true;
+            self.command_line.push_output(&format!("SAGG_KAPI  {}", b.ozet));
+            return Some(Task::none());
+        }
         // SAGG_KOLON_KOY b h H çapa cx cy ad — KolonCommand'ın yerleştirmesi (mm): dinamik blok örneği koyar, komutu sürdürür
         if let Some(arg) = up.strip_prefix("SAGG_KOLON_KOY") {
             use crate::modules::bim::{blok, kolon::KolonCommand, LAYER_KOLON};
@@ -501,11 +550,23 @@ mod tests {
             let _ = cmd.on_point(DVec3::new(1000.0, 0.0, 0.0));
             cmd.on_point(DVec3::new(600.0, 700.0, 0.0))
         };
-        let _ = app.apply_cmd_result(result);
+        let task = app.apply_cmd_result(result);
+        app.drive_headless_task(task).unwrap();
         let i = app.active_tab;
         assert!(app.tabs[i].active_cmd.is_none());
         assert_eq!(bim_count(&app, "duvar"), 3, "DV1 kapıyla iki parçaya bölündü");
-        assert_eq!(bim_count(&app, "kapi"), 2, "kanat + yay");
+        assert_eq!(bim_count(&app, "kapi"), 1, "kapı tek dinamik blok örneği");
+        {
+            let i = app.active_tab;
+            let doc = &app.tabs[i].scene.document;
+            let kapi = doc.entities().find(|e| bim_data(e).is_some_and(|m| m.get("tur").map(String::as_str) == Some("kapi"))).unwrap();
+            let codec::EntityType::Insert(ins) = kapi else { panic!("kapı INSERT olmalı") };
+            assert!(ins.block_name.starts_with("SAGG_KAPI_900x200_mm"), "{}", ins.block_name);
+            assert_eq!(kapi.common().layer, "A-KAPI");
+            assert_eq!([ins.insert_point.x, ins.insert_point.y], [1000.0, 100.0]);
+            let def = doc.block_records.get("SAGG_KAPI_900x200_mm").expect("kapı tanımı").handle;
+            assert_eq!(crate::scene::block_actions::all_parameters(doc, def).iter().filter(|p| p.flip).count(), 2);
+        }
         let walls: Vec<_> = app.tabs[i].scene.document.entities().filter_map(|e| crate::modules::bim::wall_of(e, 1.0)).collect();
         let (gross, net): (f64, f64) = walls.iter().filter(|w| w.name == "DV1").take(1).map(|w| w.areas()).next().unwrap();
         assert!((gross - 14.0).abs() < 1e-9 && (net - (14.0 - 0.9 * 2.1)).abs() < 1e-9);

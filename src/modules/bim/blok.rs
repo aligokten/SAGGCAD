@@ -153,6 +153,58 @@ pub fn dikdortgen(ad: String, b: f64, h: f64, u: f64) -> BlokTanimi {
     }
 }
 
+/// kapı bloğu (yerel, çizim biriminde): yüz çizgisi y = 0, duvar −y tarafında (kalınlık t), menteşe (−w/2, 0), kanat +y'ye
+/// 90° açık, açılma yayı. Çevirmeler: menteşe ucu (x = 0 doğrusu) ve açılış tarafı (duvar ekseni y = −t/2).
+pub fn kapi_blogu(ad: String, w: f64, t: f64, u: f64) -> BlokTanimi {
+    use codec::entities::{Arc, Line};
+    let (w, t) = (w / u, t / u);
+    let x0 = -w / 2.0;
+    let mut kanat = Line::from_points(Vector3::new(x0, 0.0, 0.0), Vector3::new(x0, w, 0.0));
+    let mut yay = Arc::from_center_radius_angles(Vector3::new(x0, 0.0, 0.0), w, 0.0, std::f64::consts::FRAC_PI_2);
+    for c in [&mut kanat.common, &mut yay.common] {
+        c.layer = "0".to_string();
+        c.color = codec::types::Color::ByBlock;
+    }
+    BlokTanimi {
+        ad,
+        nesneler: vec![EntityType::Line(kanat), EntityType::Arc(yay)],
+        uzatmalar: Vec::new(),
+        cevirmeler: vec![
+            Cevirme { base: [0.0, -t / 2.0], end: [0.0, w], referans: [w * 0.15, w * 0.5] },
+            Cevirme { base: [-w / 2.0, -t / 2.0], end: [w / 2.0, -t / 2.0], referans: [0.0, -t / 2.0 - w * 0.15] },
+        ],
+    }
+}
+
+/// pencere bloğu (yerel, çizim biriminde): orijin iki yüzün ortasında, yüzler y = ±t/2, cam çizgisi y = 0;
+/// genişlik için uzatma (sağ uç taşınır).
+pub fn pencere_blogu(ad: String, w: f64, t: f64, u: f64) -> BlokTanimi {
+    use codec::entities::Line;
+    let (x, y) = (w / 2.0 / u, t / 2.0 / u);
+    let nesneler = [y, 0.0, -y]
+        .iter()
+        .map(|k| {
+            let mut l = Line::from_points(Vector3::new(-x, *k, 0.0), Vector3::new(x, *k, 0.0));
+            l.common.layer = "0".to_string();
+            l.common.color = codec::types::Color::ByBlock;
+            EntityType::Line(l)
+        })
+        .collect();
+    let e = y.max(x * 0.05);
+    BlokTanimi {
+        ad,
+        nesneler,
+        uzatmalar: vec![Uzatma { base: [-x, -y], end: [x, -y], etiket: [0.0, -y - 3.0 * e], cerceve: [[0.0, -y - e], [x + e, y + e]] }],
+        cevirmeler: Vec::new(),
+    }
+}
+
+/// blok örneğindeki menteşe çevirme parametresi (düşey yansıma doğrusu x = 0)
+pub fn mentese_parametresi(doc: &Document, insert: Handle) -> Option<Handle> {
+    let def = actions::instance::definition(doc, insert)?;
+    actions::all_parameters(doc, def).into_iter().find(|p| p.flip && (p.end - p.base).x.abs() < 1e-9).map(|p| p.handle)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,5 +242,21 @@ mod tests {
         assert_eq!(olcu(312.5), "312.5");
         assert_eq!(birim_eki(1000.0), "m");
         assert_eq!(birim_eki(1.0), "mm");
+    }
+
+    #[test]
+    fn kapi_ve_pencere_bloklari() {
+        let mut scene = Scene::new();
+        let kapi = tanimla(&mut scene, kapi_blogu("SAGG_KAPI_900x200_mm".into(), 900.0, 200.0, 1.0)).expect("kapı tanımı");
+        let ps = actions::all_parameters(&scene.document, kapi);
+        assert_eq!(ps.iter().filter(|p| p.flip).count(), 2, "menteşe ve açılış tarafı çevirmeleri");
+        let h = yerlestir(&mut scene, "SAGG_KAPI_900x200_mm", [1000.0, 100.0], 0.0, "A-KAPI", Vec::new());
+        let p = mentese_parametresi(&scene.document, h).expect("menteşe parametresi");
+        let staged = actions::instance::evaluate_value(&scene.document, h, p, actions::Value::Flip(true)).expect("çevirme").expect("değişiklik");
+        assert!(staged.get_entity(h).is_some());
+        let pencere = tanimla(&mut scene, pencere_blogu("SAGG_PENCERE_1200x200_mm".into(), 1200.0, 200.0, 1.0)).expect("pencere tanımı");
+        let ps = actions::all_parameters(&scene.document, pencere);
+        assert_eq!(ps.iter().filter(|p| p.linear).count(), 1, "genişlik");
+        assert!(ps.iter().all(|p| actions::has_action(&scene.document, pencere, p.handle)));
     }
 }

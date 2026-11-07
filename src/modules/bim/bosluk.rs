@@ -12,6 +12,26 @@ use crate::command::{CadCommand, CmdResult};
 use crate::scene::model::wire_model::WireModel;
 use saggcad_bim::wall::{next_name, OpKind, Opening, Wall};
 
+/// komutun ürettiği değişiklik: uygulama (SAGG_BOSLUK_UYGULA) eski parça ve sembolleri siler, yeni parçaları ekler,
+/// sembolleri dinamik blok örneği olarak koyar — blok tanımı kurmak sahne gerektirdiği için komut sonucu buradan geçer
+pub struct Bekleyen {
+    pub erase: Vec<Handle>,
+    /// yeni duvar parçaları (çizim biriminde)
+    pub pieces: Vec<EntityType>,
+    /// sembol istekleri (mm)
+    pub semboller: Vec<super::SembolIstek>,
+    pub ozet: String,
+}
+
+thread_local! {
+    static BEKLEYEN: std::cell::RefCell<Option<Bekleyen>> = const { std::cell::RefCell::new(None) };
+}
+
+/// bekleyen değişikliği al (bir kez)
+pub fn bekleyeni_al() -> Option<Bekleyen> {
+    BEKLEYEN.with(|b| b.borrow_mut().take())
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Step {
     Pick,
@@ -95,9 +115,14 @@ impl BoslukCommand {
                 erase.push(*h);
             }
         }
-        let mut pairs: Vec<(Handle, Vec<EntityType>)> = erase.into_iter().map(|h| (h, Vec::new())).collect();
-        pairs[0].1 = super::wall_entities(&new_wall).into_iter().map(|e| super::to_drawing(e, self.u)).collect();
-        CmdResult::ReplaceMany(pairs, Vec::new())
+        let bekleyen = Bekleyen {
+            erase,
+            pieces: super::wall_pieces(&new_wall).into_iter().map(|e| super::to_drawing(e, self.u)).collect(),
+            semboller: super::opening_requests(&new_wall),
+            ozet: format!("{} {} → {} duvarına eklendi.", self.kind.label(), op.name, new_wall.name),
+        };
+        BEKLEYEN.with(|b| *b.borrow_mut() = Some(bekleyen));
+        CmdResult::Dispatch("SAGG_BOSLUK_UYGULA".into())
     }
 }
 
@@ -246,7 +271,7 @@ impl CadCommand for BoslukCommand {
     }
 }
 
-inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_KAPI", "SAGG_PENCERE"] }); // BoslukCommand
+inventory::submit!(crate::command::CommandRegistration { names: &["SAGG_KAPI", "SAGG_PENCERE", "SAGG_BOSLUK_UYGULA"] }); // BoslukCommand
 
 #[cfg(test)]
 mod tests {
@@ -271,22 +296,28 @@ mod tests {
         assert!(c.prompt().contains("yeri"), "{}", c.prompt());
         assert!(matches!(c.on_point(DVec3::new(1000.0, 40.0, 0.0)), CmdResult::NeedPoint));
         assert!(c.prompt().contains("Kanadın"));
-        let CmdResult::ReplaceMany(pairs, adds) = c.on_point(DVec3::new(600.0, 700.0, 0.0)) else { panic!("duvar yeniden çizilmeli") };
-        assert!(adds.is_empty());
-        assert_eq!(pairs.len(), 1);
-        assert_eq!(pairs[0].0, Handle::new(10));
-        let ents = &pairs[0].1;
-        // 2 duvar parçası + kanat çizgisi + yay
-        assert_eq!(ents.len(), 4, "{ents:?}");
-        let walls: Vec<_> = ents.iter().filter_map(|e| super::super::wall_of(e, 1.0)).collect();
+        assert!(matches!(c.on_point(DVec3::new(600.0, 700.0, 0.0)), CmdResult::Dispatch(s) if s == "SAGG_BOSLUK_UYGULA"));
+        let b = bekleyeni_al().expect("bekleyen değişiklik");
+        assert!(bekleyeni_al().is_none(), "bir kez alınır");
+        assert_eq!(b.erase, vec![Handle::new(10)]);
+        // 2 duvar parçası; kapı dinamik blok isteği
+        assert_eq!(b.pieces.len(), 2);
+        let walls: Vec<_> = b.pieces.iter().filter_map(|e| super::super::wall_of(e, 1.0)).collect();
         assert_eq!(walls.len(), 2);
         assert_eq!(walls[0].openings.len(), 1);
         assert_eq!(walls[0].openings[0].name, "KP1");
         assert_eq!(walls[0].openings[0].at, 1000.0);
         assert_eq!(walls[0].openings[0].side, 1);
         assert!(!walls[0].openings[0].hinge_end, "menteşe tıklanan uca (a tarafı) yakın");
-        assert!(ents.iter().any(|e| matches!(e, EntityType::Arc(_)) && e.common().layer == super::super::LAYER_KAPI));
-        let m = super::super::bim_data(&ents[2]).unwrap();
+        assert_eq!(b.semboller.len(), 1);
+        let k = &b.semboller[0];
+        assert_eq!(k.kind, OpKind::Kapi);
+        // sol yüz (y = 100), boşluk ortası x = 1000, dönüş 0, menteşe a ucunda → çevirme yok
+        assert_eq!(k.at, [1000.0, 100.0]);
+        assert_eq!(k.donus, 0.0);
+        assert!(!k.mentese_cevir);
+        assert_eq!((k.w, k.t), (900.0, 200.0));
+        let m = saggcad_bim::xdata::decode(&k.xdata);
         assert_eq!(m.get("tur").map(String::as_str), Some("kapi"));
         assert_eq!(m.get("duvar").map(String::as_str), Some("DV1"));
     }
@@ -311,15 +342,19 @@ mod tests {
         // kapının üstüne denk gelen yer: sığmaz, yeniden sorulur
         assert!(matches!(c.on_point(DVec3::new(1100.0, 0.0, 0.0)), CmdResult::NeedPoint));
         assert!(c.prompt().contains("PN1 sığmadı: KP1 ile çakışıyor"), "{}", c.prompt());
-        let CmdResult::ReplaceMany(pairs, _) = c.on_point(DVec3::new(3000.0, 0.0, 0.0)) else { panic!() };
-        let erased: Vec<u64> = pairs.iter().map(|(h, _)| h.value()).collect();
-        assert_eq!(pairs[0].0, Handle::new(21), "seçilen parça yeni hâli taşır");
+        assert!(matches!(c.on_point(DVec3::new(3000.0, 0.0, 0.0)), CmdResult::Dispatch(_)));
+        let b = bekleyeni_al().unwrap();
+        let erased: Vec<u64> = b.erase.iter().map(|h| h.value()).collect();
+        assert_eq!(erased[0], 21, "seçilen parça");
         assert_eq!(erased.len(), 4, "2 parça + kanat + yay silinir: {erased:?}");
         assert!(!erased.contains(&99), "kopya duvar korunur");
-        let new_walls: Vec<_> = pairs[0].1.iter().filter_map(|e| super::super::wall_of(e, 1.0)).collect();
+        let new_walls: Vec<_> = b.pieces.iter().filter_map(|e| super::super::wall_of(e, 1.0)).collect();
         assert_eq!(new_walls.len(), 3);
         assert_eq!(new_walls[0].openings.len(), 2);
-        assert_eq!(pairs[0].1.iter().filter(|e| e.common().layer == super::super::LAYER_PENCERE).count(), 3);
+        // tüm boşlukların sembolleri yeniden konur: kapı + pencere (pencere iki yüzün ortasında)
+        assert_eq!(b.semboller.len(), 2);
+        let p = b.semboller.iter().find(|s| s.kind == OpKind::Pencere).unwrap();
+        assert_eq!(p.at, [3000.0, 0.0]);
     }
 
     #[test]
