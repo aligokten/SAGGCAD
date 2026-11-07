@@ -96,7 +96,7 @@ pub fn tanimla(scene: &mut Scene, t: BlokTanimi) -> Result<Handle, String> {
             .map_err(String::from)?;
     }
     for c in &t.cevirmeler {
-        let p = orientation::create(doc, def, orientation::Kind::Flip, v3(c.base), v3(c.end), v3(c.referans)).map_err(String::from)?;
+        let p = orientation::create_with_label(doc, def, orientation::Kind::Flip, v3(c.base), v3(c.end), v3(c.referans), None).map_err(String::from)?;
         actions::create_with_frame_points(doc, def, ActionKind::Flip, p, None, &uyeler, d3(c.referans), None, None).map_err(String::from)?;
     }
     Ok(def)
