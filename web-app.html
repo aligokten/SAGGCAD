@@ -7,6 +7,33 @@
     <meta name="robots" content="noindex, follow" />
     <meta name="theme-color" content="#1e1e1e" />
     <title>Open CAD Studio Web App</title>
+    <script>
+      // iPad / iPhone: Safari dosya seçicisi `accept` listesindeki uzantıları sistem dosya türlerine (UTI) çevirir.
+      // .dwg, .dxf, .ctb, .lin … gibi iOS'un tanımadığı uzantılar çevrilemeyince bu dosyalar seçicide gri (seçilemez)
+      // kalır. iOS'ta dosya girişlerinin `accept` süzgecini yok say: tüm dosyalar seçilebilir, uzantıyı uygulama denetler.
+      (function () {
+        var ua = navigator.userAgent || "";
+        var ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+        if (!ios || typeof HTMLInputElement === "undefined") return;
+        var proto = HTMLInputElement.prototype;
+        var desc = Object.getOwnPropertyDescriptor(proto, "accept");
+        if (!desc || !desc.set) return;
+        Object.defineProperty(proto, "accept", {
+          configurable: true,
+          enumerable: desc.enumerable,
+          get: desc.get,
+          set: function (v) {
+            if (this.type === "file") return;
+            desc.set.call(this, v);
+          },
+        });
+        var setAttr = Element.prototype.setAttribute;
+        proto.setAttribute = function (name, value) {
+          if (this.type === "file" && String(name).toLowerCase() === "accept") return;
+          return setAttr.call(this, name, value);
+        };
+      })();
+    </script>
     <script id="openaec-analytics-loader" src="https://open-aec.com/shared/analytics.js?v=20261026" defer></script>
     <link data-trunk rel="icon" href="assets/logo.svg" />
     <style>
